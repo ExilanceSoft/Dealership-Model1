@@ -1,0 +1,17 @@
+{"timestamp":"2025-06-16 15:03:57","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: Server selection timed out after 5000 ms","stack":null}
+{"timestamp":"2025-06-16 15:04:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-16 15:05:28","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-06-16 15:08:28","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: contact_info.email_1 dup key: { contact_info.email: \"john.doe@example.com\" }","stack":null}
+{"timestamp":"2025-06-16 15:19:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-16 15:19:43","level":"\u001b[32MINFO\u001b[39M","message":"Finance document created: Loan Agreement","stack":null}
+{"timestamp":"2025-06-16 15:19:50","level":"\u001b[31MERROR\u001b[39M","message":"Error creating finance document: E11000 duplicate key error collection: vehicle-Dealership.financedocuments index: name_1 collation: { locale: \"en\", caseLevel: false, caseFirst: \"off\", strength: 2, numericOrdering: false, alternate: \"non-ignorable\", maxVariable: \"punct\", normalization: false, backwards: false, version: \"57.1\" } dup key: { name: \"CollationKey(0x3f4529430429354b31314131434f0112)\" }","stack":null}
+{"timestamp":"2025-06-16 15:20:16","level":"\u001b[33MWARN\u001b[39M","message":"Finance document not found with id of 507f1f77bcf86cd799439011","stack":null}
+{"timestamp":"2025-06-16 15:20:56","level":"\u001b[32MINFO\u001b[39M","message":"Finance document updated: Updated Loan Agreement","stack":null}
+{"timestamp":"2025-06-16 15:21:06","level":"\u001b[32MINFO\u001b[39M","message":"Finance document deleted: Updated Loan Agreement","stack":null}
+{"timestamp":"2025-06-16 15:21:19","level":"\u001b[32MINFO\u001b[39M","message":"Finance document created: Loan Agreement","stack":null}
+{"timestamp":"2025-06-16 15:28:19","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-16 15:31:16","level":"\u001b[31MERROR\u001b[39M","message":"Error getting models: Cannot read properties of undefined (reading 'name')","stack":null}
+{"timestamp":"2025-06-16 15:32:51","level":"\u001b[31MERROR\u001b[39M","message":"Error getting models: Cannot read properties of undefined (reading 'name')","stack":null}
+{"timestamp":"2025-06-16 15:32:51","level":"\u001b[31MERROR\u001b[39M","message":"Error getting models: Cannot read properties of undefined (reading 'name')","stack":null}
+{"timestamp":"2025-06-16 15:43:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-16 16:04:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

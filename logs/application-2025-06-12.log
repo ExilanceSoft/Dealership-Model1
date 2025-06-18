@@ -1,0 +1,16 @@
+{"timestamp":"2025-06-12 10:48:47","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 15:20:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 15:24:54","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-06-12 15:36:24","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 15:48:31","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 16:11:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 16:16:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 16:19:32","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 16:39:24","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 17:02:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 17:12:02","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68495ef550af1ed0494b8db2 - required ADMIN,HR","stack":null}
+{"timestamp":"2025-06-12 17:12:33","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68495ef550af1ed0494b8db2 - required ADMIN,HR","stack":null}
+{"timestamp":"2025-06-12 17:12:49","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68495ef550af1ed0494b8db2 - required ADMIN,HR","stack":null}
+{"timestamp":"2025-06-12 17:13:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 17:48:42","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-12 18:07:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
