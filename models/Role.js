@@ -10,9 +10,12 @@ const RoleSchema = new mongoose.Schema({
   },
   description: String,
   permissions: [{
-    type: String,
-    trim: true,
-    uppercase: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Permission'
+  }],
+  inheritedRoles: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role'
   }],
   isSuperAdmin: {
     type: Boolean,
@@ -35,6 +38,35 @@ const RoleSchema = new mongoose.Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
+// Virtual for all permissions including inherited ones
+RoleSchema.methods.getAllPermissions = async function() {
+  if (this.isSuperAdmin) {
+    return [{
+      _id: 'ALL_PERMISSIONS',
+      name: 'ALL',
+      module: 'ALL',
+      action: 'ALL'
+    }];
+  }
+
+  await this.populate('permissions inheritedRoles');
+  
+  let allPermissions = [...this.permissions];
+  
+  for (const role of this.inheritedRoles) {
+    const inheritedPermissions = await role.getAllPermissions();
+    allPermissions = [...allPermissions, ...inheritedPermissions];
+  }
+  
+  // Remove duplicates
+  const permissionIds = new Set(allPermissions.map(p => p._id.toString()));
+  return allPermissions.filter(p => {
+    const duplicate = permissionIds.has(p._id.toString());
+    permissionIds.delete(p._id.toString());
+    return !duplicate;
+  });
+};
 
 // Indexes
 RoleSchema.index({ name: 1 });

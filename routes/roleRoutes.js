@@ -39,10 +39,26 @@ const { logAction } = require('../middlewares/audit');
  *                 type: array
  *                 items:
  *                   type: string
- *                 example: ["READ", "CREATE"]
+ *                   format: ObjectId
+ *                   description: Array of Permission IDs
+ *                 example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
  *     responses:
  *       201:
  *         description: Role created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Role'
+ *       400:
+ *         description: Invalid input or permissions not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not SuperAdmin)
+ *       409:
+ *         description: Role already exists
+ *       500:
+ *         description: Server error
  */
 router.post('/', 
   protect, 
@@ -201,6 +217,74 @@ router.post('/assign',
   authorize('SUPERADMIN', 'ADMIN'), 
   logAction('ASSIGN', 'Role'), 
   roleController.assignRole
+);
+
+/**
+ * @swagger
+ * /api/v1/roles/assign-permissions:
+ *   post:
+ *     summary: Assign permissions to a role
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - roleId
+ *               - permissionIds
+ *             properties:
+ *               roleId:
+ *                 type: string
+ *               permissionIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Permissions assigned
+ */
+router.post('/assign-permissions', 
+  protect, 
+  authorize('SUPERADMIN'), 
+  logAction('ASSIGN_PERMISSIONS', 'Role'), 
+  roleController.assignPermissions
+);
+
+/**
+ * @swagger
+ * /api/v1/roles/inherit:
+ *   post:
+ *     summary: Make a role inherit from another role
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - roleId
+ *               - parentRoleId
+ *             properties:
+ *               roleId:
+ *                 type: string
+ *               parentRoleId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Role inheritance added
+ */
+router.post('/inherit', 
+  protect, 
+  authorize('SUPERADMIN'), 
+  logAction('INHERIT_ROLE', 'Role'), 
+  roleController.inheritRole
 );
 
 module.exports = router;

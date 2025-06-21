@@ -2,10 +2,6 @@ const express = require('express');
 const router = express.Router();
 const employeeController = require('../controllers/employeeController');
 const { protect, authorize } = require('../middlewares/auth');
-const {
-  createEmployeeValidator,
-  updateEmployeeValidator
-} = require('../validators/employeeValidator');
 
 /**
  * @swagger
@@ -21,134 +17,139 @@ const {
  *     Employee:
  *       type: object
  *       required:
- *         - full_name
+ *         - name
+ *         - contact
+ *         - email
  *         - branch
  *         - role
- *         - contact_info
- *         - address
  *       properties:
  *         id:
  *           type: string
- *           description: The auto-generated ID of the employee
+ *           description: The auto-generated ID
  *           example: 507f1f77bcf86cd799439011
- *         employee_id:
- *           type: string
- *           description: Auto-generated employee ID
- *           example: EMP-202306-1234
- *         full_name:
+ *         name:
  *           type: string
  *           description: Employee's full name
  *           example: John Doe
+ *         contact:
+ *           type: string
+ *           description: Employee's phone number (10 digits starting with 6-9)
+ *           example: "9876543210"
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Employee's email address
+ *           example: john.doe@example.com
  *         branch:
  *           type: string
- *           description: ID of the branch where employee works
+ *           description: Branch ID reference
  *           example: 507f1f77bcf86cd799439012
  *         role:
  *           type: string
- *           description: ID of the employee's role
+ *           description: Role ID reference
  *           example: 507f1f77bcf86cd799439013
- *         contact_info:
- *           type: object
- *           properties:
- *             phone:
- *               type: string
- *               description: Employee's phone number (10 digits starting with 6-9)
- *               example: "9876543210"
- *             email:
- *               type: string
- *               format: email
- *               description: Employee's email address
- *               example: john.doe@example.com
- *         address:
- *           type: object
- *           properties:
- *             street:
- *               type: string
- *               example: 123 Main St
- *             city:
- *               type: string
- *               example: Mumbai
- *             state:
- *               type: string
- *               example: Maharashtra
- *             pincode:
- *               type: string
- *               example: "400001"
- *             country:
- *               type: string
- *               example: India
- *         joining_date:
- *           type: string
- *           format: date-time
- *           description: Date when employee joined
- *           example: "2023-06-15T00:00:00.000Z"
- *         status:
- *           type: string
- *           enum: [ACTIVE, INACTIVE, ON_LEAVE, TERMINATED]
- *           default: ACTIVE
- *           description: Current employment status
  *         createdBy:
  *           type: string
  *           description: ID of user who created this record
+ *           example: 507f1f77bcf86cd799439014
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Creation timestamp
+ *           example: "2023-06-15T00:00:00.000Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Last update timestamp
+ *           example: "2023-06-15T00:00:00.000Z"
  *         branchDetails:
  *           $ref: '#/components/schemas/Branch'
  *         roleDetails:
  *           $ref: '#/components/schemas/Role'
- *       example:
- *         id: 507f1f77bcf86cd799439011
- *         employee_id: EMP-202306-1234
- *         full_name: John Doe
- *         branch: 507f1f77bcf86cd799439012
- *         role: 507f1f77bcf86cd799439013
- *         contact_info:
- *           phone: "9876543210"
- *           email: john.doe@example.com
- *         address:
- *           street: 123 Main St
- *           city: Mumbai
- *           state: Maharashtra
- *           pincode: "400001"
- *           country: India
- *         joining_date: "2023-06-15T00:00:00.000Z"
- *         status: ACTIVE
- *         createdBy: 507f1f77bcf86cd799439014
  * 
  *     Branch:
  *       type: object
  *       properties:
  *         name:
  *           type: string
+ *           example: Mumbai Branch
  *         address:
  *           type: string
+ *           example: 123 Main Street
  *         city:
  *           type: string
+ *           example: Mumbai
  *         state:
  *           type: string
+ *           example: Maharashtra
  * 
  *     Role:
  *       type: object
  *       properties:
  *         name:
  *           type: string
+ *           example: Sales Manager
  *         description:
  *           type: string
+ *           example: Manages sales team
  * 
- *     EmployeeStatusUpdate:
+ *     ErrorResponse:
  *       type: object
- *       required:
- *         - status
  *       properties:
- *         status:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         message:
  *           type: string
- *           enum: [ACTIVE, INACTIVE, ON_LEAVE, TERMINATED]
- *           example: ACTIVE
+ *           example: Error message
+ * 
+ *     ValidationError:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         errors:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               msg:
+ *                 type: string
+ *                 example: Invalid email address
+ *               param:
+ *                 type: string
+ *                 example: email
+ *               location:
+ *                 type: string
+ *                 example: body
+ * 
+ *     Pagination:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *           example: 25
+ *         page:
+ *           type: integer
+ *           example: 1
+ *         limit:
+ *           type: integer
+ *           example: 10
+ *         totalPages:
+ *           type: integer
+ *           example: 3
  */
 
 /**
  * @swagger
  * /api/v1/employees:
  *   post:
- *     summary: Create a new employee (Admin/HR only)
+ *     summary: Create a new employee
+ *     description: |
+ *       Create a new employee record.
+ *       - SuperAdmin can create for any branch
+ *       - Admin/HR can only create for their own branch
  *     tags: [Employees]
  *     security:
  *       - bearerAuth: []
@@ -159,17 +160,11 @@ const {
  *           schema:
  *             $ref: '#/components/schemas/Employee'
  *           example:
- *             full_name: John Doe
+ *             name: John Doe
+ *             contact: "9876543210"
+ *             email: john.doe@example.com
  *             branch: 507f1f77bcf86cd799439012
  *             role: 507f1f77bcf86cd799439013
- *             contact_info:
- *               phone: "9876543210"
- *               email: john.doe@example.com
- *             address:
- *               street: 123 Main St
- *               city: Mumbai
- *               state: Maharashtra
- *               pincode: "400001"
  *     responses:
  *       201:
  *         description: Employee created successfully
@@ -177,39 +172,56 @@ const {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Employee'
+ *             example:
+ *               success: true
+ *               data:
+ *                 id: 507f1f77bcf86cd799439011
+ *                 name: John Doe
+ *                 contact: "9876543210"
+ *                 email: john.doe@example.com
+ *                 branch: 507f1f77bcf86cd799439012
+ *                 role: 507f1f77bcf86cd799439013
+ *                 createdBy: 507f1f77bcf86cd799439014
+ *                 createdAt: "2023-06-15T00:00:00.000Z"
+ *                 updatedAt: "2023-06-15T00:00:00.000Z"
  *       400:
  *         description: Validation error
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 errors:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       msg:
- *                         type: string
- *                       param:
- *                         type: string
- *                       location:
- *                         type: string
+ *               $ref: '#/components/schemas/ValidationError'
  *       401:
- *         description: Unauthorized - Missing or invalid token
+ *         description: Unauthorized (missing or invalid token)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: Not authorized to access this route
  *       403:
- *         description: Forbidden - User doesn't have permission (Admin/HR required)
+ *         description: Forbidden (insufficient permissions)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: Not authorized to create employees for this branch
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: Failed to create employee
  */
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN','ADMIN', 'HR'),
-  createEmployeeValidator,
+  authorize('SUPERADMIN', 'ADMIN', 'HR'),
   employeeController.createEmployee
 );
 
@@ -217,7 +229,11 @@ router.post(
  * @swagger
  * /api/v1/employees:
  *   get:
- *     summary: Get all employees (paginated)
+ *     summary: Get list of employees
+ *     description: |
+ *       Get paginated list of employees.
+ *       - SuperAdmin can view all branches
+ *       - Others can only view their own branch employees
  *     tags: [Employees]
  *     security:
  *       - bearerAuth: []
@@ -226,15 +242,7 @@ router.post(
  *         name: branch
  *         schema:
  *           type: string
- *         description: Filter by branch ID
- *         example: 507f1f77bcf86cd799439012
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [ACTIVE, INACTIVE, ON_LEAVE, TERMINATED]
- *         description: Filter by employee status
- *         example: ACTIVE
+ *         description: Filter by branch ID (SuperAdmin only)
  *       - in: query
  *         name: page
  *         schema:
@@ -249,10 +257,10 @@ router.post(
  *           minimum: 1
  *           maximum: 100
  *           default: 10
- *         description: Number of items per page
+ *         description: Items per page
  *     responses:
  *       200:
- *         description: Paginated list of employees
+ *         description: List of employees
  *         content:
  *           application/json:
  *             schema:
@@ -266,24 +274,42 @@ router.post(
  *                   items:
  *                     $ref: '#/components/schemas/Employee'
  *                 pagination:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: integer
- *                       example: 25
- *                     page:
- *                       type: integer
- *                       example: 1
- *                     limit:
- *                       type: integer
- *                       example: 10
- *                     totalPages:
- *                       type: integer
- *                       example: 3
+ *                   $ref: '#/components/schemas/Pagination'
+ *             example:
+ *               success: true
+ *               data:
+ *                 - id: 507f1f77bcf86cd799439011
+ *                   name: John Doe
+ *                   contact: "9876543210"
+ *                   email: john.doe@example.com
+ *                   branch: 507f1f77bcf86cd799439012
+ *                   role: 507f1f77bcf86cd799439013
+ *                   createdBy: 507f1f77bcf86cd799439014
+ *                   branchDetails:
+ *                     name: Mumbai Branch
+ *                     address: "123 Main Street"
+ *                     city: Mumbai
+ *                     state: Maharashtra
+ *                   roleDetails:
+ *                     name: Sales Manager
+ *                     description: Manages sales team
+ *               pagination:
+ *                 total: 1
+ *                 page: 1
+ *                 limit: 10
+ *                 totalPages: 1
  *       401:
- *         description: Unauthorized - Missing or invalid token
+ *         description: Unauthorized (missing or invalid token)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get(
   '/',
@@ -296,6 +322,10 @@ router.get(
  * /api/v1/employees/{id}:
  *   get:
  *     summary: Get employee by ID
+ *     description: |
+ *       Get employee details by ID.
+ *       - SuperAdmin can view any employee
+ *       - Others can only view employees from their own branch
  *     tags: [Employees]
  *     security:
  *       - bearerAuth: []
@@ -306,7 +336,6 @@ router.get(
  *         schema:
  *           type: string
  *         description: Employee ID
- *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       200:
  *         description: Employee details
@@ -314,23 +343,54 @@ router.get(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Employee'
+ *             example:
+ *               success: true
+ *               data:
+ *                 id: 507f1f77bcf86cd799439011
+ *                 name: John Doe
+ *                 contact: "9876543210"
+ *                 email: john.doe@example.com
+ *                 branch: 507f1f77bcf86cd799439012
+ *                 role: 507f1f77bcf86cd799439013
+ *                 createdBy: 507f1f77bcf86cd799439014
+ *                 branchDetails:
+ *                   name: Mumbai Branch
+ *                   address: "123 Main Street"
+ *                   city: Mumbai
+ *                   state: Maharashtra
+ *                 roleDetails:
+ *                   name: Sales Manager
+ *                   description: Manages sales team
  *       401:
- *         description: Unauthorized - Missing or invalid token
+ *         description: Unauthorized (missing or invalid token)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Forbidden (not authorized to view this employee)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: Not authorized to access this employee
  *       404:
  *         description: Employee not found
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: Employee not found
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: Employee not found
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get(
   '/:id',
@@ -342,7 +402,11 @@ router.get(
  * @swagger
  * /api/v1/employees/{id}:
  *   put:
- *     summary: Update employee details (Admin/HR only)
+ *     summary: Update employee details
+ *     description: |
+ *       Update employee record.
+ *       - SuperAdmin can update any employee
+ *       - Admin/HR can only update employees from their own branch
  *     tags: [Employees]
  *     security:
  *       - bearerAuth: []
@@ -353,7 +417,6 @@ router.get(
  *         schema:
  *           type: string
  *         description: Employee ID to update
- *         example: 507f1f77bcf86cd799439011
  *     requestBody:
  *       required: true
  *       content:
@@ -361,15 +424,10 @@ router.get(
  *           schema:
  *             $ref: '#/components/schemas/Employee'
  *           example:
- *             full_name: John Doe Updated
- *             contact_info:
- *               phone: "9876543210"
- *               email: john.doe.updated@example.com
- *             address:
- *               street: 456 Updated St
- *               city: Mumbai
- *               state: Maharashtra
- *               pincode: "400002"
+ *             name: John Doe Updated
+ *             contact: "9876543211"
+ *             email: john.doe.updated@example.com
+ *             role: 507f1f77bcf86cd799439014
  *     responses:
  *       200:
  *         description: Employee updated successfully
@@ -377,81 +435,66 @@ router.get(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Employee'
+ *             example:
+ *               success: true
+ *               data:
+ *                 id: 507f1f77bcf86cd799439011
+ *                 name: John Doe Updated
+ *                 contact: "9876543211"
+ *                 email: john.doe.updated@example.com
+ *                 branch: 507f1f77bcf86cd799439012
+ *                 role: 507f1f77bcf86cd799439014
+ *                 createdBy: 507f1f77bcf86cd799439014
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
  *       401:
- *         description: Unauthorized - Missing or invalid token
+ *         description: Unauthorized (missing or invalid token)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
- *         description: Forbidden - User doesn't have permission (Admin/HR required)
+ *         description: Forbidden (not authorized to update this employee)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: Not authorized to update this employee
  *       404:
  *         description: Employee not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put(
   '/:id',
   protect,
-  authorize('SUPERADMIN','ADMIN', 'HR'),
-  updateEmployeeValidator,
+  authorize('SUPERADMIN', 'ADMIN', 'HR'),
   employeeController.updateEmployee
 );
 
 /**
  * @swagger
- * /api/v1/employees/{id}/status:
- *   patch:
- *     summary: Update employee status (Admin/HR only)
- *     tags: [Employees]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Employee ID to update status
- *         example: 507f1f77bcf86cd799439011
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/EmployeeStatusUpdate'
- *           example:
- *             status: ON_LEAVE
- *     responses:
- *       200:
- *         description: Employee status updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Employee'
- *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized - Missing or invalid token
- *       403:
- *         description: Forbidden - User doesn't have permission (Admin/HR required)
- *       404:
- *         description: Employee not found
- *       500:
- *         description: Internal server error
- */
-router.patch(
-  '/:id/status',
-  protect,
-  authorize('SUPERADMIN','ADMIN', 'HR'),
-  employeeController.updateEmployeeStatus
-);
-
-
-/**
- * @swagger
  * /api/v1/employees/{id}:
  *   delete:
- *     summary: Delete an employee (Admin only)
- *     description: Permanently deletes an employee record. This action is irreversible.
+ *     summary: Delete an employee
+ *     description: |
+ *       Delete an employee record.
+ *       - SuperAdmin can delete any employee
+ *       - Admin/HR can only delete employees from their own branch
  *     tags: [Employees]
  *     security:
  *       - bearerAuth: []
@@ -462,20 +505,9 @@ router.patch(
  *         schema:
  *           type: string
  *         description: Employee ID to delete
- *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       200:
  *         description: Employee deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/DeleteResponse'
- *       401:
- *         description: Unauthorized - Missing or invalid token
- *       403:
- *         description: Forbidden - User doesn't have permission (Admin required)
- *       404:
- *         description: Employee not found
  *         content:
  *           application/json:
  *             schema:
@@ -483,17 +515,43 @@ router.patch(
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: false
+ *                   example: true
  *                 message:
  *                   type: string
- *                   example: Employee not found
+ *                   example: Employee deleted successfully
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Forbidden (not authorized to delete this employee)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: Not authorized to delete this employee
+ *       404:
+ *         description: Employee not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN','ADMIN', 'HR'),
+  authorize('SUPERADMIN', 'ADMIN', 'HR'),
   employeeController.deleteEmployee
 );
+
 module.exports = router;

@@ -1,42 +1,79 @@
 const Employee = require('../models/Employee');
 const logger = require('../config/logger');
-const { validationResult } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 
-exports.createEmployee = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
+exports.createEmployee = [
+  // Validation middleware
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Name is required')
+    .isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
+  body('contact')
+    .trim()
+    .notEmpty().withMessage('Contact is required')
+    .matches(/^[6-9]\d{9}$/).withMessage('Invalid mobile number'),
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Invalid email address')
+    .normalizeEmail(),
+  body('branch')
+    .notEmpty().withMessage('Branch is required')
+    .isMongoId().withMessage('Invalid branch ID'),
+  body('role')
+    .notEmpty().withMessage('Role is required')
+    .isMongoId().withMessage('Invalid role ID'),
+
+  // Controller logic
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          errors: errors.array()
+        });
+      }
+
+      const { name, contact, email, branch, role } = req.body;
+      const isSuperAdmin = await req.user.isSuperAdmin();
+      
+      const employeeData = {
+        name,
+        contact,
+        email,
+        role,
+        branch: isSuperAdmin ? branch : req.user.branch,
+        createdBy: req.user.id
+      };
+
+      const employee = await Employee.create(employeeData);
+
+      res.status(201).json({
+        success: true,
+        data: employee
+      });
+    } catch (err) {
+      logger.error(`Failed to create employee: ${err.message}`);
+      res.status(500).json({
         success: false,
-        errors: errors.array()
+        message: 'Failed to create employee'
       });
     }
-
-    const employeeData = req.body;
-    employeeData.createdBy = req.user.id;
-
-    const employee = await Employee.create(employeeData);
-
-    res.status(201).json({
-      success: true,
-      data: employee
-    });
-  } catch (err) {
-    logger.error(`Failed to create employee: ${err.message}`);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create employee'
-    });
   }
-};
+];
 
 exports.getEmployees = async (req, res) => {
   try {
-    const { branch, status, page = 1, limit = 10 } = req.query;
+    const { branch, page = 1, limit = 10 } = req.query;
     const query = {};
+    const isSuperAdmin = await req.user.isSuperAdmin();
 
-    if (branch) query.branch = branch;
-    if (status) query.status = status;
+    if (!isSuperAdmin) {
+      query.branch = req.user.branch;
+    } else if (branch) {
+      query.branch = branch;
+    }
 
     const [employees, total] = await Promise.all([
       Employee.find(query)
@@ -81,6 +118,14 @@ exports.getEmployeeById = async (req, res) => {
       });
     }
 
+    const isSuperAdmin = await req.user.isSuperAdmin();
+    if (!isSuperAdmin && employee.branch.toString() !== req.user.branch.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to access this employee'
+      });
+    }
+
     res.status(200).json({
       success: true,
       data: employee
@@ -94,82 +139,106 @@ exports.getEmployeeById = async (req, res) => {
   }
 };
 
-exports.updateEmployee = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
+exports.updateEmployee = [
+  // Validation middleware
+  body('name')
+    .optional()
+    .trim()
+    .notEmpty().withMessage('Name cannot be empty')
+    .isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
+  body('contact')
+    .optional()
+    .trim()
+    .notEmpty().withMessage('Contact cannot be empty')
+    .matches(/^[6-9]\d{9}$/).withMessage('Invalid mobile number'),
+  body('email')
+    .optional()
+    .trim()
+    .notEmpty().withMessage('Email cannot be empty')
+    .isEmail().withMessage('Invalid email address')
+    .normalizeEmail(),
+  body('branch')
+    .optional()
+    .isMongoId().withMessage('Invalid branch ID'),
+  body('role')
+    .optional()
+    .isMongoId().withMessage('Invalid role ID'),
+
+  // Controller logic
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          errors: errors.array()
+        });
+      }
+
+      const existingEmployee = await Employee.findById(req.params.id);
+      if (!existingEmployee) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employee not found'
+        });
+      }
+
+      const isSuperAdmin = await req.user.isSuperAdmin();
+      if (!isSuperAdmin && existingEmployee.branch.toString() !== req.user.branch.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to update this employee'
+        });
+      }
+
+      const { name, contact, email, role, branch } = req.body;
+      const updateData = {
+        name: name || existingEmployee.name,
+        contact: contact || existingEmployee.contact,
+        email: email || existingEmployee.email,
+        role: role || existingEmployee.role,
+        branch: isSuperAdmin ? (branch || existingEmployee.branch) : req.user.branch
+      };
+
+      const employee = await Employee.findByIdAndUpdate(
+        req.params.id,
+        updateData,
+        { new: true, runValidators: true }
+      ).populate('branchDetails').populate('roleDetails');
+
+      res.status(200).json({
+        success: true,
+        data: employee
+      });
+    } catch (err) {
+      logger.error(`Failed to update employee: ${err.message}`);
+      res.status(500).json({
         success: false,
-        errors: errors.array()
+        message: 'Failed to update employee'
       });
     }
-
-    const employee = await Employee.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('branchDetails').populate('roleDetails');
-
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: 'Employee not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: employee
-    });
-  } catch (err) {
-    logger.error(`Failed to update employee: ${err.message}`);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update employee'
-    });
   }
-};
-
-exports.updateEmployeeStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    const employee = await Employee.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    ).populate('branchDetails').populate('roleDetails');
-
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: 'Employee not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: employee
-    });
-  } catch (err) {
-    logger.error(`Failed to update employee status: ${err.message}`);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update employee status'
-    });
-  }
-};
+];
 
 exports.deleteEmployee = async (req, res) => {
   try {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
-
-    if (!employee) {
+    const existingEmployee = await Employee.findById(req.params.id);
+    if (!existingEmployee) {
       return res.status(404).json({
         success: false,
         message: 'Employee not found'
       });
     }
+
+    const isSuperAdmin = await req.user.isSuperAdmin();
+    if (!isSuperAdmin && existingEmployee.branch.toString() !== req.user.branch.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to delete this employee'
+      });
+    }
+
+    await Employee.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,

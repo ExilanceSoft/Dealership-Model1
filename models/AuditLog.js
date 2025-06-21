@@ -10,7 +10,7 @@ const AuditLogSchema = new mongoose.Schema({
       'LOGIN', 'LOGOUT', 'REGISTER', 
       'ASSIGN', 'REVOKE', 'CREATE_BROKER',
       'UPDATE_BROKER', 'REMOVE_BROKER',
-      'ADD_BRANCH', 'UPDATE_BRANCH', 'REMOVE_BRANCH'
+      'ADD_BRANCH', 'UPDATE_BRANCH', 'REMOVE_BRANCH','ASSIGN_PERMISSIONS'
     ]
   },
   entity: {

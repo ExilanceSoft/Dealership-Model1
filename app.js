@@ -53,6 +53,7 @@ const financeDocumentRoutes = require('./routes/financeDocumentRoutes');
 const offerRoutes = require('./routes/offerRoutes');
 const quotationRoutes = require('./routes/quotationRoutes');
 const termsConditionRoutes = require('./routes/termsConditionRoutes')
+const permissionRoutes = require('./routes/permissionRoutes');
 
 
 
@@ -113,6 +114,7 @@ app.use('/api/v1/finance-documents',financeDocumentRoutes);
 app.use('/api/v1/offers',offerRoutes);
 app.use('/api/v1/quotations',quotationRoutes);
 app.use('/api/v1/terms-conditions',termsConditionRoutes);
+app.use('/api/v1/permissions',permissionRoutes)
 
 // Health check
 app.get('/health', (req, res) => {

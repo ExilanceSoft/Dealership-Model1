@@ -1,6 +1,7 @@
 const Role = require('../models/Role');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const Permission = require('../models/Permission');
 
 exports.createRole = async (req, res) => {
   try {
@@ -23,6 +24,15 @@ exports.createRole = async (req, res) => {
       });
     }
     
+    // Verify the permissions exist
+    const permissionsExist = await Permission.find({ _id: { $in: permissions } });
+    if (permissionsExist.length !== permissions.length) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'One or more permissions not found' 
+      });
+    }
+
     const role = new Role({
       name,
       description,
@@ -50,11 +60,11 @@ exports.createRole = async (req, res) => {
     console.error('Error creating role:', err);
     res.status(500).json({ 
       success: false, 
-      message: 'Error creating role' 
+      message: 'Error creating role',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
-
 exports.getRoles = async (req, res) => {
   try {
     const { includeInactive } = req.query;
@@ -77,7 +87,6 @@ exports.getRoles = async (req, res) => {
     });
   }
 };
-
 exports.getRole = async (req, res) => {
   try {
     const role = await Role.findById(req.params.id).select('-__v');
@@ -99,7 +108,6 @@ exports.getRole = async (req, res) => {
     });
   }
 };
-
 exports.updateRole = async (req, res) => {
   try {
     const { id } = req.params;
@@ -164,7 +172,6 @@ exports.updateRole = async (req, res) => {
     });
   }
 };
-
 exports.deleteRole = async (req, res) => {
   try {
     const { id } = req.params;
@@ -223,7 +230,6 @@ exports.deleteRole = async (req, res) => {
     });
   }
 };
-
 exports.assignRole = async (req, res) => {
   try {
     const { userId, roleId } = req.body;
@@ -292,6 +298,146 @@ exports.assignRole = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Error assigning role' 
+    });
+  }
+};
+exports.assignPermissions = async (req, res) => {
+  try {
+    const { roleId, permissionIds } = req.body;
+    
+    if (!roleId || !permissionIds || !Array.isArray(permissionIds)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Role ID and permission IDs array are required' 
+      });
+    }
+    
+    const role = await Role.findById(roleId);
+    if (!role) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Role not found' 
+      });
+    }
+    
+    // Verify the permissions exist
+    const permissions = await Permission.find({ _id: { $in: permissionIds } });
+    if (permissions.length !== permissionIds.length) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'One or more permissions not found' 
+      });
+    }
+    
+    // Add permissions that aren't already assigned
+    const newPermissions = permissionIds.filter(
+      pid => !role.permissions.includes(pid)
+    );
+    
+    if (newPermissions.length > 0) {
+      role.permissions = [...role.permissions, ...newPermissions];
+      await role.save();
+    }
+    
+    await AuditLog.create({
+      action: 'ASSIGN_PERMISSIONS',
+      entity: 'Role',
+      entityId: role._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: { 
+        permissions: permissionIds,
+        count: newPermissions.length
+      }
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Permissions assigned successfully',
+      data: role
+    });
+  } catch (err) {
+    console.error('Error assigning permissions:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error assigning permissions' 
+    });
+  }
+};
+exports.inheritRole = async (req, res) => {
+  try {
+    const { roleId, parentRoleId } = req.body;
+    
+    if (!roleId || !parentRoleId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Role ID and Parent Role ID are required' 
+      });
+    }
+    
+    if (roleId === parentRoleId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Role cannot inherit from itself' 
+      });
+    }
+    
+    const role = await Role.findById(roleId);
+    const parentRole = await Role.findById(parentRoleId);
+    
+    if (!role || !parentRole) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Role or parent role not found' 
+      });
+    }
+    
+    // Check for circular inheritance
+    const checkCircular = async (checkRole, targetId) => {
+      if (checkRole.inheritedRoles.includes(targetId)) return true;
+      for (const inheritedId of checkRole.inheritedRoles) {
+        const inheritedRole = await Role.findById(inheritedId);
+        if (await checkCircular(inheritedRole, targetId)) return true;
+      }
+      return false;
+    };
+    
+    if (await checkCircular(parentRole, roleId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Circular inheritance detected' 
+      });
+    }
+    
+    // Add inheritance if not already present
+    if (!role.inheritedRoles.includes(parentRoleId)) {
+      role.inheritedRoles.push(parentRoleId);
+      await role.save();
+    }
+    
+    await AuditLog.create({
+      action: 'INHERIT_ROLE',
+      entity: 'Role',
+      entityId: role._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: { 
+        parentRole: parentRoleId,
+        roleName: role.name,
+        parentRoleName: parentRole.name
+      }
+    });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Role inheritance added successfully',
+      data: role
+    });
+  } catch (err) {
+    console.error('Error inheriting role:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error inheriting role' 
     });
   }
 };

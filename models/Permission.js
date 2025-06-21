@@ -8,15 +8,28 @@ const PermissionSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
-  description: {
+  description: String,
+  module: {
     type: String,
-    trim: true
+    required: true,
+    trim: true,
+    uppercase: true
+  },
+  action: {
+    type: String,
+    required: true,
+    trim: true,
+    uppercase: true,
+    enum: ['CREATE', 'READ', 'UPDATE', 'DELETE', 'MANAGE', 'ALL']
+  },
+  is_active: {
+    type: Boolean,
+    default: true
   }
-}, {
-  timestamps: true
+}, { 
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
-
-// Add indexes
-PermissionSchema.index({ name: 1 });
 
 module.exports = mongoose.model('Permission', PermissionSchema);

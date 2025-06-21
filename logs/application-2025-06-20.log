@@ -1,0 +1,16 @@
+{"timestamp":"2025-06-20 14:29:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 15:17:23","level":"\u001b[33MWARN\u001b[39M","message":"Mongoose disconnected from DB","stack":null}
+{"timestamp":"2025-06-20 15:17:34","level":"\u001b[32MINFO\u001b[39M","message":"Mongoose connected to DB","stack":null}
+{"timestamp":"2025-06-20 15:47:47","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 15:49:31","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 15:49:49","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-06-20 16:38:18","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 16:55:45","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 17:13:22","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 17:25:01","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 17:27:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 17:32:11","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 17:42:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 18:17:12","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 18:25:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-20 18:33:23","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68555b04ba9eb46cb24cf37e - required SUPERADMIN","stack":null}

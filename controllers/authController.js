@@ -9,18 +9,19 @@ const superAdminExists = async () => {
   const superAdminRole = await Role.findOne({ isSuperAdmin: true });
   if (!superAdminRole) return false;
   
-  return await User.exists({ 
+  const superAdminUser = await User.findOne({ 
     roles: superAdminRole._id,
     isActive: true 
   });
+  return !!superAdminUser;
 };
 
 // Unified registration endpoint
 exports.register = async (req, res) => {
   try {
-    const { name, email, mobile, role: roleId, branch } = req.body;
+    const { name, email, mobile, roleId, branch } = req.body;
 
-    // Validate input
+    // Validation
     if (!name || !email || !mobile) {
       return res.status(400).json({
         success: false,
@@ -28,25 +29,8 @@ exports.register = async (req, res) => {
       });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid email format'
-      });
-    }
-
-    if (!/^[6-9]\d{9}$/.test(mobile)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid mobile number (must be 10 digits starting with 6-9)'
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ mobile }, { email }] 
-    });
-    
+    // Check if user exists
+    const existingUser = await User.findOne({ $or: [{ mobile }, { email }] });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -54,27 +38,24 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Determine if system has existing SuperAdmin
+    // Check if SuperAdmin exists
     const hasExistingSuperAdmin = await superAdminExists();
     let roleToAssign;
 
-    // Case 1: First user registration (system initialization)
+    // First user becomes SuperAdmin
     if (!hasExistingSuperAdmin) {
-      // Create SuperAdmin role and assign to first user
       roleToAssign = await Role.findOneAndUpdate(
         { name: 'SUPERADMIN' },
         {
           name: 'SUPERADMIN',
           description: 'System Administrator with full access',
-          permissions: ['ALL'],
-          isSuperAdmin: true
+          isSuperAdmin: true,
+          is_active: true
         },
         { upsert: true, new: true }
       );
-    } 
-    // Case 2: Subsequent registrations
-    else {
-      // For all registrations after first user, require authentication
+    } else {
+      // For subsequent registrations
       if (!req.user) {
         return res.status(401).json({
           success: false,
@@ -82,19 +63,7 @@ exports.register = async (req, res) => {
         });
       }
 
-      // Check if user has registration permission
-      const canRegister = req.user.roles.some(role => 
-        role.permissions.includes('CAN_REGISTER_USERS') || role.isSuperAdmin
-      );
-
-      if (!canRegister) {
-        return res.status(403).json({
-          success: false,
-          message: 'Not authorized to register users'
-        });
-      }
-
-      // Validate role for non-SuperAdmin registrations
+      // Check if role is provided
       if (!roleId) {
         return res.status(400).json({
           success: false,
@@ -109,88 +78,27 @@ exports.register = async (req, res) => {
           message: 'Role not found'
         });
       }
-
-      // Prevent non-SuperAdmins from creating SuperAdmins
-      if (roleToAssign.isSuperAdmin && !req.user.roles.some(r => r.isSuperAdmin)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Only SuperAdmin can create another SuperAdmin'
-        });
-      }
-
-      // Prevent creating multiple SuperAdmins
-      if (roleToAssign.isSuperAdmin) {
-        const superAdminCount = await User.countDocuments({
-          roles: roleToAssign._id
-        });
-        
-        if (superAdminCount > 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'Only one SuperAdmin is allowed in the system'
-          });
-        }
-      }
-    }
-
-    // Generate OTP
-    const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-
-    // Create user data object
-    const userData = {
-      name,
-      email,
-      mobile,
-      otp,
-      otpExpires,
-      roles: [roleToAssign._id]
-    };
-
-    // Only add branch if this is not a SuperAdmin
-    if (!roleToAssign.isSuperAdmin) {
-      if (!branch) {
-        return res.status(400).json({
-          success: false,
-          message: 'Branch is required for non-SuperAdmin users'
-        });
-      }
-      userData.branch = branch;
     }
 
     // Create user
-    const user = new User(userData);
-    await user.save();
-    await sendOTPSMS(mobile, otp);
-
-    // Log registration
-    await AuditLog.create({
-      action: 'REGISTER',
-      entity: 'User',
-      entityId: user._id,
-      user: hasExistingSuperAdmin ? req.user?.id : null,
-      ip: req.ip,
-      metadata: {
-        isSuperAdmin: roleToAssign.isSuperAdmin,
-        role: roleToAssign.name,
-        ...(!roleToAssign.isSuperAdmin && { branch })
-      }
+    const user = await User.create({
+      name,
+      email,
+      mobile,
+      roles: [roleToAssign._id],
+      ...(!roleToAssign.isSuperAdmin && { branch }) // Add branch if not SuperAdmin
     });
 
     res.status(201).json({
       success: true,
-      message: 'OTP sent to mobile for verification',
-      isSuperAdmin: roleToAssign.isSuperAdmin,
       data: {
         id: user._id,
         name: user.name,
         email: user.email,
         mobile: user.mobile,
-        role: roleToAssign.name,
-        ...(!roleToAssign.isSuperAdmin && { branch: user.branch })
+        role: roleToAssign.name
       }
     });
-
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({
@@ -225,9 +133,12 @@ exports.requestOTP = async (req, res) => {
     const otp = generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
-    user.otp = otp;
-    user.otpExpires = otpExpires;
-    await user.save();
+    // Use findByIdAndUpdate to bypass the save hooks
+    await User.findByIdAndUpdate(user._id, {
+      otp,
+      otpExpires
+    });
+
     await sendOTPSMS(mobile, otp);
 
     res.status(200).json({
@@ -243,7 +154,6 @@ exports.requestOTP = async (req, res) => {
     });
   }
 };
-
 // Verify OTP
 exports.verifyOTP = async (req, res) => {
   try {

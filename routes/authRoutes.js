@@ -86,7 +86,7 @@ const { logAction } = require('../middlewares/audit');
  *       500:
  *         description: Server error
  */
-router.post('/register', authController.register);
+router.post('/register',protect, authController.register);
 
 /**
  * @swagger
