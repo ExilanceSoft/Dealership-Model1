@@ -1,38 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const rtoController = require('../controllers/rtoController');
+const insuranceProviderController = require('../controllers/insuranceProviderController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 
 /**
  * @swagger
  * tags:
- *   name: RTOs
- *   description: Regional Transport Office management
+ *   name: InsuranceProviders
+ *   description: Insurance Provider management
  */
 
 /**
  * @swagger
  * components:
  *   schemas:
- *     RTO:
+ *     InsuranceProvider:
  *       type: object
  *       required:
- *         - rto_code
- *         - rto_name
+ *         - provider_name
  *       properties:
  *         id:
  *           type: string
  *           description: The auto-generated ID
  *           example: 65d1a3b1f8d1b61289e4a3d1
- *         rto_code:
+ *         provider_name:
  *           type: string
- *           description: Unique RTO code
- *           example: "MH01"
- *         rto_name:
- *           type: string
- *           description: RTO name
- *           example: "Mumbai Central"
+ *           description: Insurance provider name
+ *           example: "ABC Insurance"
  *         is_active:
  *           type: boolean
  *           description: Active status
@@ -55,10 +50,10 @@ const { logAction } = require('../middlewares/audit');
 
 /**
  * @swagger
- * /api/v1/rtos:
+ * /api/v1/insurance-providers:
  *   post:
- *     summary: Create new RTO (Admin+)
- *     tags: [RTOs]
+ *     summary: Create new insurance provider (Admin+)
+ *     tags: [InsuranceProviders]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -66,14 +61,14 @@ const { logAction } = require('../middlewares/audit');
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/RTO'
+ *             $ref: '#/components/schemas/InsuranceProvider'
  *     responses:
  *       201:
- *         description: RTO created
+ *         description: Insurance provider created
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/RTO'
+ *               $ref: '#/components/schemas/InsuranceProvider'
  *       400:
  *         description: Validation error
  *       401:
@@ -87,16 +82,16 @@ router.post(
   '/',
   protect,
   authorize('SUPERADMIN', 'ADMIN'),
-  logAction('CREATE_RTO'),
-  rtoController.createRTO
+  logAction('CREATE_INSURANCE_PROVIDER'),
+  insuranceProviderController.createInsuranceProvider
 );
 
 /**
  * @swagger
- * /api/v1/rtos:
+ * /api/v1/insurance-providers:
  *   get:
- *     summary: Get all RTOs
- *     tags: [RTOs]
+ *     summary: Get all insurance providers
+ *     tags: [InsuranceProviders]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -123,7 +118,7 @@ router.post(
  *         description: Search term
  *     responses:
  *       200:
- *         description: RTO list
+ *         description: Insurance providers list
  *         content:
  *           application/json:
  *             schema:
@@ -142,7 +137,7 @@ router.post(
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/RTO'
+ *                     $ref: '#/components/schemas/InsuranceProvider'
  *       401:
  *         description: Unauthorized
  *       500:
@@ -151,15 +146,15 @@ router.post(
 router.get(
   '/',
   protect,
-  rtoController.getRTOs
+  insuranceProviderController.getInsuranceProviders
 );
 
 /**
  * @swagger
- * /api/v1/rtos/{id}:
+ * /api/v1/insurance-providers/{id}:
  *   get:
- *     summary: Get RTO by ID
- *     tags: [RTOs]
+ *     summary: Get insurance provider by ID
+ *     tags: [InsuranceProviders]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -168,14 +163,14 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
- *         description: RTO ID
+ *         description: Insurance provider ID
  *     responses:
  *       200:
- *         description: RTO details
+ *         description: Insurance provider details
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/RTO'
+ *               $ref: '#/components/schemas/InsuranceProvider'
  *       401:
  *         description: Unauthorized
  *       404:
@@ -186,15 +181,15 @@ router.get(
 router.get(
   '/:id',
   protect,
-  rtoController.getRTO
+  insuranceProviderController.getInsuranceProvider
 );
 
 /**
  * @swagger
- * /api/v1/rtos/{id}:
+ * /api/v1/insurance-providers/{id}:
  *   put:
- *     summary: Update RTO (Admin+)
- *     tags: [RTOs]
+ *     summary: Update insurance provider (Admin+)
+ *     tags: [InsuranceProviders]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -203,20 +198,20 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
- *         description: RTO ID
+ *         description: Insurance provider ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/RTO'
+ *             $ref: '#/components/schemas/InsuranceProvider'
  *     responses:
  *       200:
- *         description: Updated RTO
+ *         description: Updated insurance provider
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/RTO'
+ *               $ref: '#/components/schemas/InsuranceProvider'
  *       400:
  *         description: Validation error
  *       401:
@@ -232,16 +227,16 @@ router.put(
   '/:id',
   protect,
   authorize('SUPERADMIN', 'ADMIN'),
-  logAction('UPDATE_RTO'),
-  rtoController.updateRTO
+  logAction('UPDATE_INSURANCE_PROVIDER'),
+  insuranceProviderController.updateInsuranceProvider
 );
 
 /**
  * @swagger
- * /api/v1/rtos/{id}/status:
+ * /api/v1/insurance-providers/{id}/status:
  *   patch:
- *     summary: Update RTO status (Admin+)
- *     tags: [RTOs]
+ *     summary: Update insurance provider status (Admin+)
+ *     tags: [InsuranceProviders]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -250,7 +245,7 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
- *         description: RTO ID
+ *         description: Insurance provider ID
  *     requestBody:
  *       required: true
  *       content:
@@ -268,7 +263,7 @@ router.put(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/RTO'
+ *               $ref: '#/components/schemas/InsuranceProvider'
  *       400:
  *         description: Invalid status
  *       401:
@@ -284,16 +279,16 @@ router.patch(
   '/:id/status',
   protect,
   authorize('SUPERADMIN', 'ADMIN'),
-  logAction('UPDATE_RTO_STATUS'),
-  rtoController.updateRTOStatus
+  logAction('UPDATE_INSURANCE_PROVIDER_STATUS'),
+  insuranceProviderController.updateInsuranceProviderStatus
 );
 
 /**
  * @swagger
- * /api/v1/rtos/{id}:
+ * /api/v1/insurance-providers/{id}:
  *   delete:
- *     summary: Delete RTO (SuperAdmin only)
- *     tags: [RTOs]
+ *     summary: Delete insurance provider (SuperAdmin only)
+ *     tags: [InsuranceProviders]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -302,10 +297,10 @@ router.patch(
  *         required: true
  *         schema:
  *           type: string
- *         description: RTO ID
+ *         description: Insurance provider ID
  *     responses:
  *       200:
- *         description: RTO deleted
+ *         description: Insurance provider deleted
  *       401:
  *         description: Unauthorized
  *       403:
@@ -319,8 +314,8 @@ router.delete(
   '/:id',
   protect,
   authorize('SUPERADMIN'),
-  logAction('DELETE_RTO'),
-  rtoController.deleteRTO
+  logAction('DELETE_INSURANCE_PROVIDER'),
+  insuranceProviderController.deleteInsuranceProvider
 );
 
 module.exports = router;

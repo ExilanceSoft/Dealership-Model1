@@ -12,11 +12,11 @@ const cleanValue = (value) => {
   if (!value) return null;
   const strValue = value.toString().trim();
   if (strValue === '') return null;
-
+  
   // Try to parse as number
   const numValue = parseFloat(strValue.replace(/,/g, ''));
   if (!isNaN(numValue)) return numValue;
-
+  
   return strValue;
 };
 
@@ -39,12 +39,17 @@ exports.exportCSVTemplate = async (req, res, next) => {
       return next(new AppError('Branch not found', 404));
     }
 
+    // Check if branch is active
+    if (!branch.is_active) {
+      return next(new AppError('Cannot export template for inactive branch', 400));
+    }
+
     // Fetch required data from database
     const [headers, models] = await Promise.all([
       Header.find({ type: normalizedType })
         .sort({ priority: 1 })
         .lean(),
-      Model.find({
+      Model.find({ 
         type: normalizedType,
         status: 'active'
       })
@@ -97,9 +102,9 @@ exports.exportCSVTemplate = async (req, res, next) => {
         const modelRow = [model.model_name];
         headers.forEach(header => {
           const price = model.prices.find(p =>
-            p.header_id &&
+            p.header_id && 
             p.header_id._id.toString() === header._id.toString() &&
-            p.branch_id &&
+            p.branch_id && 
             p.branch_id._id.toString() === branch_id.toString()
           );
           modelRow.push(price ? price.value : '0');
@@ -170,6 +175,11 @@ exports.importCSV = async (req, res, next) => {
       return next(new AppError('Branch not found', 404));
     }
 
+    // Check if branch is active
+    if (!branch.is_active) {
+      return next(new AppError('Cannot import to inactive branch', 400));
+    }
+
     // Get headers for type
     const headers = await Header.find({ type });
     const headerKeyMap = new Map(headers.map(h => [h.header_key, h._id]));
@@ -213,12 +223,12 @@ exports.importCSV = async (req, res, next) => {
 
             try {
               // Find or create model
-              let model = await Model.findOne({ model_name: modelName }) ||
-                new Model({
-                  model_name: modelName,
-                  type,
+              let model = await Model.findOne({ model_name: modelName }) || 
+                new Model({ 
+                  model_name: modelName, 
+                  type, 
                   status: 'active',
-                  prices: []
+                  prices: [] 
                 });
 
               // Clear existing prices for this branch

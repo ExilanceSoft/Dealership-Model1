@@ -23,6 +23,16 @@ const headerSchema = new mongoose.Schema({
     required: [true, 'Priority is required'],
     min: [1, 'Priority must be at least 1']
   },
+  is_mandatory: {
+    type: Boolean,
+    default: false,
+    required: [true, 'Mandatory flag is required']
+  },
+  is_discount: {
+    type: Boolean,
+    default: false,
+    required: [true, 'Discount flag is required']
+  },
   metadata: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
@@ -32,10 +42,13 @@ const headerSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
 headerSchema.index({ type: 1, category_key: 1, priority: 1 }, { unique: true });
 headerSchema.index({ type: 1, category_key: 1, header_key: 1 }, { unique: true });
+
 headerSchema.pre('save', async function(next) {
-  if (this.isNew || this.isModified('header_key') || this.isModified('priority') || this.isModified('type') || this.isModified('category_key')) {
+  if (this.isNew || this.isModified('header_key') || this.isModified('priority') || 
+      this.isModified('type') || this.isModified('category_key')) {
     const existingHeader = await this.constructor.findOne({
       type: this.type,
       category_key: this.category_key,
@@ -51,6 +64,7 @@ headerSchema.pre('save', async function(next) {
   }
   next();
 });
+
 const Header = mongoose.model('Header', headerSchema);
 
 module.exports = Header;

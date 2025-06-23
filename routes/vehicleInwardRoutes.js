@@ -3,7 +3,6 @@ const router = express.Router();
 const vehicleInwardController = require('../controllers/vehicleInwardController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
-const upload = require('../middlewares/upload');
 
 /**
  * @swagger
@@ -19,177 +18,245 @@ const upload = require('../middlewares/upload');
  *     VehicleInward:
  *       type: object
  *       required:
- *         - inward_id
- *         - model_id
- *         - color_id
- *         - branch_id
- *         - chassis_number
+ *         - model
+ *         - type
+ *         - color
+ *         - unloadLocation
+ *         - chassisNumber
  *       properties:
  *         id:
  *           type: string
- *           description: The auto-generated ID
- *         inward_id:
+ *           description: The auto-generated ID of the vehicle inward record
+ *         model:
  *           type: string
- *           description: Unique inward ID
- *         model_id:
+ *           description: ID of the vehicle model
+ *         type:
  *           type: string
- *           description: Reference to VehicleModel
- *         color_id:
+ *           enum: [EV, ICE]
+ *           description: Type of vehicle (Electric or Internal Combustion Engine)
+ *         color:
  *           type: string
- *           description: Reference to VehicleColor
- *         branch_id:
+ *           description: ID of the vehicle color
+ *         unloadLocation:
  *           type: string
- *           description: Reference to Branch
- *         chassis_number:
+ *           description: ID of the branch where vehicle is unloaded
+ *         batteryNumber:
  *           type: string
- *           description: Unique chassis number
- *         engine_number:
+ *           description: Battery number (required for EV)
+ *         keyNumber:
  *           type: string
- *           description: Engine number (for ICE vehicles)
- *         battery_number:
+ *           description: Key number
+ *         chassisNumber:
  *           type: string
- *           description: Battery number (for EVs)
- *         motor_number:
+ *           description: Chassis number (unique)
+ *         motorNumber:
  *           type: string
- *           description: Motor number (for EVs)
- *         key_number:
+ *           description: Motor number (required for EV)
+ *         chargerNumber:
  *           type: string
- *           description: Vehicle key number
- *         purchase_invoice:
+ *           description: Charger number (required for EV)
+ *         engineNumber:
  *           type: string
- *           description: URL to purchase invoice
- *         qr_code:
- *           type: string
- *           description: Generated QR code data
- *         vehicle_status:
- *           type: string
- *           enum: [MAIN_BRANCH, GO_DOWN, DAMAGED, SOLD, UNDER_REPAIR]
- *           default: MAIN_BRANCH
- *         damage_description:
- *           type: string
- *           description: Description of damage if any
- *         is_damage_approved:
+ *           description: Engine number (required for ICE)
+ *         hasDamage:
  *           type: boolean
- *           default: false
- *         approved_by:
+ *           description: Whether vehicle has damage
+ *         damages:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               description:
+ *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               severity:
+ *                 type: string
+ *                 enum: [minor, medium, major]
+ *         qrCode:
  *           type: string
- *           description: User who approved damage
- *         createdBy:
+ *           description: Unique QR code for vehicle identification
+ *         status:
  *           type: string
- *           description: User who created the record
+ *           enum: [inwarded, inspected, approved, rejected, dispatched]
+ *           description: Current status of vehicle
+ *         branch:
+ *           type: string
+ *           description: ID of the branch where vehicle belongs
  *         createdAt:
  *           type: string
  *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *         modelDetails:
- *           $ref: '#/components/schemas/VehicleModel'
- *         colorDetails:
- *           $ref: '#/components/schemas/VehicleColor'
- *         branchDetails:
- *           $ref: '#/components/schemas/Branch'
+ *           description: Timestamp when record was created
  */
 
 /**
  * @swagger
- * /api/v1/vehicle-inward:
+ * /api/v1/inward:
  *   post:
- *     summary: Create a new vehicle inward entry (Admin+)
+ *     summary: Create a new vehicle inward record
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
- *               - model_id
- *               - color_id
- *               - branch_id
- *               - chassis_number
- *               - purchase_invoice
+ *               - model
+ *               - type
+ *               - color
+ *               - unloadLocation
+ *               - chassisNumber
  *             properties:
- *               model_id:
+ *               model:
  *                 type: string
- *               color_id:
+ *                 example: "507f1f77bcf86cd799439011"
+ *               type:
  *                 type: string
- *               branch_id:
+ *                 enum: [EV, ICE]
+ *                 example: "EV"
+ *               color:
  *                 type: string
- *               chassis_number:
+ *                 example: "507f1f77bcf86cd799439012"
+ *               unloadLocation:
  *                 type: string
- *               engine_number:
+ *                 example: "507f1f77bcf86cd799439013"
+ *               batteryNumber:
  *                 type: string
- *               battery_number:
+ *                 example: "BAT12345"
+ *               keyNumber:
  *                 type: string
- *               motor_number:
+ *                 example: "KEY67890"
+ *               chassisNumber:
  *                 type: string
- *               key_number:
+ *                 example: "CHS123456789"
+ *               motorNumber:
  *                 type: string
- *               purchase_invoice:
+ *                 example: "MOT98765"
+ *               chargerNumber:
  *                 type: string
- *                 format: binary
+ *                 example: "CHG54321"
+ *               engineNumber:
+ *                 type: string
+ *                 example: "ENG12345"
+ *               hasDamage:
+ *                 type: boolean
+ *                 example: false
+ *               damages:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     description:
+ *                       type: string
+ *                       example: "Scratch on left side"
+ *                     images:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                         example: "damage1.jpg"
+ *                     severity:
+ *                       type: string
+ *                       enum: [minor, medium, major]
+ *                       example: "minor"
  *     responses:
  *       201:
- *         description: Vehicle inward created successfully
+ *         description: Vehicle inward record created successfully
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/VehicleInward'
  *       400:
- *         description: Validation error
+ *         description: Validation error or missing required fields
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
  *       500:
  *         description: Server error
  */
-router.post('/', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'), 
-  upload.single('purchase_invoice'),
-  logAction('CREATE', 'VehicleInward'), 
-  vehicleInwardController.createInward
+router.post(
+  '/',
+  protect,
+  logAction('CREATE', 'VehicleInward'),
+  vehicleInwardController.createVehicleInward
 );
 
 /**
  * @swagger
- * /api/v1/vehicle-inward:
+ * /api/v1/inward/qr/{qrCode}:
  *   get:
- *     summary: Get all vehicle inward entries (Admin+)
+ *     summary: Get vehicle details by QR code
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: qrCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: QR code of the vehicle
  *     responses:
  *       200:
- *         description: List of vehicle inward entries
+ *         description: Vehicle details
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/VehicleInward'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
+ *               $ref: '#/components/schemas/VehicleInward'
+ *       404:
+ *         description: Vehicle not found
  *       500:
  *         description: Server error
  */
-router.get('/', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'), 
-  vehicleInwardController.getAllInwards
+router.get(
+  '/qr/:qrCode',
+  protect,
+  logAction('READ', 'VehicleInward'),
+  vehicleInwardController.getVehicleByQRCode
 );
 
 /**
  * @swagger
- * /api/v1/vehicle-inward/branch/{branchId}:
+ * /api/v1/inward/chassis/{chassisNumber}:
  *   get:
- *     summary: Get vehicle inward entries by branch (Admin+ or Branch Manager)
+ *     summary: Get vehicle details by chassis number
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chassisNumber
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Chassis number of the vehicle
+ *     responses:
+ *       200:
+ *         description: Vehicle details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/VehicleInward'
+ *       404:
+ *         description: Vehicle not found
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/chassis/:chassisNumber',
+  protect,
+  logAction('READ', 'VehicleInward'),
+  vehicleInwardController.getVehicleByChassisNumber
+);
+
+/**
+ * @swagger
+ * /api/v1/inward/branch/{branchId}:
+ *   get:
+ *     summary: Get all vehicles for a branch
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
@@ -199,34 +266,50 @@ router.get('/',
  *         required: true
  *         schema:
  *           type: string
+ *         description: Branch ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [inwarded, inspected, approved, rejected, dispatched]
+ *         description: Filter by status
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [EV, ICE]
+ *         description: Filter by vehicle type
  *     responses:
  *       200:
- *         description: List of vehicle inward entries for the branch
+ *         description: List of vehicles
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/VehicleInward'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Branch not found
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/VehicleInward'
  *       500:
  *         description: Server error
  */
-router.get('/branch/:branchId', 
-  protect, 
-  vehicleInwardController.getInwardsByBranch
+router.get(
+  '/branch/:branchId',
+  protect,
+  logAction('READ', 'VehicleInward'),
+  vehicleInwardController.getVehiclesByBranch
 );
 
 /**
  * @swagger
- * /api/v1/vehicle-inward/{id}:
- *   get:
- *     summary: Get vehicle inward entry by ID (Admin+)
+ * /api/v1/inward/{id}/status:
+ *   patch:
+ *     summary: Update vehicle status (Admin/Manager+)
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
@@ -236,87 +319,7 @@ router.get('/branch/:branchId',
  *         required: true
  *         schema:
  *           type: string
- *     responses:
- *       200:
- *         description: Vehicle inward details
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/VehicleInward'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Inward entry not found
- *       500:
- *         description: Server error
- */
-router.get('/:id', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'), 
-  vehicleInwardController.getInwardById
-);
-
-/**
- * @swagger
- * /api/v1/vehicle-inward/{id}:
- *   put:
- *     summary: Update vehicle inward entry (Admin+)
- *     tags: [Vehicle Inward]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/VehicleInward'
- *     responses:
- *       200:
- *         description: Vehicle inward updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/VehicleInward'
- *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Inward entry not found
- *       500:
- *         description: Server error
- */
-router.put('/:id', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'), 
-  logAction('UPDATE', 'VehicleInward'), 
-  vehicleInwardController.updateInward
-);
-
-/**
- * @swagger
- * /api/v1/vehicle-inward/{id}/damage:
- *   put:
- *     summary: Report damage on vehicle (Manager+)
- *     tags: [Vehicle Inward]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
+ *         description: Vehicle inward ID
  *     requestBody:
  *       required: true
  *       content:
@@ -324,40 +327,43 @@ router.put('/:id',
  *           schema:
  *             type: object
  *             required:
- *               - damage_description
+ *               - status
  *             properties:
- *               damage_description:
+ *               status:
  *                 type: string
+ *                 enum: [inwarded, inspected, approved, rejected, dispatched]
+ *                 example: "approved"
  *     responses:
  *       200:
- *         description: Damage reported
+ *         description: Vehicle status updated
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/VehicleInward'
  *       400:
- *         description: Validation error
+ *         description: Invalid status
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Manager+)
+ *         description: Forbidden (not Admin/Manager+)
  *       404:
- *         description: Inward entry not found
+ *         description: Vehicle not found
  *       500:
  *         description: Server error
  */
-router.put('/:id/damage', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'), 
-  logAction('UPDATE', 'VehicleInward'), 
-  vehicleInwardController.reportDamage
+router.patch(
+  '/:id/status',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  logAction('UPDATE_STATUS', 'VehicleInward'),
+  vehicleInwardController.updateVehicleStatus
 );
 
 /**
  * @swagger
- * /api/v1/vehicle-inward/{id}/approve-damage:
- *   put:
- *     summary: Approve damage report (Admin+)
+ * /api/v1/inward/{id}/damage:
+ *   post:
+ *     summary: Add damage to vehicle
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
@@ -367,60 +373,50 @@ router.put('/:id/damage',
  *         required: true
  *         schema:
  *           type: string
+ *         description: Vehicle inward ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - description
+ *               - images
+ *             properties:
+ *               description:
+ *                 type: string
+ *                 example: "Scratch on left side"
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["damage1.jpg", "damage2.jpg"]
+ *               severity:
+ *                 type: string
+ *                 enum: [minor, medium, major]
+ *                 example: "minor"
  *     responses:
  *       200:
- *         description: Damage approved and vehicle moved to go-down
+ *         description: Damage added to vehicle
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/VehicleInward'
+ *       400:
+ *         description: Invalid damage data
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
  *       404:
- *         description: Inward entry not found
+ *         description: Vehicle not found
  *       500:
  *         description: Server error
  */
-router.put('/:id/approve-damage', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
-  logAction('UPDATE', 'VehicleInward'), 
-  vehicleInwardController.approveDamage
-);
-
-/**
- * @swagger
- * /api/v1/vehicle-inward/{id}:
- *   delete:
- *     summary: Delete vehicle inward entry (SuperAdmin only)
- *     tags: [Vehicle Inward]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Inward entry deleted
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not SuperAdmin)
- *       404:
- *         description: Inward entry not found
- *       500:
- *         description: Server error
- */
-router.delete('/:id', 
-  protect, 
-  authorize('SUPERADMIN'), 
-  logAction('DELETE', 'VehicleInward'), 
-  vehicleInwardController.deleteInward
+router.post(
+  '/:id/damage',
+  protect,
+  logAction('ADD_DAMAGE', 'VehicleInward'),
+  vehicleInwardController.addDamageToVehicle
 );
 
 module.exports = router;

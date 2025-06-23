@@ -3,9 +3,55 @@ const AppError = require('../utils/appError');
 const logger = require('../config/logger');
 const mongoose = require('mongoose');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Header:
+ *       type: object
+ *       required:
+ *         - category_key
+ *         - type
+ *         - header_key
+ *         - priority
+ *         - is_mandatory
+ *         - is_discount
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The auto-generated ID of the header
+ *         category_key:
+ *           type: string
+ *           description: The category key for the header
+ *         type:
+ *           type: string
+ *           enum: [EV, ICE]
+ *           description: The type of vehicle (EV or ICE)
+ *         header_key:
+ *           type: string
+ *           description: Unique key for the header
+ *         priority:
+ *           type: integer
+ *           minimum: 1
+ *           description: Priority order for display
+ *         is_mandatory:
+ *           type: boolean
+ *           description: Whether the field is mandatory
+ *         is_discount:
+ *           type: boolean
+ *           description: Whether the field represents a discount
+ *         metadata:
+ *           type: object
+ *           description: Additional metadata for the header
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Creation timestamp
+ */
+
 exports.createHeader = async (req, res, next) => {
   try {
-    const { category_key, type, header_key, priority, metadata } = req.body;
+    const { category_key, type, header_key, priority, is_mandatory, is_discount, metadata } = req.body;
 
     // Check if header already exists with same type and category
     const existingHeader = await Header.findOne({ 
@@ -26,6 +72,8 @@ exports.createHeader = async (req, res, next) => {
       type,
       header_key,
       priority,
+      is_mandatory: is_mandatory || false,
+      is_discount: is_discount || false,
       metadata: metadata || {}
     });
 
@@ -36,7 +84,9 @@ exports.createHeader = async (req, res, next) => {
         type: newHeader.type,
         category_key: newHeader.category_key,
         header_key: newHeader.header_key,
-        priority: newHeader.priority
+        priority: newHeader.priority,
+        is_mandatory: newHeader.is_mandatory,
+        is_discount: newHeader.is_discount
       }
     });
   } catch (err) {
@@ -69,6 +119,8 @@ exports.getHeaderById = async (req, res, next) => {
           category_key: header.category_key,
           header_key: header.header_key,
           priority: header.priority,
+          is_mandatory: header.is_mandatory,
+          is_discount: header.is_discount,
           metadata: header.metadata,
           createdAt: header.createdAt
         }
@@ -187,8 +239,8 @@ exports.getHeadersByType = async (req, res, next) => {
     const { type } = req.params;
     const { category_key, grouped } = req.query;
 
-    if (!['EV', 'ICE'].includes(type.toUpperCase())) {
-      return next(new AppError('Type must be either EV or ICE', 400));
+    if (!['EV', 'IC'].includes(type.toUpperCase())) {
+      return next(new AppError('Type must be either EV or IC', 400));
     }
 
     let query = Header.find({ type: type.toUpperCase() }).select('-__v');
@@ -211,7 +263,9 @@ exports.getHeadersByType = async (req, res, next) => {
         acc[header.category_key].push({
           header_key: header.header_key,
           priority: header.priority,
-          header_id: header._id
+          header_id: header._id,
+          is_mandatory: header.is_mandatory,
+          is_discount: header.is_discount
         });
         return acc;
       }, {});
@@ -258,7 +312,9 @@ exports.getAllHeaders = async (req, res, next) => {
         acc[groupKey].push({
           header_key: header.header_key,
           priority: header.priority,
-          header_id: header._id
+          header_id: header._id,
+          is_mandatory: header.is_mandatory,
+          is_discount: header.is_discount
         });
         return acc;
       }, {});

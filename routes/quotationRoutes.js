@@ -186,7 +186,6 @@ router.post('/',
   logAction('CREATE', 'Quotation'), 
   quotationController.createQuotation
 );
-
 /**
  * @swagger
  * /api/v1/quotations:

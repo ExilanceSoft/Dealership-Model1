@@ -1,48 +1,50 @@
-const RTO = require('../models/RTO');
+const InsuranceProvider = require('../models/InsuranceProvider');
 const AuditLog = require('../models/AuditLog');
 
-// Create RTO
-exports.createRTO = async (req, res) => {
+// Create Insurance Provider
+exports.createInsuranceProvider = async (req, res) => {
   try {
-    const { rto_code, rto_name } = req.body;
+    const { provider_name } = req.body;
 
-    if (!rto_code || !rto_name) {
+    if (!provider_name) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide both RTO code and name'
+        message: 'Please provide provider name'
       });
     }
 
-    const existingRTO = await RTO.findOne({ rto_code: rto_code.toUpperCase() });
-    if (existingRTO) {
+    const existingProvider = await InsuranceProvider.findOne({ 
+      provider_name: { $regex: new RegExp(`^${provider_name}$`, 'i') }
+    });
+
+    if (existingProvider) {
       return res.status(400).json({
         success: false,
-        message: 'RTO with this code already exists'
+        message: 'Insurance provider with this name already exists'
       });
     }
 
-    const rto = await RTO.create({
-      rto_code: rto_code.toUpperCase(),
-      rto_name,
+    const provider = await InsuranceProvider.create({
+      provider_name,
       createdBy: req.user.id
     });
 
     await AuditLog.create({
       action: 'CREATE',
-      entity: 'RTO',
-      entityId: rto._id,
+      entity: 'InsuranceProvider',
+      entityId: provider._id,
       user: req.user.id,
       ip: req.ip,
-      metadata: { rto_code: rto.rto_code, rto_name: rto.rto_name },
+      metadata: { provider_name },
       status: 'SUCCESS'
     });
 
     res.status(201).json({
       success: true,
-      data: rto
+      data: provider
     });
   } catch (err) {
-    console.error('Error creating RTO:', err);
+    console.error('Error creating insurance provider:', err);
     
     let message = 'Server error';
     if (err.name === 'ValidationError') {
@@ -51,7 +53,7 @@ exports.createRTO = async (req, res) => {
 
     await AuditLog.create({
       action: 'CREATE',
-      entity: 'RTO',
+      entity: 'InsuranceProvider',
       user: req.user?.id,
       ip: req.ip,
       status: 'FAILED',
@@ -67,8 +69,8 @@ exports.createRTO = async (req, res) => {
   }
 };
 
-// Get all RTOs
-exports.getRTOs = async (req, res) => {
+// Get all Insurance Providers
+exports.getInsuranceProviders = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -79,31 +81,28 @@ exports.getRTOs = async (req, res) => {
       query.is_active = req.query.status === 'active';
     }
     if (req.query.search) {
-      query.$or = [
-        { rto_code: { $regex: req.query.search, $options: 'i' } },
-        { rto_name: { $regex: req.query.search, $options: 'i' } }
-      ];
+      query.provider_name = { $regex: req.query.search, $options: 'i' };
     }
 
-    const [rtos, total] = await Promise.all([
-      RTO.find(query)
+    const [providers, total] = await Promise.all([
+      InsuranceProvider.find(query)
         .skip(skip)
         .limit(limit)
         .populate('createdBy', 'name email')
         .sort({ createdAt: -1 }),
-      RTO.countDocuments(query)
+      InsuranceProvider.countDocuments(query)
     ]);
 
     res.status(200).json({
       success: true,
-      count: rtos.length,
+      count: providers.length,
       total,
       page,
       pages: Math.ceil(total / limit),
-      data: rtos
+      data: providers
     });
   } catch (err) {
-    console.error('Error fetching RTOs:', err);
+    console.error('Error fetching insurance providers:', err);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -112,25 +111,25 @@ exports.getRTOs = async (req, res) => {
   }
 };
 
-// Get single RTO
-exports.getRTO = async (req, res) => {
+// Get single Insurance Provider
+exports.getInsuranceProvider = async (req, res) => {
   try {
-    const rto = await RTO.findById(req.params.id)
+    const provider = await InsuranceProvider.findById(req.params.id)
       .populate('createdBy', 'name email');
 
-    if (!rto) {
+    if (!provider) {
       return res.status(404).json({
         success: false,
-        message: 'RTO not found'
+        message: 'Insurance provider not found'
       });
     }
 
     res.status(200).json({
       success: true,
-      data: rto
+      data: provider
     });
   } catch (err) {
-    console.error('Error fetching RTO:', err);
+    console.error('Error fetching insurance provider:', err);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -139,57 +138,59 @@ exports.getRTO = async (req, res) => {
   }
 };
 
-// Update RTO
-exports.updateRTO = async (req, res) => {
+// Update Insurance Provider
+exports.updateInsuranceProvider = async (req, res) => {
   try {
-    const { rto_code, rto_name } = req.body;
-    const updates = {};
+    const { provider_name } = req.body;
 
-    if (rto_code) updates.rto_code = rto_code.toUpperCase();
-    if (rto_name) updates.rto_name = rto_name;
-
-    if (updates.rto_code) {
-      const existingRTO = await RTO.findOne({ 
-        rto_code: updates.rto_code,
-        _id: { $ne: req.params.id }
+    if (!provider_name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provider name is required'
       });
-      if (existingRTO) {
-        return res.status(400).json({
-          success: false,
-          message: 'RTO with this code already exists'
-        });
-      }
     }
 
-    const rto = await RTO.findByIdAndUpdate(
+    const existingProvider = await InsuranceProvider.findOne({ 
+      provider_name: { $regex: new RegExp(`^${provider_name}$`, 'i') },
+      _id: { $ne: req.params.id }
+    });
+
+    if (existingProvider) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insurance provider with this name already exists'
+      });
+    }
+
+    const provider = await InsuranceProvider.findByIdAndUpdate(
       req.params.id,
-      updates,
+      { provider_name },
       { new: true, runValidators: true }
     ).populate('createdBy', 'name email');
 
-    if (!rto) {
+    if (!provider) {
       return res.status(404).json({
         success: false,
-        message: 'RTO not found'
+        message: 'Insurance provider not found'
       });
     }
 
     await AuditLog.create({
       action: 'UPDATE',
-      entity: 'RTO',
-      entityId: rto._id,
+      entity: 'InsuranceProvider',
+      entityId: provider._id,
       user: req.user.id,
       ip: req.ip,
-      metadata: updates,
+      metadata: { provider_name },
       status: 'SUCCESS'
     });
 
     res.status(200).json({
       success: true,
-      data: rto
+      data: provider
     });
   } catch (err) {
-    console.error('Error updating RTO:', err);
+    console.error('Error updating insurance provider:', err);
     
     let message = 'Server error';
     if (err.name === 'ValidationError') {
@@ -198,7 +199,7 @@ exports.updateRTO = async (req, res) => {
 
     await AuditLog.create({
       action: 'UPDATE',
-      entity: 'RTO',
+      entity: 'InsuranceProvider',
       entityId: req.params.id,
       user: req.user?.id,
       ip: req.ip,
@@ -215,8 +216,8 @@ exports.updateRTO = async (req, res) => {
   }
 };
 
-// Update RTO status
-exports.updateRTOStatus = async (req, res) => {
+// Update Insurance Provider status
+exports.updateInsuranceProviderStatus = async (req, res) => {
   try {
     const { is_active } = req.body;
 
@@ -227,23 +228,23 @@ exports.updateRTOStatus = async (req, res) => {
       });
     }
 
-    const rto = await RTO.findByIdAndUpdate(
+    const provider = await InsuranceProvider.findByIdAndUpdate(
       req.params.id,
       { is_active },
       { new: true }
     );
 
-    if (!rto) {
+    if (!provider) {
       return res.status(404).json({
         success: false,
-        message: 'RTO not found'
+        message: 'Insurance provider not found'
       });
     }
 
     await AuditLog.create({
       action: 'UPDATE_STATUS',
-      entity: 'RTO',
-      entityId: rto._id,
+      entity: 'InsuranceProvider',
+      entityId: provider._id,
       user: req.user.id,
       ip: req.ip,
       metadata: { is_active },
@@ -252,15 +253,15 @@ exports.updateRTOStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `RTO ${is_active ? 'activated' : 'deactivated'} successfully`,
-      data: rto
+      message: `Insurance provider ${is_active ? 'activated' : 'deactivated'} successfully`,
+      data: provider
     });
   } catch (err) {
-    console.error('Error updating RTO status:', err);
+    console.error('Error updating insurance provider status:', err);
     
     await AuditLog.create({
       action: 'UPDATE_STATUS',
-      entity: 'RTO',
+      entity: 'InsuranceProvider',
       entityId: req.params.id,
       user: req.user?.id,
       ip: req.ip,
@@ -277,38 +278,38 @@ exports.updateRTOStatus = async (req, res) => {
   }
 };
 
-// Delete RTO
-exports.deleteRTO = async (req, res) => {
+// Delete Insurance Provider
+exports.deleteInsuranceProvider = async (req, res) => {
   try {
-    const rto = await RTO.findByIdAndDelete(req.params.id);
+    const provider = await InsuranceProvider.findByIdAndDelete(req.params.id);
 
-    if (!rto) {
+    if (!provider) {
       return res.status(404).json({
         success: false,
-        message: 'RTO not found'
+        message: 'Insurance provider not found'
       });
     }
 
     await AuditLog.create({
       action: 'DELETE',
-      entity: 'RTO',
-      entityId: rto._id,
+      entity: 'InsuranceProvider',
+      entityId: provider._id,
       user: req.user.id,
       ip: req.ip,
-      metadata: { rto_code: rto.rto_code, rto_name: rto.rto_name },
+      metadata: { provider_name: provider.provider_name },
       status: 'SUCCESS'
     });
 
     res.status(200).json({
       success: true,
-      data: { message: 'RTO deleted successfully' }
+      data: { message: 'Insurance provider deleted successfully' }
     });
   } catch (err) {
-    console.error('Error deleting RTO:', err);
+    console.error('Error deleting insurance provider:', err);
     
     await AuditLog.create({
       action: 'DELETE',
-      entity: 'RTO',
+      entity: 'InsuranceProvider',
       entityId: req.params.id,
       user: req.user?.id,
       ip: req.ip,

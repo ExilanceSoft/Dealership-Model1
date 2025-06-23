@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const headerController = require('../controllers/headerController');
-const { protect, authorize } = require('../middlewares/auth');
-const { logAction } = require('../middlewares/audit');
+const { protect } = require('../middlewares/auth');
 
 /**
  * @swagger
@@ -13,113 +12,9 @@ const { logAction } = require('../middlewares/audit');
 
 /**
  * @swagger
- * components:
- *   schemas:
- *     Header:
- *       type: object
- *       required:
- *         - type
- *         - category_key
- *         - header_key
- *         - priority
- *       properties:
- *         _id:
- *           type: string
- *           example: 507f1f77bcf86cd799439011
- *           description: The auto-generated MongoDB ID
- *         type:
- *           type: string
- *           enum: [EV, ICE]
- *           example: EV
- *           description: Header type (EV or ICE)
- *         category_key:
- *           type: string
- *           example: pricing
- *           description: Category identifier
- *         header_key:
- *           type: string
- *           example: ex_showroom_price
- *           description: Unique key for the header
- *         priority:
- *           type: number
- *           example: 1
- *           minimum: 1
- *           description: Display priority (lower numbers show first)
- *         metadata:
- *           type: object
- *           additionalProperties: true
- *           example: { displayName: "Ex-Showroom Price", unit: "INR" }
- *         createdAt:
- *           type: string
- *           format: date-time
- * 
- *     HeaderInput:
- *       type: object
- *       required:
- *         - type
- *         - category_key
- *         - header_key
- *         - priority
- *       properties:
- *         type:
- *           type: string
- *           enum: [EV, ICE]
- *           example: EV
- *         category_key:
- *           type: string
- *           example: pricing
- *         header_key:
- *           type: string
- *           example: ex_showroom_price
- *         priority:
- *           type: number
- *           example: 1
- *           minimum: 1
- *         metadata:
- *           type: object
- *           additionalProperties: true
- *           example: { displayName: "Ex-Showroom Price", unit: "INR" }
- * 
- *     HeaderUpdate:
- *       type: object
- *       properties:
- *         type:
- *           type: string
- *           enum: [EV, ICE]
- *           example: ICE
- *         category_key:
- *           type: string
- *           example: pricing_updated
- *         header_key:
- *           type: string
- *           example: ex_showroom_price_updated
- *         priority:
- *           type: number
- *           example: 2
- *           minimum: 1
- *         metadata:
- *           type: object
- *           additionalProperties: true
- *           example: { displayName: "Updated Price", unit: "USD" }
- * 
- *     HeaderResponse:
- *       type: object
- *       properties:
- *         status:
- *           type: string
- *           example: success
- *         data:
- *           type: object
- *           properties:
- *             header:
- *               $ref: '#/components/schemas/Header'
- */
-
-/**
- * @swagger
  * /api/v1/headers:
  *   post:
- *     summary: Create a new header (Admin+)
+ *     summary: Create a new header
  *     tags: [Headers]
  *     security:
  *       - bearerAuth: []
@@ -128,7 +23,15 @@ const { logAction } = require('../middlewares/audit');
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/HeaderInput'
+ *             $ref: '#/components/schemas/Header'
+ *           example:
+ *             category_key: "engine"
+ *             type: "EV"
+ *             header_key: "battery_capacity"
+ *             priority: 1
+ *             is_mandatory: true
+ *             is_discount: false
+ *             metadata: { unit: "kWh" }
  *     responses:
  *       201:
  *         description: Header created successfully
@@ -139,7 +42,6 @@ const { logAction } = require('../middlewares/audit');
  *               properties:
  *                 status:
  *                   type: string
- *                   example: success
  *                 data:
  *                   type: object
  *                   properties:
@@ -152,111 +54,72 @@ const { logAction } = require('../middlewares/audit');
  *                     header_key:
  *                       type: string
  *                     priority:
- *                       type: number
+ *                       type: integer
+ *                     is_mandatory:
+ *                       type: boolean
+ *                     is_discount:
+ *                       type: boolean
  *       400:
- *         description: Validation error or priority conflict
+ *         description: Invalid input or duplicate header
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
  *       500:
  *         description: Server error
  */
-router.post(
-  '/',
-  protect,
-  authorize('SUPERADMIN', 'ADMIN'),
-  logAction('CREATE', 'Header'),
-  headerController.createHeader
-);
+router.post('/', protect, headerController.createHeader);
 
 /**
  * @swagger
- * /api/v1/headers/{id}:
+ * /api/v1/headers:
  *   get:
- *     summary: Get a header by ID
+ *     summary: Get all headers with optional filtering
  *     tags: [Headers]
- *     security:
- *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
+ *       - in: query
+ *         name: type
  *         schema:
  *           type: string
- *         example: 507f1f77bcf86cd799439011
+ *           enum: [EV, ICE]
+ *         description: Filter by header type
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *         description: Sort by field (priority)
+ *       - in: query
+ *         name: grouped
+ *         schema:
+ *           type: boolean
+ *         description: Return grouped by category
  *     responses:
  *       200:
- *         description: Header details
+ *         description: List of headers
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/HeaderResponse'
- *       400:
- *         description: Invalid ID format
- *       404:
- *         description: Header not found
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 results:
+ *                   type: integer
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     headers:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Header'
  *       500:
  *         description: Server error
  */
-router.get(
-  '/:id',
-  protect,
-  headerController.getHeaderById
-);
+router.get('/', headerController.getAllHeaders);
 
 /**
  * @swagger
- * /api/v1/headers/{id}:
- *   put:
- *     summary: Update a header (Admin+)
- *     tags: [Headers]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         example: 507f1f77bcf86cd799439011
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/HeaderUpdate'
- *     responses:
- *       200:
- *         description: Header updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/HeaderResponse'
- *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Header not found
- *       500:
- *         description: Server error
- */
-router.put(
-  '/:id',
-  protect,
-  authorize('SUPERADMIN', 'ADMIN'),
-  logAction('UPDATE', 'Header'),
-  headerController.updateHeader
-);
-
-/**
- * @swagger
- * /api/v1/headers/priorities:
- *   put:
- *     summary: Update multiple header priorities (Admin+)
+ * /api/v1/headers/bulk-priorities:
+ *   patch:
+ *     summary: Update multiple header priorities
  *     tags: [Headers]
  *     security:
  *       - bearerAuth: []
@@ -276,14 +139,18 @@ router.put(
  *                 type:
  *                   type: string
  *                   enum: [EV, ICE]
- *                   example: EV
  *                 header_key:
  *                   type: string
- *                   example: ex_showroom_price
  *                 priority:
- *                   type: number
- *                   example: 1
+ *                   type: integer
  *                   minimum: 1
+ *           example:
+ *             - type: "EV"
+ *               header_key: "battery_capacity"
+ *               priority: 2
+ *             - type: "ICE"
+ *               header_key: "engine_cc"
+ *               priority: 1
  *     responses:
  *       200:
  *         description: Priorities updated successfully
@@ -294,37 +161,63 @@ router.put(
  *               properties:
  *                 status:
  *                   type: string
- *                   example: success
  *                 message:
  *                   type: string
  *                 updated:
- *                   type: number
- *                   example: 3
+ *                   type: integer
  *                 notFound:
- *                   type: number
- *                   example: 0
+ *                   type: integer
  *       400:
  *         description: Invalid input
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
  *       500:
  *         description: Server error
  */
-router.put(
-  '/priorities',
-  protect,
-  authorize('SUPERADMIN', 'ADMIN'),
-  logAction('UPDATE', 'HeaderPriorities'),
-  headerController.updateHeaderPriorities
-);
+router.patch('/bulk-priorities', protect, headerController.updateHeaderPriorities);
+
+/**
+ * @swagger
+ * /api/v1/headers/id/{id}:
+ *   get:
+ *     summary: Get header by ID
+ *     tags: [Headers]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Header ID
+ *     responses:
+ *       200:
+ *         description: Header details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     header:
+ *                       $ref: '#/components/schemas/Header'
+ *       400:
+ *         description: Invalid ID format
+ *       404:
+ *         description: Header not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/id/:id', headerController.getHeaderById);
 
 /**
  * @swagger
  * /api/v1/headers/{id}:
- *   delete:
- *     summary: Delete a header (SuperAdmin only)
+ *   patch:
+ *     summary: Update a header
  *     tags: [Headers]
  *     security:
  *       - bearerAuth: []
@@ -334,7 +227,57 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
- *         example: 507f1f77bcf86cd799439011
+ *         description: Header ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Header'
+ *           example:
+ *             priority: 3
+ *             is_mandatory: false
+ *     responses:
+ *       200:
+ *         description: Header updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     header:
+ *                       $ref: '#/components/schemas/Header'
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Header not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:id', protect, headerController.updateHeader);
+
+/**
+ * @swagger
+ * /api/v1/headers/{id}:
+ *   delete:
+ *     summary: Delete a header
+ *     tags: [Headers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Header ID
  *     responses:
  *       204:
  *         description: Header deleted successfully
@@ -342,139 +285,11 @@ router.put(
  *         description: Header is referenced by models
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not SuperAdmin)
  *       404:
  *         description: Header not found
  *       500:
  *         description: Server error
  */
-router.delete(
-  '/:id',
-  protect,
-  authorize('SUPERADMIN'),
-  logAction('DELETE', 'Header'),
-  headerController.deleteHeader
-);
-
-/**
- * @swagger
- * /api/v1/headers/type/{type}:
- *   get:
- *     summary: Get headers by type
- *     tags: [Headers]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: type
- *         required: true
- *         schema:
- *           type: string
- *           enum: [EV, ICE]
- *         example: EV
- *       - in: query
- *         name: category_key
- *         schema:
- *           type: string
- *         description: Filter by category key
- *       - in: query
- *         name: grouped
- *         schema:
- *           type: boolean
- *         description: Return grouped by category if true
- *       - in: query
- *         name: sort
- *         schema:
- *           type: string
- *           enum: [priority]
- *         description: Sort by priority if specified
- *     responses:
- *       200:
- *         description: List of headers
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 results:
- *                   type: number
- *                   example: 5
- *                 data:
- *                   type: object
- *                   properties:
- *                     headers:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Header'
- *       400:
- *         description: Invalid type
- *       500:
- *         description: Server error
- */
-router.get(
-  '/type/:type',
-  protect,
-  headerController.getHeadersByType
-);
-
-/**
- * @swagger
- * /api/v1/headers:
- *   get:
- *     summary: Get all headers
- *     tags: [Headers]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [EV, ICE]
- *         description: Filter by header type
- *       - in: query
- *         name: grouped
- *         schema:
- *           type: boolean
- *         description: Return grouped by type and category if true
- *       - in: query
- *         name: sort
- *         schema:
- *           type: string
- *           enum: [priority]
- *         description: Sort by priority if specified
- *     responses:
- *       200:
- *         description: List of headers
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 results:
- *                   type: number
- *                   example: 10
- *                 data:
- *                   type: object
- *                   properties:
- *                     headers:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Header'
- *       500:
- *         description: Server error
- */
-router.get(
-  '/',
-  protect,
-  headerController.getAllHeaders
-);
+router.delete('/:id', protect, headerController.deleteHeader);
 
 module.exports = router;

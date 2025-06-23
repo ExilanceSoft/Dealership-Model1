@@ -89,7 +89,6 @@ router.get('/', vehicleModelController.getAllModels);
  *         description: Server error
  */
 router.get('/:id', vehicleModelController.getModelById);
-
 /**
  * @swagger
  * /api/v1/vehicle-models/{id}:
@@ -130,7 +129,6 @@ router.put('/:id',
   logAction('UPDATE', 'VehicleModel'), 
   vehicleModelController.updateModel
 );
-
 /**
  * @swagger
  * /api/v1/vehicle-models/{id}:
@@ -160,7 +158,7 @@ router.put('/:id',
 router.delete('/:id', 
   protect, 
   authorize('SUPERADMIN'), 
-  logAction('DELETE', 'VehicleModel'), 
+  logAction('DELETE', 'VehicleModel'),
   vehicleModelController.deleteModel
 );
 

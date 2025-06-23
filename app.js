@@ -43,7 +43,7 @@ const branchRoutes = require('./routes/branchRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 // const modelRoutes = require('./routes/vehicleModelRoutes');
 const colorRoutes = require('./routes/vehicleColorRoutes');
-const inwardRoutes = require('./routes/vehicleInwardRoutes');
+const vehicleInwardRoutes = require('./routes/vehicleInwardRoutes');
 const modelRoutes = require('./routes/modelRoutes');
 const headerRoutes = require('./routes/headerRoutes');
 const attachmentRoutes = require('./routes/attachmentRoutes');
@@ -54,6 +54,8 @@ const offerRoutes = require('./routes/offerRoutes');
 const quotationRoutes = require('./routes/quotationRoutes');
 const termsConditionRoutes = require('./routes/termsConditionRoutes')
 const permissionRoutes = require('./routes/permissionRoutes');
+const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
+const financerRoutes = require('./routes/financerRoutes');
 
 
 
@@ -105,7 +107,7 @@ app.use('/api/v1/branches', branchRoutes);
 app.use('/api/v1/employees', employeeRoutes);
 app.use('/api/v1/models', modelRoutes);
 app.use('/api/v1/colors', colorRoutes);
-app.use('/api/v1/inward', inwardRoutes);
+app.use('/api/v1/inward', vehicleInwardRoutes);
 app.use('/api/v1/headers',headerRoutes);
 app.use('/api/v1/attachments',attachmentRoutes);
 app.use('/api/v1/csv',csvRoutes);
@@ -115,6 +117,8 @@ app.use('/api/v1/offers',offerRoutes);
 app.use('/api/v1/quotations',quotationRoutes);
 app.use('/api/v1/terms-conditions',termsConditionRoutes);
 app.use('/api/v1/permissions',permissionRoutes)
+app.use('/api/v1/insurance-providers', insuranceProviderRoutes);
+app.use('/api/v1/financers', financerRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
