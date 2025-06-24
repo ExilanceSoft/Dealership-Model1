@@ -1,286 +1,343 @@
 const Color = require('../models/Color');
-const Model = require('../models/Model');
-const ErrorResponse = require('../utils/errorResponse');
-const asyncHandler = require('../middlewares/async');
+const Model = require('../models/ModelModel');
+const AppError = require('../utils/appError');
+const logger = require('../config/logger');
+const mongoose = require('mongoose');
 
-// @desc    Create a new color
-// @route   POST /api/v1/colors
-// @access  Private/Admin
-exports.createColor = asyncHandler(async (req, res, next) => {
-  const { name, hexCode, models = [] } = req.body;
+// Create a new color
+exports.createColor = async (req, res, next) => {
+  try {
+    const { name, hex_code } = req.body;
 
-  // Validate models if provided
-  if (models.length > 0) {
-    const existingModels = await Model.find({ 
-      _id: { $in: models } 
-    }).select('_id');
-    
-    if (existingModels.length !== models.length) {
-      const existingModelIds = existingModels.map(m => m._id.toString());
-      const missingModels = models.filter(
-        modelId => !existingModelIds.includes(modelId.toString())
+    // Validate input
+    if (!name || typeof name !== 'string') {
+      return next(new AppError('Color name is required and must be a string', 400));
+    }
+    if (!hex_code || typeof hex_code !== 'string') {
+      return next(new AppError('Hex code is required and must be a string', 400));
+    }
+
+    // Check if color already exists
+    const existingColor = await Color.findOne({ name });
+    if (existingColor) {
+      return next(new AppError('Color with this name already exists', 400));
+    }
+
+    const newColor = await Color.create({
+      name,
+      hex_code,
+      models: req.body.models || []
+    });
+
+    // If models were provided, update them with this color
+    if (req.body.models && req.body.models.length > 0) {
+      await Model.updateMany(
+        { _id: { $in: req.body.models } },
+        { $addToSet: { colors: newColor._id } }
       );
-      return next(new ErrorResponse(
-        `The following model IDs were not found: ${missingModels.join(', ')}`, 
-        404
-      ));
     }
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        color: newColor
+      }
+    });
+  } catch (err) {
+    logger.error(`Error creating color: ${err.message}`);
+    next(err);
   }
+};
 
-  const color = await Color.create({
-    name,
-    hexCode,
-    models,
-    createdBy: req.user.id
-  });
+// Get all colors
+exports.getAllColors = async (req, res, next) => {
+  try {
+    let query = Color.find();
 
-  const populatedColor = await Color.findById(color._id)
-    .populate('modelDetails')
-    .populate('createdByDetails');
-
-  res.status(201).json({
-    success: true,
-    data: populatedColor
-  });
-});
-
-// @desc    Get all colors
-// @route   GET /api/v1/colors
-// @access  Private
-exports.getColors = asyncHandler(async (req, res, next) => {
-  const { active = 'true' } = req.query;
-  const query = {};
-
-  if (active === 'true') query.isActive = true;
-  if (active === 'false') query.isActive = false;
-
-  const colors = await Color.find(query)
-    .populate('modelDetails')
-    .populate('createdByDetails');
-
-  res.status(200).json({
-    success: true,
-    count: colors.length,
-    data: colors
-  });
-});
-
-// @desc    Get single color
-// @route   GET /api/v1/colors/:id
-// @access  Private
-exports.getColor = asyncHandler(async (req, res, next) => {
-  const color = await Color.findById(req.params.id)
-    .populate('modelDetails')
-    .populate('createdByDetails');
-
-  if (!color) {
-    return next(
-      new ErrorResponse(`Color not found with id of ${req.params.id}`, 404)
-    );
-  }
-
-  res.status(200).json({
-    success: true,
-    data: color
-  });
-});
-
-// @desc    Update color
-// @route   PUT /api/v1/colors/:id
-// @access  Private/Admin
-exports.updateColor = asyncHandler(async (req, res, next) => {
-  const { models = [] } = req.body;
-
-  // Validate models if provided
-  if (models.length > 0) {
-    const existingModels = await Model.find({ 
-      _id: { $in: models } 
-    }).select('_id');
-    
-    if (existingModels.length !== models.length) {
-      const existingModelIds = existingModels.map(m => m._id.toString());
-      const missingModels = models.filter(
-        modelId => !existingModelIds.includes(modelId.toString())
-      );
-      return next(new ErrorResponse(
-        `The following model IDs were not found: ${missingModels.join(', ')}`, 
-        404
-      ));
+    // Filter by status if provided
+    if (req.query.status && ['active', 'inactive'].includes(req.query.status.toLowerCase())) {
+      query = query.where('status').equals(req.query.status.toLowerCase());
     }
-  }
 
-  const color = await Color.findByIdAndUpdate(
-    req.params.id, 
-    req.body, 
-    {
-      new: true,
-      runValidators: true
+    // Populate model information if requested
+    if (req.query.populate === 'models') {
+      query = query.populate({
+        path: 'models',
+        select: 'model_name type status'
+      });
     }
-  )
-    .populate('modelDetails')
-    .populate('createdByDetails');
 
-  if (!color) {
-    return next(
-      new ErrorResponse(`Color not found with id of ${req.params.id}`, 404)
+    const colors = await query;
+
+    res.status(200).json({
+      status: 'success',
+      results: colors.length,
+      data: {
+        colors
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting colors: ${err.message}`);
+    next(err);
+  }
+};
+
+// Get a single color by ID
+exports.getColorById = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.colorId)) {
+      return next(new AppError('Invalid color ID format', 400));
+    }
+
+    const color = await Color.findById(req.params.colorId)
+      .populate({
+        path: 'models',
+        select: 'model_name type status'
+      });
+
+    if (!color) {
+      return next(new AppError('No color found with that ID', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        color
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting color by ID: ${err.message}`);
+    next(err);
+  }
+};
+
+// Update a color
+exports.updateColor = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.colorId)) {
+      return next(new AppError('Invalid color ID format', 400));
+    }
+
+    // Prevent updating models array directly through this endpoint
+    if (req.body.models) {
+      return next(new AppError('Cannot update models directly. Use assign/unassign endpoints.', 400));
+    }
+
+    const updatedColor = await Color.findByIdAndUpdate(
+      req.params.colorId,
+      req.body,
+      {
+        new: true,
+        runValidators: true
+      }
     );
+
+    if (!updatedColor) {
+      return next(new AppError('No color found with that ID', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        color: updatedColor
+      }
+    });
+  } catch (err) {
+    logger.error(`Error updating color: ${err.message}`);
+    next(err);
   }
+};
 
-  res.status(200).json({
-    success: true,
-    data: color
-  });
-});
+// Delete a color
+exports.deleteColor = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.colorId)) {
+      return next(new AppError('Invalid color ID format', 400));
+    }
 
-// @desc    Delete color (soft delete)
-// @route   DELETE /api/v1/colors/:id
-// @access  Private/Admin
-exports.deleteColor = asyncHandler(async (req, res, next) => {
-  const color = await Color.findById(req.params.id);
+    const color = await Color.findByIdAndDelete(req.params.colorId);
 
-  if (!color) {
-    return next(
-      new ErrorResponse(`Color not found with id of ${req.params.id}`, 404)
+    if (!color) {
+      return next(new AppError('No color found with that ID', 404));
+    }
+
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (err) {
+    logger.error(`Error deleting color: ${err.message}`);
+    next(err);
+  }
+};
+
+// Assign color to models
+exports.assignColorToModels = async (req, res, next) => {
+  try {
+    const { colorId } = req.params;
+    const { modelIds } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(colorId)) {
+      return next(new AppError('Invalid color ID format', 400));
+    }
+
+    if (!modelIds || !Array.isArray(modelIds)) {
+      return next(new AppError('Please provide an array of model IDs', 400));
+    }
+
+    // Validate all model IDs
+    if (!modelIds.every(id => mongoose.Types.ObjectId.isValid(id))) {
+      return next(new AppError('One or more model IDs are invalid', 400));
+    }
+
+    // Check if color exists
+    const color = await Color.findById(colorId);
+    if (!color) {
+      return next(new AppError('No color found with that ID', 404));
+    }
+
+    // Check if models exist
+    const modelsCount = await Model.countDocuments({ _id: { $in: modelIds } });
+    if (modelsCount !== modelIds.length) {
+      return next(new AppError('One or more model IDs are invalid', 400));
+    }
+
+    // Update color's models array
+    const updatedColor = await Color.findByIdAndUpdate(
+      colorId,
+      { $addToSet: { models: { $each: modelIds } } },
+      { new: true }
     );
-  }
 
-  color.isActive = false;
-  await color.save();
-
-  res.status(200).json({
-    success: true,
-    data: {}
-  });
-});
-
-// @desc    Assign color to models
-// @route   POST /api/v1/colors/:id/assign
-// @access  Private/Admin
-exports.assignColorToModels = asyncHandler(async (req, res, next) => {
-  const { modelIds = [] } = req.body;
-
-  if (!Array.isArray(modelIds)) {
-    return next(new ErrorResponse('Please provide an array of model IDs', 400));
-  }
-
-  if (modelIds.length === 0) {
-    return next(new ErrorResponse('Please provide at least one model ID', 400));
-  }
-
-  const existingModels = await Model.find({ 
-    _id: { $in: modelIds } 
-  }).select('_id');
-  
-  if (existingModels.length !== modelIds.length) {
-    const existingModelIds = existingModels.map(m => m._id.toString());
-    const missingModels = modelIds.filter(
-      modelId => !existingModelIds.includes(modelId.toString())
+    // Update models' colors array
+    await Model.updateMany(
+      { _id: { $in: modelIds } },
+      { $addToSet: { colors: colorId } }
     );
-    return next(new ErrorResponse(
-      `The following model IDs were not found: ${missingModels.join(', ')}`, 
-      404
-    ));
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        color: updatedColor
+      }
+    });
+  } catch (err) {
+    logger.error(`Error assigning color to models: ${err.message}`);
+    next(err);
   }
+};
 
-  const color = await Color.findByIdAndUpdate(
-    req.params.id,
-    { $addToSet: { models: { $each: modelIds } } },
-    { new: true, runValidators: true }
-  )
-    .populate('modelDetails')
-    .populate('createdByDetails');
+// Unassign color from models
+exports.unassignColorFromModels = async (req, res, next) => {
+  try {
+    const { colorId } = req.params;
+    const { modelIds } = req.body;
 
-  if (!color) {
-    return next(
-      new ErrorResponse(`Color not found with id of ${req.params.id}`, 404)
+    if (!mongoose.Types.ObjectId.isValid(colorId)) {
+      return next(new AppError('Invalid color ID format', 400));
+    }
+
+    if (!modelIds || !Array.isArray(modelIds)) {
+      return next(new AppError('Please provide an array of model IDs', 400));
+    }
+
+    // Validate all model IDs
+    if (!modelIds.every(id => mongoose.Types.ObjectId.isValid(id))) {
+      return next(new AppError('One or more model IDs are invalid', 400));
+    }
+
+    // Check if color exists
+    const color = await Color.findById(colorId);
+    if (!color) {
+      return next(new AppError('No color found with that ID', 404));
+    }
+
+    // Update color's models array
+    const updatedColor = await Color.findByIdAndUpdate(
+      colorId,
+      { $pull: { models: { $in: modelIds } } },
+      { new: true }
     );
-  }
 
-  res.status(200).json({
-    success: true,
-    data: color
-  });
-});
-
-// @desc    Remove color from models
-// @route   POST /api/v1/colors/:id/remove
-// @access  Private/Admin
-exports.removeColorFromModels = asyncHandler(async (req, res, next) => {
-  const { modelIds = [] } = req.body;
-
-  if (!Array.isArray(modelIds)) {
-    return next(new ErrorResponse('Please provide an array of model IDs', 400));
-  }
-
-  if (modelIds.length === 0) {
-    return next(new ErrorResponse('Please provide at least one model ID', 400));
-  }
-
-  const color = await Color.findByIdAndUpdate(
-    req.params.id,
-    { $pull: { models: { $in: modelIds } } },
-    { new: true, runValidators: true }
-  )
-    .populate('modelDetails')
-    .populate('createdByDetails');
-
-  if (!color) {
-    return next(
-      new ErrorResponse(`Color not found with id of ${req.params.id}`, 404)
+    // Update models' colors array
+    await Model.updateMany(
+      { _id: { $in: modelIds } },
+      { $pull: { colors: colorId } }
     );
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        color: updatedColor
+      }
+    });
+  } catch (err) {
+    logger.error(`Error unassigning color from models: ${err.message}`);
+    next(err);
   }
+};
 
-  res.status(200).json({
-    success: true,
-    data: color
-  });
-});
+// Update color status
+exports.updateColorStatus = async (req, res, next) => {
+  try {
+    const { colorId } = req.params;
+    const { status } = req.body;
 
-// @desc    Get colors by model
-// @route   GET /api/v1/colors/model/:modelId
-// @access  Private
-exports.getColorsByModel = asyncHandler(async (req, res, next) => {
-  const model = await Model.findById(req.params.modelId).select('_id');
+    if (!mongoose.Types.ObjectId.isValid(colorId)) {
+      return next(new AppError('Invalid color ID format', 400));
+    }
 
-  if (!model) {
-    return next(
-      new ErrorResponse(`Model not found with id of ${req.params.modelId}`, 404)
+    if (!status || !['active', 'inactive'].includes(status.toLowerCase())) {
+      return next(new AppError('Status is required and must be either "active" or "inactive"', 400));
+    }
+
+    const updatedColor = await Color.findByIdAndUpdate(
+      colorId,
+      { status: status.toLowerCase() },
+      { new: true }
     );
+
+    if (!updatedColor) {
+      return next(new AppError('No color found with that ID', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        color: updatedColor
+      }
+    });
+  } catch (err) {
+    logger.error(`Error updating color status: ${err.message}`);
+    next(err);
   }
+};
 
-  const colors = await Color.find({ 
-    models: req.params.modelId, 
-    isActive: true 
-  });
+// Get models for a specific color
+exports.getColorModels = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.colorId)) {
+      return next(new AppError('Invalid color ID format', 400));
+    }
 
-  res.status(200).json({
-    success: true,
-    count: colors.length,
-    data: colors
-  });
-});
+    const color = await Color.findById(req.params.colorId)
+      .populate({
+        path: 'models',
+        select: 'model_name type status prices'
+      });
 
-// @desc    Toggle color status
-// @route   PATCH /api/v1/colors/:id/status
-// @access  Private/Admin
-exports.toggleColorStatus = asyncHandler(async (req, res, next) => {
-  const color = await Color.findById(req.params.id);
+    if (!color) {
+      return next(new AppError('No color found with that ID', 404));
+    }
 
-  if (!color) {
-    return next(
-      new ErrorResponse(`Color not found with id of ${req.params.id}`, 404)
-    );
+    res.status(200).json({
+      status: 'success',
+      data: {
+        models: color.models
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting color models: ${err.message}`);
+    next(err);
   }
-
-  color.isActive = !color.isActive;
-  await color.save();
-
-  const populatedColor = await Color.findById(color._id)
-    .populate('modelDetails')
-    .populate('createdByDetails');
-
-  res.status(200).json({
-    success: true,
-    data: populatedColor
-  });
-});
+};

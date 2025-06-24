@@ -1,0 +1,12 @@
+{"timestamp":"2025-06-24 10:08:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 10:14:51","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create vehicle inward: VehicleInward validation failed: branch: Path `branch` is required.","stack":null}
+{"timestamp":"2025-06-24 10:17:03","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 10:17:12","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create vehicle inward: VehicleInward validation failed: branch: Path `branch` is required.","stack":null}
+{"timestamp":"2025-06-24 10:17:34","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create vehicle inward: VehicleInward validation failed: branch: Path `branch` is required.","stack":null}
+{"timestamp":"2025-06-24 10:23:33","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 10:30:45","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 10:31:14","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 10:34:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 10:35:38","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 11:18:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-24 11:38:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

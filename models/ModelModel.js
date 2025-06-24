@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Price Data Subdocument Schema
 const priceDataSchema = new mongoose.Schema({
   value: {
     type: Number,
@@ -18,11 +17,10 @@ const priceDataSchema = new mongoose.Schema({
     required: true
   }
 }, {
-  _id: false,  // Disable _id for subdocuments
-  versionKey: false  // Disable version key for subdocuments
+  _id: false,
+  versionKey: false
 });
 
-// Main Model Schema
 const modelSchema = new mongoose.Schema({
   model_name: {
     type: String,
@@ -31,7 +29,7 @@ const modelSchema = new mongoose.Schema({
     trim: true,
     validate: {
       validator: function(v) {
-        return !v.includes(','); // Prevent commas in model names
+        return !v.includes(',');
       },
       message: 'Model name cannot contain commas'
     }
@@ -40,8 +38,7 @@ const modelSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Type is required (EV/ICE)'],
     enum: ['EV', 'ICE'],
-    uppercase: true,
-    trim: true
+    uppercase: true
   },
   status: {
     type: String,
@@ -52,13 +49,12 @@ const modelSchema = new mongoose.Schema({
   },
   prices: {
     type: [priceDataSchema],
-    default: [],
-    validate: {
-      validator: function(prices) {
-        return true;
-      }
-    }
+    default: []
   },
+  colors: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Color'
+  }],
   createdAt: {
     type: Date,
     default: Date.now,
@@ -83,20 +79,21 @@ const modelSchema = new mongoose.Schema({
   }
 });
 
-// Add error handling for duplicate key errors
+// Indexes
+modelSchema.index({ model_name: 1 });
+modelSchema.index({ type: 1 });
+modelSchema.index({ status: 1 });
+modelSchema.index({ 'prices.header_id': 1 });
+modelSchema.index({ 'prices.branch_id': 1 });
+modelSchema.index({ colors: 1 });
+
+// Handle duplicate key errors
 modelSchema.post('save', function(error, doc, next) {
-  if (error.name === 'MongoError' && error.code === 11000) {
+  if (error.name === 'MongoServerError' && error.code === 11000) {
     next(new Error('Model name must be unique'));
   } else {
     next(error);
   }
 });
 
-// Compound Indexes
-modelSchema.index({ 'prices.header_id': 1 });
-modelSchema.index({ 'prices.branch_id': 1 });
-modelSchema.index({ status: 1 }); // New index for status field
-
-const Model = mongoose.model('Model', modelSchema);
-
-module.exports = Model;
+module.exports = mongoose.model('Model', modelSchema);

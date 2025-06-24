@@ -1,55 +1,76 @@
 const mongoose = require('mongoose');
-const logger = require('../config/logger');
 
 const damageSchema = new mongoose.Schema({
   description: {
     type: String,
-    required: true,
-    trim: true
+    required: [true, 'Damage description is required'],
+    trim: true,
+    maxlength: [500, 'Damage description cannot exceed 500 characters']
   },
   images: [{
     type: String,
-    required: true
+    required: [true, 'At least one damage image is required']
   }],
-  severity: {
-    type: String,
-    enum: ['minor', 'medium', 'major'],
-    default: 'minor'
+  reportedAt: {
+    type: Date,
+    default: Date.now
   }
 }, { _id: false });
 
-const vehicleInwardSchema = new mongoose.Schema({
+const vehicleSchema = new mongoose.Schema({
   model: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Model',
-    required: true
-  },
-  type: {
-    type: String,
-    enum: ['EV', 'ICE'],
-    required: true,
-    uppercase: true
-  },
-  color: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Color',
-    required: true
+    required: [true, 'Model is required']
   },
   unloadLocation: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
-    required: true
+    required: [true, 'Unload location is required']
   },
-  batteryNumber: String,
-  keyNumber: String,
+  type: {
+    type: String,
+    required: [true, 'Vehicle type is required (EV/ICE)'],
+    enum: ['EV', 'ICE'],
+    uppercase: true
+  },
+  colors: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Color',
+    required: [true, 'At least one color is required']
+  }],
+  batteryNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  keyNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
   chassisNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: [true, 'Chassis number is required'],
+    unique: true,
+    trim: true,
+    uppercase: true
   },
-  motorNumber: String,
-  chargerNumber: String,
-  engineNumber: String,
+  motorNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  chargerNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  engineNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
   hasDamage: {
     type: Boolean,
     default: false
@@ -61,18 +82,18 @@ const vehicleInwardSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['inwarded', 'inspected', 'approved', 'rejected', 'dispatched'],
-    default: 'inwarded'
+    enum: ['in_stock', 'in_transit', 'sold', 'service', 'damaged'],
+    default: 'in_stock'
   },
-  createdBy: {
+  addedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  branch: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Branch',
-    required: true
+  addedAt: {
+    type: Date,
+    default: Date.now,
+    immutable: true
   }
 }, {
   timestamps: true,
@@ -80,58 +101,51 @@ const vehicleInwardSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+// Indexes
+vehicleSchema.index({ chassisNumber: 1 }, { unique: true });
+vehicleSchema.index({ qrCode: 1 }, { unique: true });
+vehicleSchema.index({ model: 1 });
+vehicleSchema.index({ unloadLocation: 1 });
+vehicleSchema.index({ type: 1 });
+vehicleSchema.index({ status: 1 });
+vehicleSchema.index({ colors: 1 });
+
+// Pre-save hook to generate QR code
+vehicleSchema.pre('save', async function(next) {
+  if (!this.qrCode) {
+    this.qrCode = `VH-${this.chassisNumber}-${Date.now().toString(36)}`;
+  }
+  next();
+});
+
 // Virtuals for populated data
-vehicleInwardSchema.virtual('modelDetails', {
+vehicleSchema.virtual('modelDetails', {
   ref: 'Model',
   localField: 'model',
   foreignField: '_id',
   justOne: true
 });
 
-vehicleInwardSchema.virtual('colorDetails', {
-  ref: 'Color',
-  localField: 'color',
-  foreignField: '_id',
-  justOne: true
-});
-
-vehicleInwardSchema.virtual('unloadLocationDetails', {
+vehicleSchema.virtual('locationDetails', {
   ref: 'Branch',
   localField: 'unloadLocation',
   foreignField: '_id',
-  justOne: true
+  justOne: true,
+  options: { select: 'name address city state' }
 });
 
-vehicleInwardSchema.virtual('createdByDetails', {
+vehicleSchema.virtual('colorDetails', {
+  ref: 'Color',
+  localField: 'colors',
+  foreignField: '_id'
+});
+
+vehicleSchema.virtual('addedByDetails', {
   ref: 'User',
-  localField: 'createdBy',
+  localField: 'addedBy',
   foreignField: '_id',
-  justOne: true
+  justOne: true,
+  options: { select: 'name email' }
 });
 
-vehicleInwardSchema.virtual('branchDetails', {
-  ref: 'Branch',
-  localField: 'branch',
-  foreignField: '_id',
-  justOne: true
-});
-
-// Indexes
-vehicleInwardSchema.index({ chassisNumber: 1 }, { unique: true });
-vehicleInwardSchema.index({ qrCode: 1 }, { unique: true });
-vehicleInwardSchema.index({ model: 1 });
-vehicleInwardSchema.index({ type: 1 });
-vehicleInwardSchema.index({ status: 1 });
-vehicleInwardSchema.index({ unloadLocation: 1 });
-vehicleInwardSchema.index({ branch: 1 });
-
-// Pre-save hook to generate QR code
-vehicleInwardSchema.pre('save', async function(next) {
-  if (!this.qrCode) {
-    const qrData = `${this.model}|${this.chassisNumber}|${this.color}|${this.unloadLocation}|${this.status}`;
-    this.qrCode = require('crypto').createHash('sha256').update(qrData).digest('hex');
-  }
-  next();
-});
-
-module.exports = mongoose.model('VehicleInward', vehicleInwardSchema);
+module.exports = mongoose.model('Vehicle', vehicleSchema);

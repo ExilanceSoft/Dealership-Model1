@@ -1,4 +1,3 @@
-// routes/colorRoutes.js
 const express = require('express');
 const router = express.Router();
 const colorController = require('../controllers/colorController');
@@ -20,40 +19,78 @@ const { logAction } = require('../middlewares/audit');
  *       type: object
  *       required:
  *         - name
- *         - hexCode
+ *         - hex_code
  *       properties:
- *         id:
+ *         _id:
  *           type: string
- *           description: The auto-generated ID of the color
  *           example: 507f1f77bcf86cd799439011
  *         name:
  *           type: string
- *           description: The color name
  *           example: Midnight Black
- *         hexCode:
+ *         hex_code:
  *           type: string
- *           description: The hex color code
+ *           example: "#000000"
+ *         status:
+ *           type: string
+ *           enum: [active, inactive]
+ *           default: active
+ *         models:
+ *           type: array
+ *           items:
+ *             type: string
+ *             description: Array of model IDs
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ * 
+ *     ColorInput:
+ *       type: object
+ *       required:
+ *         - name
+ *         - hex_code
+ *       properties:
+ *         name:
+ *           type: string
+ *           example: Midnight Black
+ *         hex_code:
+ *           type: string
  *           example: "#000000"
  *         models:
  *           type: array
  *           items:
  *             type: string
- *           description: Array of model IDs this color is available for
- *         isActive:
- *           type: boolean
- *           description: Whether the color is active
- *           default: true
- *         createdAt:
+ *           description: Optional array of model IDs to assign this color to
+ * 
+ *     ColorUpdate:
+ *       type: object
+ *       properties:
+ *         name:
  *           type: string
- *           format: date-time
- *           description: The date the color was created
- *         updatedAt:
+ *           example: Midnight Black Updated
+ *         hex_code:
  *           type: string
- *           format: date-time
- *           description: The date the color was last updated
- *         createdBy:
+ *           example: "#010101"
+ * 
+ *     ModelAssignment:
+ *       type: object
+ *       required:
+ *         - modelIds
+ *       properties:
+ *         modelIds:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ * 
+ *     StatusUpdate:
+ *       type: object
+ *       required:
+ *         - status
+ *       properties:
+ *         status:
  *           type: string
- *           description: ID of the user who created the color
+ *           enum: [active, inactive]
+ *           example: inactive
  */
 
 /**
@@ -69,32 +106,25 @@ const { logAction } = require('../middlewares/audit');
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - name
- *               - hexCode
- *             properties:
- *               name:
- *                 type: string
- *                 example: "Midnight Black"
- *               hexCode:
- *                 type: string
- *                 example: "#000000"
- *               models:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of model IDs this color is available for
- *                 example: ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"]
+ *             $ref: '#/components/schemas/ColorInput'
  *     responses:
  *       201:
  *         description: Color created successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Color'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     color:
+ *                       $ref: '#/components/schemas/Color'
  *       400:
- *         description: Validation error or missing required fields
+ *         description: Validation error or duplicate color name
  *       401:
  *         description: Unauthorized
  *       403:
@@ -105,7 +135,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('SUPERADMIN', 'ADMIN'),
   logAction('CREATE', 'Color'),
   colorController.createColor
 );
@@ -116,14 +146,19 @@ router.post(
  *   get:
  *     summary: Get all colors
  *     tags: [Colors]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: active
+ *         name: status
  *         schema:
- *           type: boolean
- *         description: Filter by active status (true/false)
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by status
+ *       - in: query
+ *         name: populate
+ *         schema:
+ *           type: string
+ *           enum: [models]
+ *         description: Populate models information
  *     responses:
  *       200:
  *         description: List of colors
@@ -132,88 +167,99 @@ router.post(
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
- *                 count:
- *                   type: integer
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: number
+ *                   example: 5
  *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Color'
+ *                   type: object
+ *                   properties:
+ *                     colors:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Color'
  *       500:
  *         description: Server error
  */
-router.get('/', protect, colorController.getColors);
+router.get('/', colorController.getAllColors);
 
 /**
  * @swagger
- * /api/v1/colors/{id}:
+ * /api/v1/colors/{colorId}:
  *   get:
- *     summary: Get color by ID
+ *     summary: Get a color by ID
  *     tags: [Colors]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: colorId
  *         required: true
  *         schema:
  *           type: string
- *         description: Color ID
+ *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       200:
  *         description: Color details
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Color'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     color:
+ *                       $ref: '#/components/schemas/Color'
+ *       400:
+ *         description: Invalid ID format
  *       404:
  *         description: Color not found
  *       500:
  *         description: Server error
  */
-router.get('/:id', protect, colorController.getColor);
+router.get('/:colorId', colorController.getColorById);
 
 /**
  * @swagger
- * /api/v1/colors/{id}:
+ * /api/v1/colors/{colorId}:
  *   put:
- *     summary: Update color (Admin+)
+ *     summary: Update a color (Admin+)
  *     tags: [Colors]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: colorId
  *         required: true
  *         schema:
  *           type: string
- *         description: Color ID
+ *         example: 507f1f77bcf86cd799439011
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: "Updated Black"
- *               hexCode:
- *                 type: string
- *                 example: "#111111"
- *               models:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of model IDs this color is available for
+ *             $ref: '#/components/schemas/ColorUpdate'
  *     responses:
  *       200:
- *         description: Color updated
+ *         description: Color updated successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Color'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     color:
+ *                       $ref: '#/components/schemas/Color'
  *       400:
  *         description: Validation error
  *       401:
@@ -226,51 +272,51 @@ router.get('/:id', protect, colorController.getColor);
  *         description: Server error
  */
 router.put(
-  '/:id',
+  '/:colorId',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('SUPERADMIN', 'ADMIN'),
   logAction('UPDATE', 'Color'),
   colorController.updateColor
 );
 
 /**
  * @swagger
- * /api/v1/colors/{id}:
+ * /api/v1/colors/{colorId}:
  *   delete:
- *     summary: Delete color (soft delete, Admin+)
+ *     summary: Delete a color (SuperAdmin only)
  *     tags: [Colors]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: colorId
  *         required: true
  *         schema:
  *           type: string
- *         description: Color ID
+ *         example: 507f1f77bcf86cd799439011
  *     responses:
- *       200:
- *         description: Color deactivated
+ *       204:
+ *         description: Color deleted successfully
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden (not SuperAdmin)
  *       404:
  *         description: Color not found
  *       500:
  *         description: Server error
  */
 router.delete(
-  '/:id',
+  '/:colorId',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('SUPERADMIN'),
   logAction('DELETE', 'Color'),
   colorController.deleteColor
 );
 
 /**
  * @swagger
- * /api/v1/colors/{id}/assign:
+ * /api/v1/colors/{colorId}/assign:
  *   post:
  *     summary: Assign color to models (Admin+)
  *     tags: [Colors]
@@ -278,166 +324,147 @@ router.delete(
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: colorId
  *         required: true
  *         schema:
  *           type: string
- *         description: Color ID
+ *         example: 507f1f77bcf86cd799439011
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - modelIds
- *             properties:
- *               modelIds:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of model IDs to assign this color to
+ *             $ref: '#/components/schemas/ModelAssignment'
  *     responses:
  *       200:
- *         description: Color assigned to models
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Color'
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Color or models not found
- *       500:
- *         description: Server error
- */
-router.post(
-  '/:id/assign',
-  protect,
-  authorize('ADMIN', 'SUPERADMIN'),
-  logAction('ASSIGN', 'Color'),
-  colorController.assignColorToModels
-);
-
-/**
- * @swagger
- * /api/v1/colors/{id}/remove:
- *   post:
- *     summary: Remove color from models (Admin+)
- *     tags: [Colors]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Color ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - modelIds
- *             properties:
- *               modelIds:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of model IDs to remove this color from
- *     responses:
- *       200:
- *         description: Color removed from models
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Color'
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Color or models not found
- *       500:
- *         description: Server error
- */
-router.post(
-  '/:id/remove',
-  protect,
-  authorize('ADMIN', 'SUPERADMIN'),
-  logAction('REMOVE', 'Color'),
-  colorController.removeColorFromModels
-);
-
-/**
- * @swagger
- * /api/v1/colors/model/{modelId}:
- *   get:
- *     summary: Get colors available for a specific model
- *     tags: [Colors]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: modelId
- *         required: true
- *         schema:
- *           type: string
- *         description: Model ID
- *     responses:
- *       200:
- *         description: List of colors available for the model
+ *         description: Color assigned to models successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
- *                 count:
- *                   type: integer
+ *                 status:
+ *                   type: string
+ *                   example: success
  *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Color'
+ *                   type: object
+ *                   properties:
+ *                     color:
+ *                       $ref: '#/components/schemas/Color'
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not Admin+)
  *       404:
- *         description: Model not found
+ *         description: Color or model not found
  *       500:
  *         description: Server error
  */
-router.get('/model/:modelId', protect, colorController.getColorsByModel);
+router.post(
+  '/:colorId/assign',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN'),
+  logAction('ASSIGN_COLOR', 'Model'),
+  colorController.assignColorToModels
+);
 
 /**
  * @swagger
- * /api/v1/colors/{id}/status:
- *   patch:
- *     summary: Toggle color active status (Admin+)
+ * /api/v1/colors/{colorId}/unassign:
+ *   post:
+ *     summary: Unassign color from models (Admin+)
  *     tags: [Colors]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: colorId
  *         required: true
  *         schema:
  *           type: string
- *         description: Color ID
+ *         example: 507f1f77bcf86cd799439011
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ModelAssignment'
  *     responses:
  *       200:
- *         description: Color status toggled
+ *         description: Color unassigned from models successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Color'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     color:
+ *                       $ref: '#/components/schemas/Color'
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not Admin+)
+ *       404:
+ *         description: Color or model not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/:colorId/unassign',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN'),
+  logAction('UNASSIGN_COLOR', 'Model'),
+  colorController.unassignColorFromModels
+);
+
+/**
+ * @swagger
+ * /api/v1/colors/{colorId}/status:
+ *   put:
+ *     summary: Update color status (Admin+)
+ *     tags: [Colors]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: colorId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439011
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/StatusUpdate'
+ *     responses:
+ *       200:
+ *         description: Color status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     color:
+ *                       $ref: '#/components/schemas/Color'
+ *       400:
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
  *       403:
@@ -447,12 +474,52 @@ router.get('/model/:modelId', protect, colorController.getColorsByModel);
  *       500:
  *         description: Server error
  */
-router.patch(
-  '/:id/status',
+router.put(
+  '/:colorId/status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
-  logAction('TOGGLE_STATUS', 'Color'),
-  colorController.toggleColorStatus
+  authorize('SUPERADMIN', 'ADMIN'),
+  logAction('UPDATE_STATUS', 'Color'),
+  colorController.updateColorStatus
 );
+
+/**
+ * @swagger
+ * /api/v1/colors/{colorId}/models:
+ *   get:
+ *     summary: Get models for a specific color
+ *     tags: [Colors]
+ *     parameters:
+ *       - in: path
+ *         name: colorId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: List of models for the color
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     models:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Model'
+ *       400:
+ *         description: Invalid ID format
+ *       404:
+ *         description: Color not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:colorId/models', colorController.getColorModels);
 
 module.exports = router;

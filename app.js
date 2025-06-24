@@ -42,7 +42,7 @@ const rtoRoutes = require('./routes/rtoRoutes');
 const branchRoutes = require('./routes/branchRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 // const modelRoutes = require('./routes/vehicleModelRoutes');
-const colorRoutes = require('./routes/vehicleColorRoutes');
+const colorRoutes = require('./routes/colorRoutes');
 const vehicleInwardRoutes = require('./routes/vehicleInwardRoutes');
 const modelRoutes = require('./routes/modelRoutes');
 const headerRoutes = require('./routes/headerRoutes');
@@ -56,6 +56,7 @@ const termsConditionRoutes = require('./routes/termsConditionRoutes')
 const permissionRoutes = require('./routes/permissionRoutes');
 const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
 const financerRoutes = require('./routes/financerRoutes');
+const accessoryRoutes = require('./routes/accessoryRoutes');
 
 
 
@@ -119,6 +120,7 @@ app.use('/api/v1/terms-conditions',termsConditionRoutes);
 app.use('/api/v1/permissions',permissionRoutes)
 app.use('/api/v1/insurance-providers', insuranceProviderRoutes);
 app.use('/api/v1/financers', financerRoutes);
+app.use('/api/v1/accessories', accessoryRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
