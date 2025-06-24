@@ -522,4 +522,44 @@ router.put(
  */
 router.get('/:colorId/models', colorController.getColorModels);
 
+/**
+ * @swagger
+ * /api/v1/colors/model/{modelId}:
+ *   get:
+ *     summary: Get colors by model ID
+ *     tags: [Colors]
+ *     parameters:
+ *       - in: path
+ *         name: modelId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: List of colors for the model
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     colors:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Color'
+ *       400:
+ *         description: Invalid ID format
+ *       404:
+ *         description: Model not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/model/:modelId', colorController.getColorsByModelId);
+
 module.exports = router;

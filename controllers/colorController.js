@@ -341,3 +341,36 @@ exports.getColorModels = async (req, res, next) => {
     next(err);
   }
 };
+
+// Get colors by model ID
+exports.getColorsByModelId = async (req, res, next) => {
+  try {
+    const { modelId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(modelId)) {
+      return next(new AppError('Invalid model ID format', 400));
+    }
+
+    // Check if model exists
+    const model = await Model.findById(modelId);
+    if (!model) {
+      return next(new AppError('No model found with that ID', 404));
+    }
+
+    // Get colors for this model
+    const colors = await Color.find({ 
+      _id: { $in: model.colors },
+      status: 'active' // Only get active colors
+    }).select('name hex_code');
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        colors
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting colors by model ID: ${err.message}`);
+    next(err);
+  }
+};
