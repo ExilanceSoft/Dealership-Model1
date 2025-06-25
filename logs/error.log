@@ -12,3 +12,4 @@
 {"timestamp":"2025-06-24 10:14:51","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create vehicle inward: VehicleInward validation failed: branch: Path `branch` is required.","stack":null}
 {"timestamp":"2025-06-24 10:17:12","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create vehicle inward: VehicleInward validation failed: branch: Path `branch` is required.","stack":null}
 {"timestamp":"2025-06-24 10:17:34","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create vehicle inward: VehicleInward validation failed: branch: Path `branch` is required.","stack":null}
+{"timestamp":"2025-06-24 18:14:52","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
