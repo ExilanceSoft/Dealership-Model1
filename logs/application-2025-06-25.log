@@ -1,0 +1,14 @@
+{"timestamp":"2025-06-25 10:08:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 11:36:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 11:52:11","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 16:18:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 16:21:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 17:25:45","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: Server selection timed out after 5000 ms","stack":null}
+{"timestamp":"2025-06-25 17:25:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 17:26:10","level":"\u001b[31MERROR\u001b[39M","message":"Error importing CSV: Cannot read properties of undefined (reading 'toString')","stack":null}
+{"timestamp":"2025-06-25 17:28:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 17:29:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 17:30:34","level":"\u001b[31MERROR\u001b[39M","message":"Error importing CSV: Cannot read properties of undefined (reading 'toString')","stack":"TypeError: Cannot read properties of undefined (reading 'toString')\n    at exports.importCSV (E:\\Exilance-Project\\Vehicle Dealerships\\Dealership\\Vehicle-Dealership\\controllers\\csvController.js:189:39)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)"}
+{"timestamp":"2025-06-25 17:46:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 18:16:11","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-25 18:19:49","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

@@ -1,3 +1,4 @@
+// Import required modules
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -7,13 +8,13 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const { setupSwagger, getLocalIp } = require('./config/swagger');
 
-// Error handlers at the beginning
+// Uncaught exception handler
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   process.exit(1);
 });
 
-// Load environment variables
+// Load environment variables from .env file
 dotenv.config();
 
 // Validate required environment variables
@@ -31,7 +32,7 @@ connectDB().catch(err => {
   process.exit(1);
 });
 
-// Import routes
+// Import all route files
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/roleRoutes');
@@ -41,7 +42,6 @@ const brokerRoutes = require('./routes/brokerRoutes');
 const rtoRoutes = require('./routes/rtoRoutes');
 const branchRoutes = require('./routes/branchRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
-// const modelRoutes = require('./routes/vehicleModelRoutes');
 const colorRoutes = require('./routes/colorRoutes');
 const vehicleInwardRoutes = require('./routes/vehicleInwardRoutes');
 const modelRoutes = require('./routes/modelRoutes');
@@ -52,51 +52,58 @@ const customerRoutes = require('./routes/customerRoutes');
 const financeDocumentRoutes = require('./routes/financeDocumentRoutes');
 const offerRoutes = require('./routes/offerRoutes');
 const quotationRoutes = require('./routes/quotationRoutes');
-const termsConditionRoutes = require('./routes/termsConditionRoutes')
+const termsConditionRoutes = require('./routes/termsConditionRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
 const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
 const financerRoutes = require('./routes/financerRoutes');
 const accessoryRoutes = require('./routes/accessoryRoutes');
 
-
-
-// Initialize express app
+// Create Express application
 const app = express();
 
-// Apply middleware
+// Middleware to parse JSON bodies
 app.use(express.json());
+
+// Configure CORS
 app.use(cors({
-  origin: true,
+  origin: [
+    'http://localhost:5002',
+    `http://${getLocalIp()}:5002`,
+    // Add production domains here when needed
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Authorization']
 }));
 
-// Security headers
+// Security middleware with Swagger UI compatibility
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "https:"],
-      connectSrc: ["'self'", "https:", "http:"] 
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
+      imgSrc: ["'self'", "data:", "https:", "http:", "blob:"],
+      fontSrc: ["'self'", "https:", "http:", "data:"],
+      connectSrc: ["'self'", "https:", "http:", "ws:"],
+      frameSrc: ["'self'", "https:"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-
-// Logger for development
+// HTTP request logging in development
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Configure Swagger
+// Setup Swagger documentation
 setupSwagger(app);
 
-// Mount routes
+// Mount all API routes with /api/v1 prefix
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/roles', roleRoutes);
@@ -109,22 +116,26 @@ app.use('/api/v1/employees', employeeRoutes);
 app.use('/api/v1/models', modelRoutes);
 app.use('/api/v1/colors', colorRoutes);
 app.use('/api/v1/inward', vehicleInwardRoutes);
-app.use('/api/v1/headers',headerRoutes);
-app.use('/api/v1/attachments',attachmentRoutes);
-app.use('/api/v1/csv',csvRoutes);
-app.use('/api/v1/customers',customerRoutes);
-app.use('/api/v1/finance-documents',financeDocumentRoutes);
-app.use('/api/v1/offers',offerRoutes);
-app.use('/api/v1/quotations',quotationRoutes);
-app.use('/api/v1/terms-conditions',termsConditionRoutes);
-app.use('/api/v1/permissions',permissionRoutes)
+app.use('/api/v1/headers', headerRoutes);
+app.use('/api/v1/attachments', attachmentRoutes);
+app.use('/api/v1/csv', csvRoutes);
+app.use('/api/v1/customers', customerRoutes);
+app.use('/api/v1/finance-documents', financeDocumentRoutes);
+app.use('/api/v1/offers', offerRoutes);
+app.use('/api/v1/quotations', quotationRoutes);
+app.use('/api/v1/terms-conditions', termsConditionRoutes);
+app.use('/api/v1/permissions', permissionRoutes);
 app.use('/api/v1/insurance-providers', insuranceProviderRoutes);
 app.use('/api/v1/financers', financerRoutes);
 app.use('/api/v1/accessories', accessoryRoutes);
 
-// Health check
+// Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Error handling middleware
@@ -132,28 +143,28 @@ app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
   res.status(500).json({ 
     success: false, 
-    message: 'Server Error' 
+    message: 'Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
-// Start server
+// Start the server
 const PORT = process.env.PORT || 5002;
 const server = app.listen(PORT, '0.0.0.0', () => {
+  const localIp = getLocalIp();
   console.log(`Server running on port ${PORT}`);
-  console.log(`Local: http://localhost:${PORT}/api-docs`);
-  if (process.env.NODE_ENV === 'development') {
-    const localIp = getLocalIp();
-    console.log(`Network: http://${localIp}:${PORT}/api-docs`);
-  }
+  console.log(`Local access: http://localhost:${PORT}/api-docs`);
+  console.log(`Network access: http://${localIp}:${PORT}/api-docs`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
 });
 
-// Handle unhandled rejections
+// Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
   server.close(() => process.exit(1));
 });
 
-// Graceful shutdown
+// Graceful shutdown handler
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down gracefully...');
   server.close(() => {
@@ -161,5 +172,3 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
-
-

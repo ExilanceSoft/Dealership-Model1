@@ -1,4 +1,4 @@
-const RTO = require('../models/RTO');
+const RTO = require('../models/Rto');
 const AuditLog = require('../models/AuditLog');
 
 // Create RTO

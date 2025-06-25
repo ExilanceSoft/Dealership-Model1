@@ -7,17 +7,24 @@ const AppError = require('../utils/appError');
 const logger = require('../config/logger');
 const { stringify } = require('csv-stringify');
 
-// Helper function to clean and parse values
+// Enhanced cleanValue function with better error handling
 const cleanValue = (value) => {
-  if (!value) return null;
-  const strValue = value.toString().trim();
-  if (strValue === '') return null;
-  
-  // Try to parse as number
-  const numValue = parseFloat(strValue.replace(/,/g, ''));
-  if (!isNaN(numValue)) return numValue;
-  
-  return strValue;
+  try {
+    if (value === null || value === undefined) return null;
+    
+    // Ensure value is a string before processing
+    const strValue = typeof value === 'string' ? value.trim() : String(value).trim();
+    if (strValue === '') return null;
+    
+    // Try to parse as number
+    const numValue = parseFloat(strValue.replace(/,/g, ''));
+    if (!isNaN(numValue)) return numValue;
+    
+    return strValue;
+  } catch (err) {
+    logger.error(`Error cleaning value: ${value}`, { error: err });
+    return null;
+  }
 };
 
 exports.exportCSVTemplate = async (req, res, next) => {
@@ -70,9 +77,7 @@ exports.exportCSVTemplate = async (req, res, next) => {
     const csvData = [];
 
     // 1. Add branch information row
-    const branchRow = [];
-    branchRow.push('Branch');
-    branchRow.push(branch.name);
+    const branchRow = ['Branch', branch.name];
     // Fill remaining columns with empty values
     for (let i = 2; i < headers.length + 1; i++) {
       branchRow.push('');
@@ -80,9 +85,7 @@ exports.exportCSVTemplate = async (req, res, next) => {
     csvData.push(branchRow);
 
     // 2. Add type row
-    const typeRow = [];
-    typeRow.push('Type');
-    typeRow.push(normalizedType);
+    const typeRow = ['Type', normalizedType];
     // Fill remaining columns with empty values
     for (let i = 2; i < headers.length + 1; i++) {
       typeRow.push('');
@@ -92,22 +95,29 @@ exports.exportCSVTemplate = async (req, res, next) => {
     // 3. Add headers row (header_key first)
     const headerRow = ['model_name'];
     headers.forEach(header => {
-      headerRow.push(`${header.header_key}|${header.category_key}`);
+      if (header && header.header_key && header.category_key) {
+        headerRow.push(`${header.header_key}|${header.category_key}`);
+      }
     });
     csvData.push(headerRow);
 
     // 4. Add model data rows
     if (models.length > 0) {
       models.forEach(model => {
+        if (!model || !model.model_name) return;
+        
         const modelRow = [model.model_name];
         headers.forEach(header => {
-          const price = model.prices.find(p =>
-            p.header_id && 
-            p.header_id._id.toString() === header._id.toString() &&
-            p.branch_id && 
-            p.branch_id._id.toString() === branch_id.toString()
+          if (!header || !header._id) {
+            modelRow.push('0');
+            return;
+          }
+
+          const price = model.prices?.find(p =>
+            p?.header_id?._id?.toString() === header._id.toString() &&
+            p?.branch_id?._id?.toString() === branch_id.toString()
           );
-          modelRow.push(price ? price.value : '0');
+          modelRow.push(price?.value !== undefined ? price.value : '0');
         });
         csvData.push(modelRow);
       });
@@ -156,17 +166,23 @@ exports.exportCSVTemplate = async (req, res, next) => {
 
 exports.importCSV = async (req, res, next) => {
   try {
+    // Enhanced file validation
     if (!req.file) {
-      return next(new AppError('No CSV file uploaded', 400));
+      return next(new AppError('Please upload a CSV file', 400));
+    }
+    
+    if (!req.file.buffer || req.file.buffer.length === 0) {
+      return next(new AppError('Uploaded file is empty', 400));
     }
 
-    // Validate inputs
+    // Validate required fields
     if (!req.body.branch_id) {
       return next(new AppError('Branch ID is required', 400));
     }
     if (!req.body.type || !['EV', 'ICE'].includes(req.body.type.toUpperCase())) {
       return next(new AppError('Type is required and must be EV or ICE', 400));
     }
+
     const type = req.body.type.toUpperCase();
 
     // Verify branch exists
@@ -175,106 +191,133 @@ exports.importCSV = async (req, res, next) => {
       return next(new AppError('Branch not found', 404));
     }
 
-    // Check if branch is active
     if (!branch.is_active) {
       return next(new AppError('Cannot import to inactive branch', 400));
     }
 
     // Get headers for type
     const headers = await Header.find({ type });
-    const headerKeyMap = new Map(headers.map(h => [h.header_key, h._id]));
-    const categoryKeyMap = new Map(headers.map(h => [h.category_key, h._id]));
+    const headerKeyMap = new Map();
+    const categoryKeyMap = new Map();
+    
+    headers.forEach(header => {
+      if (header.header_key) headerKeyMap.set(header.header_key, header._id);
+      if (header.category_key) categoryKeyMap.set(header.category_key, header._id);
+    });
 
-    // Parse CSV
-    const bufferStream = new Readable();
-    bufferStream.push(req.file.buffer);
-    bufferStream.push(null);
+    // Parse CSV with better error handling
+    let csvData;
+    try {
+      const csvString = req.file.buffer.toString('utf8').trim();
+      csvData = csvString.split('\n')
+        .filter(row => row.trim() !== '') // Remove empty lines
+        .map(row => {
+          // Handle quoted values and empty cells
+          const cells = row.split(',')
+            .map(cell => {
+              const trimmed = cell.trim();
+              return trimmed.replace(/^"|"$/g, '');
+            });
+          return cells;
+        });
+    } catch (parseError) {
+      logger.error('CSV parsing failed', { error: parseError });
+      return next(new AppError('Invalid CSV file format', 400));
+    }
 
-    const csvData = [];
+    // Validate CSV structure
+    if (csvData.length < 3) {
+      return next(new AppError('CSV must contain at least branch info, type, and header rows', 400));
+    }
+
+    // Find header row
+    const headerRowIndex = csvData.findIndex(row => 
+      row[0] && row[0].toLowerCase() === 'model_name'
+    );
+    if (headerRowIndex === -1) {
+      return next(new AppError('CSV must contain a header row starting with model_name', 400));
+    }
+
+    const headerRow = csvData[headerRowIndex];
+    const dataRows = csvData.slice(headerRowIndex + 1);
     const errors = [];
     let processedCount = 0;
-    let headerRow = null;
 
-    bufferStream
-      .pipe(csv({ separator: ',', headers: false, skipLines: 0 }))
-      .on('data', (row) => {
-        csvData.push(Object.values(row).map(val => val.toString().trim()));
-      })
-      .on('end', async () => {
-        try {
-          // Validate CSV structure - at least 3 rows (info, type, and header)
-          if (csvData.length < 3) {
-            return next(new AppError('CSV must contain at least branch info, type, and header rows', 400));
-          }
+    // Process each model row
+    for (const row of dataRows) {
+      const modelName = row[0] ? row[0].trim() : '';
+      if (!modelName || modelName === 'SampleModel') continue;
 
-          // Find header row (first row starting with 'model_name')
-          const headerRowIndex = csvData.findIndex(row => row[0]?.toLowerCase() === 'model_name');
-          if (headerRowIndex === -1) {
-            return next(new AppError('CSV must contain a header row starting with model_name', 400));
-          }
-
-          headerRow = csvData[headerRowIndex];
-          const dataRows = csvData.slice(headerRowIndex + 1);
-
-          // Process each model
-          for (const row of dataRows) {
-            const modelName = row[0]?.trim();
-            if (!modelName || modelName === 'SampleModel') continue;
-
-            try {
-              // Find or create model
-              let model = await Model.findOne({ model_name: modelName }) || 
-                new Model({ 
-                  model_name: modelName, 
-                  type, 
-                  status: 'active',
-                  prices: [] 
-                });
-
-              // Clear existing prices for this branch
-              model.prices = model.prices.filter(p => !p.branch_id.equals(branch._id));
-
-              // Process each price column
-              for (let i = 1; i < headerRow.length; i++) {
-                const headerParts = headerRow[i]?.split('|');
-                const headerKey = headerParts[0]?.trim();
-                const categoryKey = headerParts[1]?.trim();
-                const value = cleanValue(row[i]);
-
-                // Find header ID - try header_key first, then category_key
-                let headerId = headerKeyMap.get(headerKey);
-                if (!headerId && categoryKey) {
-                  headerId = categoryKeyMap.get(categoryKey);
-                }
-
-                if (headerId && value !== null) {
-                  model.prices.push({
-                    value: value,
-                    header_id: headerId,
-                    branch_id: branch._id
-                  });
-                }
-              }
-
-              await model.save();
-              processedCount++;
-            } catch (err) {
-              errors.push(`Error processing model ${modelName}: ${err.message}`);
-            }
-          }
-
-          res.status(200).json({
-            status: 'success',
-            message: 'CSV import completed',
-            imported: processedCount,
-            errors: errors.length > 0 ? errors : undefined
+      try {
+        let model = await Model.findOne({ model_name: modelName }) || 
+          new Model({ 
+            model_name: modelName, 
+            type, 
+            status: 'active',
+            prices: [] 
           });
-        } catch (err) {
-          next(err);
+
+        // Clear existing prices for this branch
+        model.prices = model.prices.filter(p => 
+          p && p.branch_id && p.branch_id.equals(branch._id)
+        );
+
+        // Process each price column
+        for (let i = 1; i < headerRow.length && i < row.length; i++) {
+          const cellValue = row[i];
+          if (cellValue === undefined || cellValue === null || cellValue === '') continue;
+
+          const headerCell = headerRow[i];
+          if (!headerCell) continue;
+
+          const headerParts = headerCell.split('|');
+          const headerKey = headerParts[0] ? headerParts[0].trim() : null;
+          const categoryKey = headerParts[1] ? headerParts[1].trim() : null;
+          const value = cleanValue(cellValue);
+
+          // Find header ID
+          let headerId = headerKey ? headerKeyMap.get(headerKey) : null;
+          if (!headerId && categoryKey) {
+            headerId = categoryKeyMap.get(categoryKey);
+          }
+
+          if (headerId && value !== null) {
+            model.prices.push({
+              value: value,
+              header_id: headerId,
+              branch_id: branch._id
+            });
+          }
         }
-      });
+
+        await model.save();
+        processedCount++;
+      } catch (modelError) {
+        const errorMsg = `Error processing model ${modelName}: ${modelError.message}`;
+        errors.push(errorMsg);
+        logger.error(errorMsg, { error: modelError });
+      }
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'CSV import completed',
+      imported: processedCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
   } catch (err) {
-    logger.error(`Error importing CSV: ${err.message}`);
-    next(err);
+    logger.error('CSV import failed', { 
+      error: err.message,
+      stack: err.stack,
+      request: {
+        body: req.body,
+        file: req.file ? {
+          originalname: req.file.originalname,
+          size: req.file.size
+        } : null
+      }
+    });
+    next(new AppError('Failed to process CSV file', 500));
   }
 };
