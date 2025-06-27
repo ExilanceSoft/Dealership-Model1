@@ -405,7 +405,7 @@ router.delete(
 router.get(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'BRANCH_MANAGER'),
+  authorize('SUPERADMIN', 'ADMIN', 'BRANCH_MANAGER'), // Optional but recommended
   brokerController.getAllBrokers
 );
 

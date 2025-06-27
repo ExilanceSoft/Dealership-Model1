@@ -57,6 +57,7 @@ const permissionRoutes = require('./routes/permissionRoutes');
 const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
 const financerRoutes = require('./routes/financerRoutes');
 const accessoryRoutes = require('./routes/accessoryRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
 
 // Create Express application
 const app = express();
@@ -69,6 +70,7 @@ app.use(cors({
   origin: [
     'http://localhost:5002',
     `http://${getLocalIp()}:5002`,
+    'http://127.0.0.1:5500',  // Add this line
     // Add production domains here when needed
   ],
   credentials: true,
@@ -128,7 +130,7 @@ app.use('/api/v1/permissions', permissionRoutes);
 app.use('/api/v1/insurance-providers', insuranceProviderRoutes);
 app.use('/api/v1/financers', financerRoutes);
 app.use('/api/v1/accessories', accessoryRoutes);
-
+app.use('/api/v1/bookings', bookingRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 

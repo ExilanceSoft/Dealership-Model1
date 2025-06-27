@@ -1,19 +1,5 @@
 const mongoose = require('mongoose');
 
-const modelPartNumberSchema = new mongoose.Schema({
-  model_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Model',
-    required: true
-  },
-  part_number: {
-    type: String,
-    required: [true, 'Part number is required'],
-    trim: true,
-    maxlength: [50, 'Part number cannot exceed 50 characters']
-  }
-}, { _id: false });
-
 const accessorySchema = new mongoose.Schema({
   name: {
     type: String,
@@ -37,15 +23,18 @@ const accessorySchema = new mongoose.Schema({
     ref: 'Model',
     required: true
   }],
-  model_part_numbers: {
-    type: [modelPartNumberSchema],
-    validate: {
-      validator: function(v) {
-        // Ensure each model in applicable_models has a corresponding part number
-        return v.length === this.applicable_models.length;
-      },
-      message: 'Each applicable model must have a part number'
-    }
+  part_number: {
+    type: String,
+    required: [true, 'Part number is required'],
+    trim: true,
+    maxlength: [50, 'Part number cannot exceed 50 characters']
+  },
+  part_number_status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active',
+    lowercase: true,
+    trim: true
   },
   status: {
     type: String,
@@ -70,6 +59,8 @@ accessorySchema.index({ name: 1 });
 accessorySchema.index({ status: 1 });
 accessorySchema.index({ 'applicable_models': 1 });
 accessorySchema.index({ price: 1 });
+accessorySchema.index({ part_number: 1 });
+accessorySchema.index({ part_number_status: 1 });
 
 // Virtual for createdBy user details
 accessorySchema.virtual('createdByDetails', {

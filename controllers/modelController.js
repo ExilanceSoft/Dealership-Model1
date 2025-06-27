@@ -42,47 +42,52 @@ exports.createModel = async (req, res, next) => {
     next(err);
   }
 };
-  exports.getModelById = async (req, res, next) => {
-    try {
-      if (!mongoose.Types.ObjectId.isValid(req.params.modelId)) {
-        return next(new AppError('Invalid model ID format', 400));
-      }
-      const model = await Model.findById(req.params.modelId)
-        .populate({
-          path: 'prices.header_id prices.branch_id',
-          select: 'header_key category_key priority metadata name city'
-        });
-      if (!model) {
-        return next(new AppError('No model found with that ID', 404));
-      }
-      // Transform the data for better client-side consumption
-      const transformedData = {
-        _id: model._id,
-        model_name: model.model_name,
-        prices: model.prices.map(price => ({
-          value: price.value,
-          header_id: price.header_id?._id || null,
-          header_key: price.header_id?.header_key || null,
-          category_key: price.header_id?.category_key || null,
-          priority: price.header_id?.priority || null,
-          metadata: price.header_id?.metadata || {},
-          branch_id: price.branch_id?._id || null,
-          branch_name: price.branch_id?.name || null,
-          branch_city: price.branch_id?.city || null
-        })),
-        createdAt: model.createdAt
-      };
-      res.status(200).json({
-        status: 'success',
-        data: {
-          model: transformedData
-        }
-      });
-    } catch (err) {
-      logger.error(`Error getting model by ID: ${err.message}`);
-      next(err);
+exports.getModelById = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.modelId)) {
+      return next(new AppError('Invalid model ID format', 400));
     }
-  };
+    const model = await Model.findById(req.params.modelId)
+      .populate({
+        path: 'prices.header_id prices.branch_id',
+        select: 'header_key category_key priority metadata name city is_mandatory is_discount' // Added is_mandatory and is_discount here
+      });
+    
+    if (!model) {
+      return next(new AppError('No model found with that ID', 404));
+    }
+    
+    // Transform the data for better client-side consumption
+    const transformedData = {
+      _id: model._id,
+      model_name: model.model_name,
+      prices: model.prices.map(price => ({
+        value: price.value,
+        header_id: price.header_id?._id || null,
+        header_key: price.header_id?.header_key || null,
+        category_key: price.header_id?.category_key || null,
+        priority: price.header_id?.priority || null,
+        is_mandatory: price.header_id?.is_mandatory || false, // Added is_mandatory with default false
+        is_discount: price.header_id?.is_discount || false,   // Added is_discount with default false
+        metadata: price.header_id?.metadata || {},
+        branch_id: price.branch_id?._id || null,
+        branch_name: price.branch_id?.name || null,
+        branch_city: price.branch_id?.city || null
+      })),
+      createdAt: model.createdAt
+    };
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        model: transformedData
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting model by ID: ${err.message}`);
+    next(err);
+  }
+};
 exports.getModelPrices = async (req, res, next) => {
   try {
     const model = await Model.findById(req.params.modelId)
@@ -424,6 +429,8 @@ exports.getModelWithPrices = async (req, res, next) => {
         header_key: price.header_id?.header_key || null,
         category_key: price.header_id?.category_key || null,
         priority: price.header_id?.priority || null,
+        is_mandatory:price.header_id?.is_mandatory||null,
+        is_discount:price.header_id?.is_discount || null,
         metadata: price.header_id?.metadata || {},
         branch_id: price.branch_id?._id || null,
         branch_name: price.branch_id?.name || null,

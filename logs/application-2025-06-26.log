@@ -1,0 +1,6 @@
+{"timestamp":"2025-06-26 10:21:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-26 11:57:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-26 14:25:19","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-26 17:49:27","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-06-26 18:38:59","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68555b04ba9eb46cb24cf37e - required SUPERADMIN,ADMIN,BRANCH_MANAGER","stack":null}
+{"timestamp":"2025-06-26 18:39:21","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68555b04ba9eb46cb24cf37e - required SUPERADMIN,ADMIN,BRANCH_MANAGER","stack":null}

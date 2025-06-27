@@ -1,6 +1,9 @@
 const Broker = require('../models/Broker');
 const Branch = require('../models/Branch');
 const AuditLog = require('../models/AuditLog');
+const roles = require('../models/Role')
+
+
 
 // Helper function to validate branch data
 const validateBranchData = (branchData) => {
@@ -106,7 +109,43 @@ exports.createOrAddBroker = async (req, res) => {
     });
   }
 };
+exports.getAllBrokers = async (req, res) => {
+  try {
+    // TEMPORARY DEBUG CODE
+    const allBrokers = await Broker.find({});
+    console.log('Total brokers in DB:', allBrokers.length);
+    console.log('Sample broker:', allBrokers[0]);
+    
+    // Original query with debug
+    const brokers = await Broker.find({})
+      .populate({
+        path: 'branches.branch',
+        select: 'name code'
+      })
+      .populate({
+        path: 'branches.addedBy',
+        select: 'name email'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name email'
+      });
 
+    console.log('Filtered brokers:', brokers.length);
+    
+    return res.status(200).json({
+      success: true,
+      count: brokers.length,
+      data: brokers
+    });
+  } catch (err) {
+    console.error('Error fetching brokers:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching brokers'
+    });
+  }
+};
 exports.getBrokersByBranch = async (req, res) => {
   try {
     const { branchId } = req.params;
@@ -251,74 +290,6 @@ exports.removeBrokerBranch = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error removing broker branch'
-    });
-  }
-};
-
-// Add this to brokerController.js after the other exports
-exports.getAllBrokers = async (req, res) => {
-  try {
-    const { branch, isActive } = req.query;
-    const user = req.user;
-    
-    // Build query object
-    const query = {};
-    
-    // For non-SUPERADMIN users, filter by their accessible branches
-    if (user.roles.includes('SUPERADMIN')) {
-      // SUPERADMIN can see all brokers
-      if (branch) {
-        query['branches.branch'] = branch;
-      }
-    } else {
-      // For other roles, get brokers only from their accessible branches
-      // Assuming user.branches contains array of branch IDs the user has access to
-      const accessibleBranches = user.branches || [];
-      
-      if (branch) {
-        // Check if requested branch is in user's accessible branches
-        if (!accessibleBranches.includes(branch)) {
-          return res.status(403).json({
-            success: false,
-            message: 'Not authorized to access this branch'
-          });
-        }
-        query['branches.branch'] = branch;
-      } else {
-        // If no branch specified, filter by all accessible branches
-        query['branches.branch'] = { $in: accessibleBranches };
-      }
-    }
-    
-    // Add isActive filter if provided
-    if (isActive !== undefined) {
-      query['branches.isActive'] = isActive === 'true';
-    }
-    
-    const brokers = await Broker.find(query)
-      .populate({
-        path: 'branches.branch',
-        select: 'name code'
-      })
-      .populate({
-        path: 'branches.addedBy',
-        select: 'name email'
-      })
-      .populate({
-        path: 'createdBy',
-        select: 'name email'
-      });
-    
-    res.status(200).json({
-      success: true,
-      count: brokers.length,
-      data: brokers
-    });
-  } catch (err) {
-    console.error('Error fetching brokers:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching brokers'
     });
   }
 };

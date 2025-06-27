@@ -21,7 +21,7 @@ const { logAction } = require('../middlewares/audit');
  *         - name
  *         - price
  *         - applicable_models
- *         - model_part_numbers
+ *         - part_number
  *       properties:
  *         _id:
  *           type: string
@@ -40,17 +40,13 @@ const { logAction } = require('../middlewares/audit');
  *           items:
  *             type: string
  *             example: 507f1f77bcf86cd799439012
- *         model_part_numbers:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               model_id:
- *                 type: string
- *                 example: 507f1f77bcf86cd799439012
- *               part_number:
- *                 type: string
- *                 example: AW-1234
+ *         part_number:
+ *           type: string
+ *           example: "90"
+ *         part_number_status:
+ *           type: string
+ *           enum: [active, inactive]
+ *           default: active
  *         status:
  *           type: string
  *           enum: [active, inactive]
@@ -81,7 +77,7 @@ const { logAction } = require('../middlewares/audit');
  *               - name
  *               - price
  *               - applicable_models
- *               - model_part_numbers
+ *               - part_number
  *             properties:
  *               name:
  *                 type: string
@@ -97,17 +93,13 @@ const { logAction } = require('../middlewares/audit');
  *                 items:
  *                   type: string
  *                   example: 507f1f77bcf86cd799439012
- *               model_part_numbers:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     model_id:
- *                       type: string
- *                       example: 507f1f77bcf86cd799439012
- *                     part_number:
- *                       type: string
- *                       example: AW-1234
+ *               part_number:
+ *                 type: string
+ *                 example: "90"
+ *               part_number_status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *                 example: active
  *               status:
  *                 type: string
  *                 enum: [active, inactive]
@@ -160,6 +152,12 @@ router.post(
  *           type: string
  *           enum: [active, inactive]
  *         description: Filter by status
+ *       - in: query
+ *         name: part_number_status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by part number status
  *       - in: query
  *         name: model_id
  *         schema:
@@ -283,17 +281,13 @@ router.get(
  *                 items:
  *                   type: string
  *                   example: 507f1f77bcf86cd799439012
- *               model_part_numbers:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     model_id:
- *                       type: string
- *                       example: 507f1f77bcf86cd799439012
- *                     part_number:
- *                       type: string
- *                       example: AW-1234-UPDATED
+ *               part_number:
+ *                 type: string
+ *                 example: "95"
+ *               part_number_status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *                 example: active
  *               status:
  *                 type: string
  *                 enum: [active, inactive]
@@ -394,6 +388,69 @@ router.put(
   authorize('ADMIN', 'SUPERADMIN'),
   logAction('UPDATE_STATUS', 'Accessory'),
   accessoryController.updateAccessoryStatus
+);
+
+/**
+ * @swagger
+ * /api/v1/accessories/{id}/part-number-status:
+ *   put:
+ *     summary: Update accessory part number status (Admin+)
+ *     tags: [Accessories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439011
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - part_number_status
+ *             properties:
+ *               part_number_status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *                 example: inactive
+ *     responses:
+ *       200:
+ *         description: Part number status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessory:
+ *                       $ref: '#/components/schemas/Accessory'
+ *       400:
+ *         description: Invalid status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not Admin+)
+ *       404:
+ *         description: Accessory not found
+ *       500:
+ *         description: Server error
+ */
+router.put(
+  '/:id/part-number-status',
+  protect,
+  authorize('ADMIN', 'SUPERADMIN'),
+  logAction('UPDATE_PART_NUMBER_STATUS', 'Accessory'),
+  accessoryController.updatePartNumberStatus
 );
 
 /**

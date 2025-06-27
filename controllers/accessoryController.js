@@ -2,33 +2,13 @@ const Accessory = require('../models/Accessory');
 const AppError = require('../utils/appError');
 const logger = require('../config/logger');
 
-// Helper function to validate model-part number mapping
-const validateModelPartNumbers = (applicableModels, modelPartNumbers) => {
-  if (!applicableModels || !modelPartNumbers) return false;
-  
-  // Check all applicable models have corresponding part numbers
-  const modelIds = applicableModels.map(id => id.toString());
-  const partNumberModelIds = modelPartNumbers.map(item => item.model_id.toString());
-  
-  // Check all models are covered
-  if (modelIds.length !== partNumberModelIds.length) return false;
-  
-  // Check all models in part numbers exist in applicable models
-  return partNumberModelIds.every(id => modelIds.includes(id));
-};
-
 exports.createAccessory = async (req, res, next) => {
   try {
-    const { name, description, price, applicable_models, model_part_numbers, status } = req.body;
+    const { name, description, price, applicable_models, part_number, part_number_status, status } = req.body;
 
     // Validate required fields
-    if (!name || !price || !applicable_models || !model_part_numbers) {
-      return next(new AppError('Name, price, applicable models and model part numbers are required', 400));
-    }
-
-    // Validate model-part number mapping
-    if (!validateModelPartNumbers(applicable_models, model_part_numbers)) {
-      return next(new AppError('Each applicable model must have a corresponding part number', 400));
+    if (!name || !price || !applicable_models || !part_number) {
+      return next(new AppError('Name, price, applicable models and part number are required', 400));
     }
 
     // Create accessory
@@ -37,7 +17,8 @@ exports.createAccessory = async (req, res, next) => {
       description: description || '',
       price,
       applicable_models,
-      model_part_numbers,
+      part_number,
+      part_number_status: part_number_status || 'active',
       status: status || 'active',
       createdBy: req.user.id
     });
@@ -62,6 +43,11 @@ exports.getAllAccessories = async (req, res, next) => {
     // Filter by status if provided
     if (req.query.status && ['active', 'inactive'].includes(req.query.status.toLowerCase())) {
       filter.status = req.query.status.toLowerCase();
+    }
+    
+    // Filter by part number status if provided
+    if (req.query.part_number_status && ['active', 'inactive'].includes(req.query.part_number_status.toLowerCase())) {
+      filter.part_number_status = req.query.part_number_status.toLowerCase();
     }
     
     // Filter by model if provided
@@ -120,18 +106,7 @@ exports.getAccessoryById = async (req, res, next) => {
 
 exports.updateAccessory = async (req, res, next) => {
   try {
-    const { name, description, price, applicable_models, model_part_numbers, status } = req.body;
-
-    // Validate model-part number mapping if applicable_models or model_part_numbers are being updated
-    if (applicable_models || model_part_numbers) {
-      const accessory = await Accessory.findById(req.params.id);
-      const currentModels = applicable_models || accessory.applicable_models;
-      const currentPartNumbers = model_part_numbers || accessory.model_part_numbers;
-      
-      if (!validateModelPartNumbers(currentModels, currentPartNumbers)) {
-        return next(new AppError('Each applicable model must have a corresponding part number', 400));
-      }
-    }
+    const { name, description, price, applicable_models, part_number, part_number_status, status } = req.body;
 
     const updatedAccessory = await Accessory.findByIdAndUpdate(
       req.params.id,
@@ -140,7 +115,8 @@ exports.updateAccessory = async (req, res, next) => {
         description,
         price,
         applicable_models,
-        model_part_numbers,
+        part_number,
+        part_number_status,
         status
       },
       {
@@ -198,6 +174,39 @@ exports.updateAccessoryStatus = async (req, res, next) => {
   }
 };
 
+exports.updatePartNumberStatus = async (req, res, next) => {
+  try {
+    const { part_number_status } = req.body;
+
+    if (!part_number_status || !['active', 'inactive'].includes(part_number_status.toLowerCase())) {
+      return next(new AppError('Part number status must be either "active" or "inactive"', 400));
+    }
+
+    const updatedAccessory = await Accessory.findByIdAndUpdate(
+      req.params.id,
+      { part_number_status: part_number_status.toLowerCase() },
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!updatedAccessory) {
+      return next(new AppError('No accessory found with that ID', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        accessory: updatedAccessory
+      }
+    });
+  } catch (err) {
+    logger.error(`Error updating part number status: ${err.message}`);
+    next(err);
+  }
+};
+
 exports.deleteAccessory = async (req, res, next) => {
   try {
     const accessory = await Accessory.findByIdAndDelete(req.params.id);
@@ -224,7 +233,8 @@ exports.getAccessoriesByModel = async (req, res, next) => {
 
     const accessories = await Accessory.find({
       applicable_models: req.params.modelId,
-      status: 'active'
+      status: 'active',
+      part_number_status: 'active'
     }).populate('applicableModelsDetails', 'model_name type');
 
     res.status(200).json({
