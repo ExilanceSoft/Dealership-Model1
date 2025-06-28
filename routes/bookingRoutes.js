@@ -59,6 +59,10 @@ const { logAction } = require('../middlewares/audit');
  *           description: HPA charges if applicable
  *         personalDetails:
  *           type: object
+ *           required:
+ *             - salutation
+ *             - name
+ *             - mobile1
  *           properties:
  *             salutation:
  *               type: string
@@ -78,12 +82,16 @@ const { logAction } = require('../middlewares/audit');
  *               type: string
  *             pincode:
  *               type: string
+ *               pattern: '^[1-9][0-9]{5}$'
  *             mobile1:
  *               type: string
+ *               pattern: '^[6-9]\d{9}$'
  *             mobile2:
  *               type: string
+ *               pattern: '^[6-9]\d{9}$'
  *             aadharNumber:
  *               type: string
+ *               pattern: '^[0-9]{12}$'
  *             nomineeName:
  *               type: string
  *             nomineeRelation:
@@ -92,6 +100,7 @@ const { logAction } = require('../middlewares/audit');
  *               type: number
  *         exchange:
  *           type: boolean
+ *           default: false
  *           description: Whether exchange vehicle is selected
  *         exchangeDetails:
  *           type: object
@@ -101,6 +110,7 @@ const { logAction } = require('../middlewares/audit');
  *               description: ID of the selected broker
  *             price:
  *               type: number
+ *               minimum: 0
  *             vehicleNumber:
  *               type: string
  *             chassisNumber:
@@ -110,14 +120,19 @@ const { logAction } = require('../middlewares/audit');
  *               enum: [FIXED, VARIABLE]
  *             commissionAmount:
  *               type: number
+ *               minimum: 0
  *         payment:
  *           type: object
+ *           required:
+ *             - type
+ *             - amount
  *           properties:
  *             type:
  *               type: string
  *               enum: [CASH, FINANCE]
  *             amount:
  *               type: number
+ *               minimum: 0
  *             financer:
  *               type: string
  *               description: ID of the financer (required for FINANCE)
@@ -133,37 +148,55 @@ const { logAction } = require('../middlewares/audit');
  *           type: array
  *           items:
  *             type: object
+ *             required:
+ *               - accessory
+ *               - price
  *             properties:
  *               accessory:
  *                 type: string
  *                 description: ID of the accessory
  *               price:
  *                 type: number
+ *                 minimum: 0
  *               discount:
  *                 type: number
+ *                 default: 0
+ *                 minimum: 0
  *         priceComponents:
  *           type: array
  *           items:
  *             type: object
+ *             required:
+ *               - header
+ *               - originalValue
+ *               - discountedValue
  *             properties:
  *               header:
  *                 type: string
  *                 description: ID of the price header
  *               originalValue:
  *                 type: number
+ *                 minimum: 0
  *               discountedValue:
  *                 type: number
+ *                 minimum: 0
  *               isDiscountable:
  *                 type: boolean
+ *                 default: false
  *               isMandatory:
  *                 type: boolean
+ *                 default: false
  *         discounts:
  *           type: array
  *           items:
  *             type: object
+ *             required:
+ *               - amount
+ *               - type
  *             properties:
  *               amount:
  *                 type: number
+ *                 minimum: 0
  *               type:
  *                 type: string
  *                 enum: [FIXED, PERCENTAGE]
@@ -173,10 +206,12 @@ const { logAction } = require('../middlewares/audit');
  *               approvalStatus:
  *                 type: string
  *                 enum: [PENDING, APPROVED, REJECTED]
+ *                 default: PENDING
  *               approvalNote:
  *                 type: string
  *         totalAmount:
  *           type: number
+ *           minimum: 0
  *           description: Total amount after all calculations
  *         status:
  *           type: string
@@ -197,6 +232,22 @@ const { logAction } = require('../middlewares/audit');
  *         updatedAt:
  *           type: string
  *           format: date-time
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           default: false
+ *         message:
+ *           type: string
+ *         error:
+ *           type: string
+ *           description: Detailed error (only in development)
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  */
 
 /**
@@ -222,10 +273,20 @@ const { logAction } = require('../middlewares/audit');
  *               $ref: '#/components/schemas/Booking'
  *       400:
  *         description: Validation error or missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/', 
   protect, 
@@ -277,13 +338,13 @@ router.post('/',
  *         schema:
  *           type: string
  *           format: date
- *         description: Filter bookings from this date
+ *         description: Filter bookings from this date (YYYY-MM-DD)
  *       - in: query
  *         name: toDate
  *         schema:
  *           type: string
  *           format: date
- *         description: Filter bookings to this date
+ *         description: Filter bookings to this date (YYYY-MM-DD)
  *     responses:
  *       200:
  *         description: List of bookings
@@ -296,20 +357,30 @@ router.post('/',
  *                   type: boolean
  *                 count:
  *                   type: integer
+ *                   description: Number of items in current page
  *                 total:
  *                   type: integer
+ *                   description: Total number of items
  *                 page:
  *                   type: integer
+ *                   description: Current page number
  *                 pages:
  *                   type: integer
+ *                   description: Total number of pages
  *                 data:
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/Booking'
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', 
   protect, 
@@ -345,8 +416,16 @@ router.get('/',
  *         description: Forbidden (not authorized to view this booking)
  *       404:
  *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/:id', 
   protect, 
@@ -384,14 +463,26 @@ router.get('/:id',
  *               $ref: '#/components/schemas/Booking'
  *       400:
  *         description: Validation error or invalid status for update
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden (not authorized to update this booking)
  *       404:
  *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put('/:id', 
   protect, 
@@ -423,6 +514,7 @@ router.put('/:id',
  *             properties:
  *               approvalNote:
  *                 type: string
+ *                 description: Optional note for approval
  *     responses:
  *       200:
  *         description: Booking approved
@@ -432,14 +524,26 @@ router.put('/:id',
  *               $ref: '#/components/schemas/Booking'
  *       400:
  *         description: Booking doesn't require approval
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden (no approval permission)
  *       404:
  *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/:id/approve', 
   protect, 
@@ -471,6 +575,7 @@ router.post('/:id/approve',
  *             properties:
  *               rejectionNote:
  *                 type: string
+ *                 description: Reason for rejection
  *     responses:
  *       200:
  *         description: Booking rejected
@@ -480,14 +585,26 @@ router.post('/:id/approve',
  *               $ref: '#/components/schemas/Booking'
  *       400:
  *         description: Booking doesn't require approval
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden (no approval permission)
  *       404:
  *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/:id/reject', 
   protect, 
@@ -520,14 +637,26 @@ router.post('/:id/reject',
  *               $ref: '#/components/schemas/Booking'
  *       400:
  *         description: Booking cannot be completed in current state
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden (no complete permission)
  *       404:
  *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/:id/complete', 
   protect, 
@@ -559,6 +688,7 @@ router.post('/:id/complete',
  *             properties:
  *               cancellationReason:
  *                 type: string
+ *                 description: Reason for cancellation
  *     responses:
  *       200:
  *         description: Booking cancelled
@@ -568,14 +698,26 @@ router.post('/:id/complete',
  *               $ref: '#/components/schemas/Booking'
  *       400:
  *         description: Booking cannot be cancelled in current state
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden (no cancel permission)
  *       404:
  *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/:id/cancel', 
   protect, 
