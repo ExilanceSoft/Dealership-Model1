@@ -31,3 +31,4 @@
 {"timestamp":"2025-06-27 10:34:30","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
 {"timestamp":"2025-06-27 11:34:52","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
 {"timestamp":"2025-06-27 14:59:41","level":"\u001b[31MERROR\u001b[39M","message":"Error creating accessory: Accessory name must be unique","stack":null}
+{"timestamp":"2025-06-28 10:35:09","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}

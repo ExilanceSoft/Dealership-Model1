@@ -70,6 +70,8 @@ app.use(cors({
   origin: [
     'http://localhost:5002',
     `http://${getLocalIp()}:5002`,
+    'http://localhost:3000',
+    'http://localhost:3000/tvs',
     'http://127.0.0.1:5500',  // Add this line
     // Add production domains here when needed
   ],
