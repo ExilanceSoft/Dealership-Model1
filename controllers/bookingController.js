@@ -5,6 +5,7 @@ const Header = require('../models/HeaderModel');
 const Accessory = require('../models/Accessory');
 const Broker = require('../models/Broker');
 const FinanceProvider = require('../models/FinanceProvider');
+const FinancerRate = require('../models/FinancerRate'); // Added this import
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
 const Color = require('../models/Color');
@@ -25,7 +26,7 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
   return priceComponents.map(component => {
     if (!component.isDiscountable) {
       return {
-        ...component.toObject(),
+        ...component, // Removed toObject() call
         discountedValue: component.originalValue
       };
     }
@@ -34,12 +35,11 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
     remainingDiscount -= componentDiscount;
 
     return {
-      ...component.toObject(),
+      ...component, // Removed toObject() call
       discountedValue: component.originalValue - componentDiscount
     };
   });
 };
-
 // Helper to validate discount limits
 const validateDiscountLimits = (priceComponents) => {
   const violations = priceComponents.filter(
@@ -161,7 +161,7 @@ exports.createBooking = async (req, res) => {
       }
     }
 
-    // Handle accessories - CORRECTED VERSION
+    // Handle accessories
     let accessoriesTotal = 0;
     let accessories = [];
     
@@ -283,18 +283,30 @@ exports.createBooking = async (req, res) => {
         throw new Error('Invalid financer selected');
       }
 
-      if (req.body.payment.scheme && !financer.schemes.includes(req.body.payment.scheme)) {
-        throw new Error('Scheme not available with this financer');
+      // Calculate GC amount if applicable
+      let gcAmount = 0;
+      if (req.body.payment.gc_applicable) {
+        const financerRate = await FinancerRate.findOne({
+          financeProvider: req.body.payment.financer_id,
+          branch: req.body.branch,
+          is_active: true
+        });
+
+        if (!financerRate) {
+          throw new Error('Financer rate not found for this branch');
+        }
+
+        gcAmount = (req.body.payment.amount * financerRate.gcRate) / 100;
       }
 
       payment = {
         type: 'FINANCE',
         amount: req.body.payment.amount,
         financer: req.body.payment.financer_id,
-        scheme: req.body.payment.scheme,
-        emiPlan: req.body.payment.emi_plan,
+        scheme: req.body.payment.scheme || null,
+        emiPlan: req.body.payment.emi_plan || null,
         gcApplicable: req.body.payment.gc_applicable,
-        gcAmount: req.body.payment.gc_amount
+        gcAmount: gcAmount
       };
     } else {
       payment = {

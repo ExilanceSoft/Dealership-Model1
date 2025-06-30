@@ -208,15 +208,17 @@ const bookingSchema = new mongoose.Schema({
         message: 'Invalid mobile number'
       }
     },
-    mobile2: {
-      type: String,
-      validate: {
-        validator: function(v) {
-          return /^[6-9]\d{9}$/.test(v);
-        },
-        message: 'Invalid mobile number'
-      }
+  mobile2: {
+  type: String,
+  validate: {
+    validator: function(v) {
+      // Only validate if the field has a value
+      if (!v) return true;
+      return /^[6-9]\d{9}$/.test(v);
     },
+    message: 'Invalid mobile number'
+  }
+},
     aadharNumber: {
       type: String,
       validate: {
