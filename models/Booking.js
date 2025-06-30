@@ -9,6 +9,14 @@ const exchangeVehicleSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
+  fixedBrokerPrice: {
+    type: Number,
+    min: 0
+  },
+  variableBrokerPrice: {
+    type: Number,
+    min: 0
+  },
   vehicleNumber: String,
   chassisNumber: String,
   commissionType: String, // FIXED or VARIABLE
@@ -31,7 +39,7 @@ const paymentDetailSchema = new mongoose.Schema({
     ref: 'FinanceProvider'
   },
   scheme: String,
-  emiDetails: String,
+  emiPlan: String,
   gcApplicable: Boolean,
   gcAmount: Number
 }, { _id: false });
@@ -77,6 +85,11 @@ const priceComponentSchema = new mongoose.Schema({
   isMandatory: {
     type: Boolean,
     default: false
+  },
+  metadata: {
+    pageNo: Number,
+    hsnCode: String,
+    gstRate: Number
   }
 }, { _id: false });
 
@@ -114,8 +127,7 @@ const bookingSchema = new mongoose.Schema({
     required: true
   },
   color: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Color',
+    type: String,
     required: true
   },
   customerType: {
@@ -136,13 +148,22 @@ const bookingSchema = new mongoose.Schema({
     }
   },
   rto: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'RTO',
+    type: String,
+    enum: ['MH', 'BH', 'CRTM'],
     required: true
   },
   rtoAmount: {
     type: Number,
-    min: 0
+    min: 0,
+    validate: {
+      validator: function(v) {
+        if (['BH', 'CRTM'].includes(this.rto)) {
+          return v !== undefined && v > 0;
+        }
+        return true;
+      },
+      message: 'RTO amount is required for BH and CRTM states'
+    }
   },
   hpa: {
     type: Boolean,
@@ -152,18 +173,18 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
-  personalDetails: {
-    salutation: {
-      type: String,
-      enum: ['Mr.', 'Mrs.', 'Miss'],
-      required: true
-    },
+  customerDetails: {
     name: {
       type: String,
       required: true,
       trim: true
     },
-    birthDate: Date,
+    gender: {
+      type: String,
+      enum: ['Male', 'Female', 'Other'],
+      required: true
+    },
+    dob: Date,
     occupation: String,
     address: String,
     taluka: String,
@@ -218,6 +239,10 @@ const bookingSchema = new mongoose.Schema({
   accessories: [accessorySchema],
   priceComponents: [priceComponentSchema],
   discounts: [discountSchema],
+  accessoriesTotal: {
+    type: Number,
+    default: 0
+  },
   totalAmount: {
     type: Number,
     required: true,
@@ -265,26 +290,12 @@ bookingSchema.index({ rto: 1 });
 bookingSchema.index({ branch: 1 });
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ createdBy: 1 });
-bookingSchema.index({ 'personalDetails.mobile1': 1 });
+bookingSchema.index({ 'customerDetails.mobile1': 1 });
 
 // Virtuals
 bookingSchema.virtual('modelDetails', {
   ref: 'Model',
   localField: 'model',
-  foreignField: '_id',
-  justOne: true
-});
-
-bookingSchema.virtual('colorDetails', {
-  ref: 'Color',
-  localField: 'color',
-  foreignField: '_id',
-  justOne: true
-});
-
-bookingSchema.virtual('rtoDetails', {
-  ref: 'RTO',
-  localField: 'rto',
   foreignField: '_id',
   justOne: true
 });

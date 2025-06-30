@@ -13,245 +13,6 @@ const { logAction } = require('../middlewares/audit');
 
 /**
  * @swagger
- * components:
- *   schemas:
- *     Booking:
- *       type: object
- *       required:
- *         - model
- *         - color
- *         - customerType
- *         - rto
- *         - personalDetails
- *         - payment
- *         - branch
- *       properties:
- *         id:
- *           type: string
- *           description: The auto-generated ID of the booking
- *         bookingNumber:
- *           type: string
- *           description: Auto-generated booking number
- *         model:
- *           type: string
- *           description: ID of the selected vehicle model
- *         color:
- *           type: string
- *           description: ID of the selected color
- *         customerType:
- *           type: string
- *           enum: [B2B, B2C]
- *           description: Type of customer (B2B or B2C)
- *         gstin:
- *           type: string
- *           description: GSTIN number (required for B2B)
- *         rto:
- *           type: string
- *           description: ID of the selected RTO
- *         rtoAmount:
- *           type: number
- *           description: RTO charges (required for certain RTOs)
- *         hpa:
- *           type: boolean
- *           description: Whether HPA (Hypothecation) is selected
- *         hypothecationCharges:
- *           type: number
- *           description: HPA charges if applicable
- *         personalDetails:
- *           type: object
- *           required:
- *             - salutation
- *             - name
- *             - mobile1
- *           properties:
- *             salutation:
- *               type: string
- *               enum: [Mr., Mrs., Miss]
- *             name:
- *               type: string
- *             birthDate:
- *               type: string
- *               format: date
- *             occupation:
- *               type: string
- *             address:
- *               type: string
- *             taluka:
- *               type: string
- *             district:
- *               type: string
- *             pincode:
- *               type: string
- *               pattern: '^[1-9][0-9]{5}$'
- *             mobile1:
- *               type: string
- *               pattern: '^[6-9]\d{9}$'
- *             mobile2:
- *               type: string
- *               pattern: '^[6-9]\d{9}$'
- *             aadharNumber:
- *               type: string
- *               pattern: '^[0-9]{12}$'
- *             nomineeName:
- *               type: string
- *             nomineeRelation:
- *               type: string
- *             nomineeAge:
- *               type: number
- *         exchange:
- *           type: boolean
- *           default: false
- *           description: Whether exchange vehicle is selected
- *         exchangeDetails:
- *           type: object
- *           properties:
- *             broker:
- *               type: string
- *               description: ID of the selected broker
- *             price:
- *               type: number
- *               minimum: 0
- *             vehicleNumber:
- *               type: string
- *             chassisNumber:
- *               type: string
- *             commissionType:
- *               type: string
- *               enum: [FIXED, VARIABLE]
- *             commissionAmount:
- *               type: number
- *               minimum: 0
- *         payment:
- *           type: object
- *           required:
- *             - type
- *             - amount
- *           properties:
- *             type:
- *               type: string
- *               enum: [CASH, FINANCE]
- *             amount:
- *               type: number
- *               minimum: 0
- *             financer:
- *               type: string
- *               description: ID of the financer (required for FINANCE)
- *             scheme:
- *               type: string
- *             emiDetails:
- *               type: string
- *             gcApplicable:
- *               type: boolean
- *             gcAmount:
- *               type: number
- *         accessories:
- *           type: array
- *           items:
- *             type: object
- *             required:
- *               - accessory
- *               - price
- *             properties:
- *               accessory:
- *                 type: string
- *                 description: ID of the accessory
- *               price:
- *                 type: number
- *                 minimum: 0
- *               discount:
- *                 type: number
- *                 default: 0
- *                 minimum: 0
- *         priceComponents:
- *           type: array
- *           items:
- *             type: object
- *             required:
- *               - header
- *               - originalValue
- *               - discountedValue
- *             properties:
- *               header:
- *                 type: string
- *                 description: ID of the price header
- *               originalValue:
- *                 type: number
- *                 minimum: 0
- *               discountedValue:
- *                 type: number
- *                 minimum: 0
- *               isDiscountable:
- *                 type: boolean
- *                 default: false
- *               isMandatory:
- *                 type: boolean
- *                 default: false
- *         discounts:
- *           type: array
- *           items:
- *             type: object
- *             required:
- *               - amount
- *               - type
- *             properties:
- *               amount:
- *                 type: number
- *                 minimum: 0
- *               type:
- *                 type: string
- *                 enum: [FIXED, PERCENTAGE]
- *               approvedBy:
- *                 type: string
- *                 description: ID of approving user
- *               approvalStatus:
- *                 type: string
- *                 enum: [PENDING, APPROVED, REJECTED]
- *                 default: PENDING
- *               approvalNote:
- *                 type: string
- *         totalAmount:
- *           type: number
- *           minimum: 0
- *           description: Total amount after all calculations
- *         status:
- *           type: string
- *           enum: [DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, COMPLETED, CANCELLED]
- *           default: DRAFT
- *         branch:
- *           type: string
- *           description: ID of the branch where booking was made
- *         createdBy:
- *           type: string
- *           description: ID of the user who created the booking
- *         approvedBy:
- *           type: string
- *           description: ID of the user who approved the booking
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *     ErrorResponse:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *           default: false
- *         message:
- *           type: string
- *         error:
- *           type: string
- *           description: Detailed error (only in development)
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
- */
-
-/**
- * @swagger
  * /api/v1/bookings:
  *   post:
  *     summary: Create a new booking
@@ -264,6 +25,43 @@ const { logAction } = require('../middlewares/audit');
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/Booking'
+ *           examples:
+ *             B2C Booking:
+ *               value:
+ *                 model: "60d5ec9f8f9a8e001f4e8a9a"
+ *                 color: "60d5ec9f8f9a8e001f4e8a9b"
+ *                 customerType: "B2C"
+ *                 rto: "MH"
+ *                 personalDetails:
+ *                   salutation: "Mr."
+ *                   name: "John Doe"
+ *                   mobile1: "9876543210"
+ *                   address: "123 Main St"
+ *                   pincode: "400001"
+ *                 payment:
+ *                   type: "CASH"
+ *                   amount: 500000
+ *                 branch: "60d5ec9f8f9a8e001f4e8a9c"
+ *             B2B Booking:
+ *               value:
+ *                 model: "60d5ec9f8f9a8e001f4e8a9a"
+ *                 color: "60d5ec9f8f9a8e001f4e8a9b"
+ *                 customerType: "B2B"
+ *                 gstin: "22AAAAA0000A1Z5"
+ *                 rto: "BH"
+ *                 rtoAmount: 15000
+ *                 personalDetails:
+ *                   salutation: "Mr."
+ *                   name: "Business Corp"
+ *                   mobile1: "9876543210"
+ *                   address: "456 Business Ave"
+ *                   pincode: "400002"
+ *                 payment:
+ *                   type: "FINANCE"
+ *                   amount: 500000
+ *                   financer: "60d5ec9f8f9a8e001f4e8a9d"
+ *                   scheme: "Special Offer"
+ *                 branch: "60d5ec9f8f9a8e001f4e8a9c"
  *     responses:
  *       201:
  *         description: Booking created successfully
@@ -287,6 +85,248 @@ const { logAction } = require('../middlewares/audit');
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ */
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     BookingRequest:
+ *       type: object
+ *       required:
+ *         - model_id
+ *         - model_color
+ *         - customer_type
+ *         - rto_type
+ *         - customer_details
+ *         - payment
+ *         - branch
+ *       properties:
+ *         model_id:
+ *           type: string
+ *           example: "685d1c1d7c59ad32056ab6e7"
+ *         model_color:
+ *           type: string
+ *           example: "Red"
+ *         customer_type:
+ *           type: string
+ *           enum: [B2B, B2C]
+ *           example: "B2C"
+ *         gstin:
+ *           type: string
+ *           example: ""
+ *         rto_type:
+ *           type: string
+ *           enum: [MH, BH, CRTM]
+ *           example: "BH"
+ *         rto_amount:
+ *           type: number
+ *           example: 5000
+ *         hpa:
+ *           type: boolean
+ *           example: true
+ *         price_components:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               header_id:
+ *                 type: string
+ *                 example: "685bdfc67d7436e62972ec9c"
+ *               value:
+ *                 type: number
+ *                 example: 46954
+ *               is_discount:
+ *                 type: boolean
+ *                 example: false
+ *         discount:
+ *           type: object
+ *           properties:
+ *             type:
+ *               type: string
+ *               enum: [amount, percentage]
+ *               example: "amount"
+ *             value:
+ *               type: number
+ *               example: 5000
+ *         customer_details:
+ *           type: object
+ *           required:
+ *             - name
+ *             - gender
+ *             - mobile1
+ *           properties:
+ *             name:
+ *               type: string
+ *               example: "Devita Aher"
+ *             gender:
+ *               type: string
+ *               enum: [Male, Female, Other]
+ *               example: "Female"
+ *             dob:
+ *               type: string
+ *               format: date
+ *               example: "1998-10-21"
+ *             occupation:
+ *               type: string
+ *               example: "Software Developer"
+ *             address:
+ *               type: string
+ *               example: "CIDCO, Nashik"
+ *             taluka:
+ *               type: string
+ *               example: "Nashik"
+ *             district:
+ *               type: string
+ *               example: "Nashik"
+ *             pincode:
+ *               type: string
+ *               example: "422009"
+ *             mobile1:
+ *               type: string
+ *               example: "9876543210"
+ *             mobile2:
+ *               type: string
+ *               example: "1234567890"
+ *             aadhar_number:
+ *               type: string
+ *               example: "123456789012"
+ *             nominee_name:
+ *               type: string
+ *               example: "Rajendra Aher"
+ *             nominee_relation:
+ *               type: string
+ *               example: "Father"
+ *             nominee_age:
+ *               type: number
+ *               example: 50
+ *         exchange:
+ *           type: object
+ *           properties:
+ *             is_exchange:
+ *               type: boolean
+ *               example: true
+ *             broker_id:
+ *               type: string
+ *               example: "broker123"
+ *             fixed_broker_price:
+ *               type: number
+ *               example: 1000
+ *             variable_broker_price:
+ *               type: number
+ *               example: 500
+ *             exchange_price:
+ *               type: number
+ *               example: 20000
+ *             vehicle_number:
+ *               type: string
+ *               example: "MH15XY1234"
+ *             chassis_number:
+ *               type: string
+ *               example: "CH123456789"
+ *         payment:
+ *           type: object
+ *           required:
+ *             - type
+ *             - amount
+ *           properties:
+ *             type:
+ *               type: string
+ *               enum: [cash, finance]
+ *               example: "finance"
+ *             financer_id:
+ *               type: string
+ *               example: "financer001"
+ *             scheme:
+ *               type: string
+ *               example: "Gold EMI"
+ *             emi_plan:
+ *               type: string
+ *               example: "12 Months"
+ *             gc_applicable:
+ *               type: boolean
+ *               example: true
+ *             gc_amount:
+ *               type: number
+ *               example: 1500
+ *             amount:
+ *               type: number
+ *               example: 60000
+ *         accessories:
+ *           type: object
+ *           properties:
+ *             selected:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     example: "Seat Cover"
+ *                   price:
+ *                     type: number
+ *                     example: 700
+ *             accessories_total_header:
+ *               type: number
+ *               example: 1800
+ *         branch:
+ *           type: string
+ *           example: "685641b4a584a450570f20ae"
+ * 
+ *     BookingResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         data:
+ *           $ref: '#/components/schemas/Booking'
+ * 
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Error message describing what went wrong"
+ *         error:
+ *           type: string
+ *           description: "Detailed error stack (only in development)"
+ */
+
+/**
+ * @swagger
+ * /api/v1/bookings:
+ *   post:
+ *     summary: Create a new two-wheeler booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/BookingRequest'
+ *     responses:
+ *       201:
+ *         description: Booking created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BookingResponse'
+ *       400:
+ *         description: Validation error or missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       500:
+ *         description: Server error
  */
 router.post('/', 
   protect, 

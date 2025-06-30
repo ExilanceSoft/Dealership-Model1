@@ -1,12 +1,13 @@
+const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const Model = require('../models/ModelModel');
 const Header = require('../models/HeaderModel');
 const Accessory = require('../models/Accessory');
 const Broker = require('../models/Broker');
 const FinanceProvider = require('../models/FinanceProvider');
-const RTO = require('../models/Rto');
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
+const Color = require('../models/Color');
 
 // Helper function to calculate discounts
 const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
@@ -21,7 +22,6 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
     ? (totalEligible * discountAmount) / 100 
     : discountAmount;
 
-  // Apply discount proportionally
   return priceComponents.map(component => {
     if (!component.isDiscountable) {
       return {
@@ -40,7 +40,7 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
   });
 };
 
-// Helper to validate discount doesn't exceed 95% of any item
+// Helper to validate discount limits
 const validateDiscountLimits = (priceComponents) => {
   const violations = priceComponents.filter(
     c => c.discountedValue < (0.05 * c.originalValue)
@@ -52,16 +52,16 @@ const validateDiscountLimits = (priceComponents) => {
   }
 };
 
-// Enhanced createBooking function with more detailed validation
+// Create Booking Endpoint
 exports.createBooking = async (req, res) => {
   try {
-    // Validate required fields with more specific error messages
+    // Validate required fields
     const requiredFields = [
-      { field: 'model', message: 'Model selection is required' },
-      { field: 'color', message: 'Color selection is required' },
-      { field: 'customerType', message: 'Customer type (B2B/B2C) is required' },
-      { field: 'rto', message: 'RTO selection is required' },
-      { field: 'personalDetails', message: 'Personal details are required' },
+      { field: 'model_id', message: 'Model selection is required' },
+      { field: 'model_color', message: 'Color selection is required' },
+      { field: 'customer_type', message: 'Customer type (B2B/B2C) is required' },
+      { field: 'rto_type', message: 'RTO state (MH/BH/CRTM) is required' },
+      { field: 'customer_details', message: 'Customer details are required' },
       { field: 'payment', message: 'Payment details are required' },
       { field: 'branch', message: 'Branch selection is required' }
     ];
@@ -74,8 +74,8 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Validate model exists and get model details
-    const model = await Model.findById(req.body.model).populate('colors');
+    // Validate model exists
+    const model = await Model.findById(req.body.model_id).populate('colors');
     if (!model) {
       return res.status(400).json({
         success: false,
@@ -83,69 +83,64 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Validate color is available for selected model
-    if (!model.colors.some(c => c._id.equals(req.body.color))) {
+    // Validate color exists and is available for model
+    const color = await Color.findById(req.body.model_color);
+    if (!color) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid color selected'
+      });
+    }
+
+    const colorAvailable = model.colors.some(c => 
+      c._id.toString() === req.body.model_color.toString()
+    );
+    
+    if (!colorAvailable) {
       return res.status(400).json({
         success: false,
         message: 'Selected color is not available for this model'
       });
     }
 
-    // Validate RTO exists
-    const rto = await RTO.findById(req.body.rto);
-    if (!rto) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid RTO selected'
-      });
-    }
-
     // Validate GSTIN for B2B customers
-    if (req.body.customerType === 'B2B' && !req.body.gstin) {
+    if (req.body.customer_type === 'B2B' && !req.body.gstin) {
       return res.status(400).json({
         success: false,
         message: 'GSTIN is required for B2B customers'
       });
     }
 
-    // Validate RTO amount for specific states
-    const rtoState = rto.rto_code.substring(0, 2);
-    if (['BH', 'CRTM'].includes(rtoState)) {
-      if (!req.body.rtoAmount || req.body.rtoAmount <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'RTO amount is required for selected RTO location'
-        });
-      }
-    }
+    // Get ALL headers for this vehicle type
+    const headers = await Header.find({ 
+      type: model.type
+    }).sort({ priority: 1 });
 
-    // Get all headers for the selected model type sorted by priority
-    const headers = await Header.find({ type: model.type }).sort({ priority: 1 });
-
-    // Create price components from headers with enhanced validation
+    // Create price components from all available data
     const priceComponents = await Promise.all(headers.map(async (header) => {
       const priceData = model.prices.find(
         p => p.header_id.equals(header._id) && p.branch_id.equals(req.body.branch)
       );
 
-      // For mandatory headers, ensure price exists
-      if (header.is_mandatory && !priceData) {
-        throw new Error(`Mandatory price component missing for: ${header.header_key}`);
-      }
-
       return {
         header: header._id,
-        headerDetails: header, // Store header details for reference
+        headerDetails: header,
         originalValue: priceData?.value || 0,
         discountedValue: priceData?.value || 0,
         isDiscountable: header.is_discount,
-        isMandatory: header.is_mandatory
+        isMandatory: header.is_mandatory,
+        metadata: priceData?.metadata || {}
       };
     }));
 
+    // Calculate base amount from price components
+    const baseAmount = priceComponents.reduce(
+      (sum, c) => sum + c.discountedValue, 0
+    );
+
     // Handle HPA charges if applicable
     if (req.body.hpa) {
-      const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION_CHARGES');
+      const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
       if (hpaHeader) {
         const hpaPrice = model.prices.find(
           p => p.header_id.equals(hpaHeader._id) && p.branch_id.equals(req.body.branch)
@@ -158,200 +153,234 @@ exports.createBooking = async (req, res) => {
             originalValue: hpaPrice.value,
             discountedValue: hpaPrice.value,
             isDiscountable: false,
-            isMandatory: false
+            isMandatory: false,
+            metadata: hpaPrice.metadata || {}
           });
           req.body.hypothecationCharges = hpaPrice.value;
         }
       }
     }
 
-    // Handle RTO charges for specific states
-    if (['BH', 'CRTM'].includes(rtoState)) {
-      const rtoHeader = headers.find(h => h.header_key === 'RTO_CHARGES');
-      if (rtoHeader) {
-        priceComponents.push({
-          header: rtoHeader._id,
-          headerDetails: rtoHeader,
-          originalValue: req.body.rtoAmount,
-          discountedValue: req.body.rtoAmount,
-          isDiscountable: false,
-          isMandatory: true
-        });
+    // Handle accessories - CORRECTED VERSION
+    let accessoriesTotal = 0;
+    let accessories = [];
+    
+    if (req.body.accessories && req.body.accessories.selected && req.body.accessories.selected.length > 0) {
+      // Validate and map accessory IDs
+      const accessoryIds = req.body.accessories.selected.map(acc => {
+        if (!acc.id || !mongoose.Types.ObjectId.isValid(acc.id)) {
+          throw new Error(`Invalid accessory ID: ${acc.id}`);
+        }
+        return new mongoose.Types.ObjectId(acc.id);
+      });
+
+      // Find valid active accessories
+      const validAccessories = await Accessory.find({
+        _id: { $in: accessoryIds },
+        status: 'active'
+      }).lean();
+
+      // Verify all accessories were found
+      if (validAccessories.length !== req.body.accessories.selected.length) {
+        const foundIds = validAccessories.map(a => a._id.toString());
+        const missingIds = req.body.accessories.selected
+          .filter(a => !foundIds.includes(a.id))
+          .map(a => a.id);
+        throw new Error(`Invalid accessory IDs: ${missingIds.join(', ')}`);
       }
-    }
 
-    // Handle accessories with enhanced validation
-    if (req.body.accessories && req.body.accessories.length > 0) {
-      try {
-        // Validate selected accessories exist and are active
-        const accessoryIds = req.body.accessories.map(a => a.accessory);
-        const validAccessories = await Accessory.find({
-          _id: { $in: accessoryIds },
-          status: 'active'
-        }).lean();
-
-        // Check if all accessories were found
-        if (validAccessories.length !== req.body.accessories.length) {
-          const foundIds = validAccessories.map(a => a._id.toString());
-          const missingIds = req.body.accessories
-            .filter(a => !foundIds.includes(a.accessory.toString()))
-            .map(a => a.accessory);
-          throw new Error(`Invalid accessories selected: ${missingIds.join(', ')}`);
-        }
-
-        // Verify accessories are applicable to selected model
-        const invalidAccessories = validAccessories.filter(
-          a => !a.applicable_models.some(m => m.toString() === req.body.model.toString())
-        );
-        
-        if (invalidAccessories.length > 0) {
-          throw new Error(`These accessories are not available for selected model: ${
-            invalidAccessories.map(a => a.name).join(', ')
-          }`);
-        }
-
-        // Get ACCESSORIES TOTAL reference price
-        const accessoriesTotalHeader = await Header.findOne({
-          header_key: 'ACCESSORIES TOTAL',
-          type: model.type
-        });
-        
-        if (!accessoriesTotalHeader) {
-          throw new Error('ACCESSORIES TOTAL header not found for this model type');
-        }
-
-        const accessoriesTotalPrice = model.prices.find(
-          p => p.header_id.equals(accessoriesTotalHeader._id) && 
-               p.branch_id.equals(req.body.branch)
-        )?.value || 0;
-
-        // Calculate selected accessories total
-        const selectedAccessoriesTotal = validAccessories.reduce(
-          (sum, acc) => sum + acc.price, 0
-        );
-
-        // Determine final accessories total
-        req.body.accessoriesTotal = Math.max(
-          selectedAccessoriesTotal,
-          accessoriesTotalPrice
-        );
-        
-        // Only store individual accessories if they exceed reference
-        req.body.accessories = selectedAccessoriesTotal > accessoriesTotalPrice ? 
-          validAccessories.map(acc => ({
-            accessory: acc._id,
-            price: acc.price
-          })) : [];
-
-      } catch (error) {
-        console.error('Accessories validation failed:', error);
-        return res.status(400).json({
-          success: false,
-          message: error.message
-        });
+      // Check model compatibility
+      const incompatibleAccessories = validAccessories.filter(
+        a => !a.applicable_models.some(m => m.toString() === req.body.model_id.toString())
+      );
+      
+      if (incompatibleAccessories.length > 0) {
+        throw new Error(`Incompatible accessories: ${
+          incompatibleAccessories.map(a => a.name).join(', ')
+        }`);
       }
-    } else {
-      // No accessories selected
-      req.body.accessoriesTotal = 0;
-      req.body.accessories = [];
+
+      // Get accessories total header
+      const accessoriesTotalHeader = await Header.findOne({
+        header_key: 'ACCESSORIES TOTAL',
+        type: model.type
+      });
+      
+      if (!accessoriesTotalHeader) {
+        throw new Error('ACCESSORIES TOTAL header not configured');
+      }
+
+      // Get base accessories price
+      const accessoriesTotalPrice = model.prices.find(
+        p => p.header_id.equals(accessoriesTotalHeader._id) && 
+             p.branch_id.equals(req.body.branch)
+      )?.value || 0;
+
+      // Calculate selected accessories total
+      const selectedAccessoriesTotal = req.body.accessories.selected.reduce(
+        (sum, acc) => {
+          const validAcc = validAccessories.find(a => a._id.toString() === acc.id);
+          return sum + (validAcc ? validAcc.price : 0);
+        }, 0
+      );
+
+      accessoriesTotal = Math.max(selectedAccessoriesTotal, accessoriesTotalPrice);
+      
+      // Only include accessories if custom selection exceeds base price
+      accessories = selectedAccessoriesTotal > accessoriesTotalPrice ? 
+        validAccessories.map(acc => ({
+          accessory: acc._id,
+          price: acc.price,
+          discount: 0
+        })) : [];
     }
 
     // Handle exchange if applicable
-    if (req.body.exchange) {
-      if (!req.body.exchangeDetails || !req.body.exchangeDetails.broker) {
-        throw new Error('Exchange details and broker selection are required when exchange is selected');
+    let exchangeDetails = null;
+    if (req.body.exchange && req.body.exchange.is_exchange) {
+      if (!req.body.exchange.broker_id) {
+        throw new Error('Broker selection is required for exchange');
       }
 
-      const broker = await Broker.findById(req.body.exchangeDetails.broker);
+      const broker = await Broker.findById(req.body.exchange.broker_id);
       if (!broker) {
-        throw new Error('Invalid broker selected for exchange');
+        throw new Error('Invalid broker selected');
       }
 
       const brokerBranch = broker.branches.find(b => b.branch.equals(req.body.branch));
       if (!brokerBranch) {
-        throw new Error('Selected broker is not available for this branch');
+        throw new Error('Broker not available for this branch');
       }
 
-      // Calculate commission based on type
+      exchangeDetails = {
+        broker: req.body.exchange.broker_id,
+        price: req.body.exchange.exchange_price,
+        fixedBrokerPrice: req.body.exchange.fixed_broker_price,
+        variableBrokerPrice: req.body.exchange.variable_broker_price,
+        vehicleNumber: req.body.exchange.vehicle_number,
+        chassisNumber: req.body.exchange.chassis_number
+      };
+
       if (brokerBranch.commissionType === 'FIXED') {
-        req.body.exchangeDetails.commissionType = 'FIXED';
-        req.body.exchangeDetails.commissionAmount = brokerBranch.fixedCommission;
+        exchangeDetails.commissionType = 'FIXED';
+        exchangeDetails.commissionAmount = brokerBranch.fixedCommission;
       } else {
-        req.body.exchangeDetails.commissionType = 'VARIABLE';
-        req.body.exchangeDetails.commissionAmount = 
-          (req.body.exchangeDetails.price * brokerBranch.maxCommission) / 100;
+        exchangeDetails.commissionType = 'VARIABLE';
+        exchangeDetails.commissionAmount = 
+          (req.body.exchange.exchange_price * brokerBranch.maxCommission) / 100;
       }
     }
 
-    // Handle finance details if payment type is FINANCE
-    if (req.body.payment.type === 'FINANCE') {
-      if (!req.body.payment.financer) {
-        throw new Error('Financer selection is required for finance payment');
+    // Handle payment details
+    let payment = {};
+    if (req.body.payment.type.toLowerCase() === 'finance') {
+      if (!req.body.payment.financer_id) {
+        throw new Error('Financer selection is required');
       }
 
-      const financer = await FinanceProvider.findById(req.body.payment.financer);
+      const financer = await FinanceProvider.findById(req.body.payment.financer_id);
       if (!financer) {
         throw new Error('Invalid financer selected');
       }
 
-      // Validate scheme if provided
       if (req.body.payment.scheme && !financer.schemes.includes(req.body.payment.scheme)) {
-        throw new Error('Selected scheme is not available with this financer');
+        throw new Error('Scheme not available with this financer');
       }
+
+      payment = {
+        type: 'FINANCE',
+        amount: req.body.payment.amount,
+        financer: req.body.payment.financer_id,
+        scheme: req.body.payment.scheme,
+        emiPlan: req.body.payment.emi_plan,
+        gcApplicable: req.body.payment.gc_applicable,
+        gcAmount: req.body.payment.gc_amount
+      };
+    } else {
+      payment = {
+        type: 'CASH',
+        amount: req.body.payment.amount
+      };
     }
 
-    // Apply discounts if provided with enhanced validation
-    if (req.body.discounts && req.body.discounts.length > 0) {
-      for (const discount of req.body.discounts) {
-        const updatedComponents = calculateDiscounts(
-          priceComponents, 
-          discount.amount, 
-          discount.type
-        );
-        
-        // Validate no item gets >95% discount
-        validateDiscountLimits(updatedComponents);
+    // Apply discounts if provided
+    let discounts = [];
+    if (req.body.discount) {
+      const discount = {
+        amount: req.body.discount.value,
+        type: req.body.discount.type === 'percentage' ? 'PERCENTAGE' : 'FIXED',
+        approvalStatus: 'PENDING'
+      };
 
-        // Update components with new discounted values
-        updatedComponents.forEach(updated => {
-          const original = priceComponents.find(c => c.header.equals(updated.header));
-          if (original) {
-            original.discountedValue = updated.discountedValue;
-          }
-        });
-      }
+      const updatedComponents = calculateDiscounts(
+        priceComponents, 
+        discount.amount, 
+        discount.type
+      );
+      
+      validateDiscountLimits(updatedComponents);
+
+      updatedComponents.forEach(updated => {
+        const original = priceComponents.find(c => c.header?.toString() === updated.header?.toString());
+        if (original) {
+          original.discountedValue = updated.discountedValue;
+        }
+      });
+
+      discounts = [discount];
     }
 
-    // Calculate total amount with all components
-    const componentsTotal = priceComponents.reduce(
-      (sum, c) => sum + c.discountedValue, 0
-    );
-    const accessoriesTotal = req.body.accessoriesTotal || 0;
-    const totalAmount = componentsTotal + accessoriesTotal;
+    // Calculate total amount
+    const totalAmount = baseAmount + accessoriesTotal;
 
-    // Create the booking with all validated data
+    // Create the booking
     const bookingData = {
-      ...req.body,
-      priceComponents,
-      totalAmount,
-      status: req.body.discounts?.length > 0 ? 'PENDING_APPROVAL' : 'DRAFT',
+      model: req.body.model_id,
+      color: req.body.model_color,
+      customerType: req.body.customer_type,
+      gstin: req.body.gstin || '',
+      rto: req.body.rto_type,
+      hpa: req.body.hpa || false,
+      hypothecationCharges: req.body.hypothecationCharges || 0,
+      customerDetails: {
+        name: req.body.customer_details.name,
+        gender: req.body.customer_details.gender,
+        dob: req.body.customer_details.dob,
+        occupation: req.body.customer_details.occupation,
+        address: req.body.customer_details.address,
+        taluka: req.body.customer_details.taluka,
+        district: req.body.customer_details.district,
+        pincode: req.body.customer_details.pincode,
+        mobile1: req.body.customer_details.mobile1,
+        mobile2: req.body.customer_details.mobile2 || '',
+        aadharNumber: req.body.customer_details.aadhar_number || '',
+        nomineeName: req.body.customer_details.nominee_name || '',
+        nomineeRelation: req.body.customer_details.nominee_relation || '',
+        nomineeAge: req.body.customer_details.nominee_age || 0
+      },
+      exchange: req.body.exchange ? req.body.exchange.is_exchange : false,
+      exchangeDetails: exchangeDetails,
+      payment: payment,
+      accessories: accessories,
+      priceComponents: priceComponents,
+      discounts: discounts,
+      accessoriesTotal: accessoriesTotal,
+      totalAmount: totalAmount,
+      status: discounts.length > 0 ? 'PENDING_APPROVAL' : 'DRAFT',
+      branch: req.body.branch,
       createdBy: req.user.id
     };
 
     const booking = await Booking.create(bookingData);
 
-    // Populate references for response
     await booking.populate([
       'modelDetails',
-      'colorDetails',
-      'rtoDetails',
       'branchDetails',
       'createdByDetails',
       { path: 'priceComponents.header', model: 'Header' },
       { path: 'accessories.accessory', model: 'Accessory' }
     ]);
 
-    // Log the creation
     await AuditLog.create({
       action: 'CREATE',
       entity: 'Booking',
@@ -376,7 +405,6 @@ exports.createBooking = async (req, res) => {
       message = err.message;
     }
 
-    // Log failed attempt
     await AuditLog.create({
       action: 'CREATE',
       entity: 'Booking',
@@ -394,7 +422,7 @@ exports.createBooking = async (req, res) => {
     });
   }
 };
-
+// ... (keep the rest of the controller methods the same)
 exports.getBookings = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
