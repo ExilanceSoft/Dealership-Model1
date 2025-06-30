@@ -9,18 +9,8 @@ const exchangeVehicleSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
-  fixedBrokerPrice: {
-    type: Number,
-    min: 0
-  },
-  variableBrokerPrice: {
-    type: Number,
-    min: 0
-  },
   vehicleNumber: String,
-  chassisNumber: String,
-  commissionType: String, // FIXED or VARIABLE
-  commissionAmount: Number
+  chassisNumber: String
 }, { _id: false });
 
 const paymentDetailSchema = new mongoose.Schema({
@@ -28,11 +18,6 @@ const paymentDetailSchema = new mongoose.Schema({
     type: String,
     enum: ['CASH', 'FINANCE'],
     required: true
-  },
-  amount: {
-    type: Number,
-    required: true,
-    min: 0
   },
   financer: {
     type: mongoose.Schema.Types.ObjectId,
@@ -53,11 +38,6 @@ const accessorySchema = new mongoose.Schema({
   price: {
     type: Number,
     required: true,
-    min: 0
-  },
-  discount: {
-    type: Number,
-    default: 0,
     min: 0
   }
 }, { _id: false });
@@ -152,19 +132,6 @@ const bookingSchema = new mongoose.Schema({
     enum: ['MH', 'BH', 'CRTM'],
     required: true
   },
-  rtoAmount: {
-    type: Number,
-    min: 0,
-    validate: {
-      validator: function(v) {
-        if (['BH', 'CRTM'].includes(this.rto)) {
-          return v !== undefined && v > 0;
-        }
-        return true;
-      },
-      message: 'RTO amount is required for BH and CRTM states'
-    }
-  },
   hpa: {
     type: Boolean,
     default: false
@@ -179,10 +146,15 @@ const bookingSchema = new mongoose.Schema({
       required: true,
       trim: true
     },
-    gender: {
+    panNo: {
       type: String,
-      enum: ['Male', 'Female', 'Other'],
-      required: true
+      validate: {
+        validator: function(v) {
+          if (!v) return true;
+          return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v);
+        },
+        message: 'Invalid PAN number format'
+      }
     },
     dob: Date,
     occupation: String,
@@ -208,17 +180,16 @@ const bookingSchema = new mongoose.Schema({
         message: 'Invalid mobile number'
       }
     },
-  mobile2: {
-  type: String,
-  validate: {
-    validator: function(v) {
-      // Only validate if the field has a value
-      if (!v) return true;
-      return /^[6-9]\d{9}$/.test(v);
+    mobile2: {
+      type: String,
+      validate: {
+        validator: function(v) {
+          if (!v) return true;
+          return /^[6-9]\d{9}$/.test(v);
+        },
+        message: 'Invalid mobile number'
+      }
     },
-    message: 'Invalid mobile number'
-  }
-},
     aadharNumber: {
       type: String,
       validate: {

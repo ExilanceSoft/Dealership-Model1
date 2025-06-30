@@ -5,7 +5,7 @@ const Header = require('../models/HeaderModel');
 const Accessory = require('../models/Accessory');
 const Broker = require('../models/Broker');
 const FinanceProvider = require('../models/FinanceProvider');
-const FinancerRate = require('../models/FinancerRate'); // Added this import
+const FinancerRate = require('../models/FinancerRate');
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
 const Color = require('../models/Color');
@@ -13,33 +13,53 @@ const Color = require('../models/Color');
 // Helper function to calculate discounts
 const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
   const eligibleComponents = priceComponents.filter(c => c.isDiscountable);
-  const totalEligible = eligibleComponents.reduce((sum, c) => sum + c.originalValue, 0);
-  
-  if (totalEligible === 0) {
+
+  if (eligibleComponents.length === 0) {
     throw new Error('No discountable components available');
   }
 
-  let remainingDiscount = discountType === 'PERCENTAGE' 
-    ? (totalEligible * discountAmount) / 100 
+  // Sort by GST rate descending
+  eligibleComponents.sort((a, b) => {
+    const gstA = a.headerDetails?.metadata?.gst_rate || 0;
+    const gstB = b.headerDetails?.metadata?.gst_rate || 0;
+    return gstB - gstA;
+  });
+
+  // Calculate total eligible value
+  const totalEligible = eligibleComponents.reduce((sum, c) => sum + c.originalValue, 0);
+
+  let remainingDiscount = discountType === 'PERCENTAGE'
+    ? (totalEligible * discountAmount) / 100
     : discountAmount;
 
   return priceComponents.map(component => {
     if (!component.isDiscountable) {
       return {
-        ...component, // Removed toObject() call
+        ...component,
         discountedValue: component.originalValue
       };
     }
-    const componentRatio = component.originalValue / totalEligible;
-    const componentDiscount = Math.min(remainingDiscount * componentRatio, component.originalValue);
-    remainingDiscount -= componentDiscount;
+
+    const targetComponent = eligibleComponents.find(c => c.header === component.header);
+    if (!targetComponent || remainingDiscount <= 0) {
+      return {
+        ...component,
+        discountedValue: component.originalValue
+      };
+    }
+
+    const maxDiscount = component.originalValue * 0.95; // 95% max discount
+    const desiredDiscount = Math.min(maxDiscount, remainingDiscount);
+
+    remainingDiscount -= desiredDiscount;
 
     return {
-      ...component, // Removed toObject() call
-      discountedValue: component.originalValue - componentDiscount
+      ...component,
+      discountedValue: component.originalValue - desiredDiscount
     };
   });
 };
+
 // Helper to validate discount limits
 const validateDiscountLimits = (priceComponents) => {
   const violations = priceComponents.filter(
@@ -230,8 +250,7 @@ exports.createBooking = async (req, res) => {
       accessories = selectedAccessoriesTotal > accessoriesTotalPrice ? 
         validAccessories.map(acc => ({
           accessory: acc._id,
-          price: acc.price,
-          discount: 0
+          price: acc.price
         })) : [];
     }
 
@@ -255,20 +274,9 @@ exports.createBooking = async (req, res) => {
       exchangeDetails = {
         broker: req.body.exchange.broker_id,
         price: req.body.exchange.exchange_price,
-        fixedBrokerPrice: req.body.exchange.fixed_broker_price,
-        variableBrokerPrice: req.body.exchange.variable_broker_price,
         vehicleNumber: req.body.exchange.vehicle_number,
         chassisNumber: req.body.exchange.chassis_number
       };
-
-      if (brokerBranch.commissionType === 'FIXED') {
-        exchangeDetails.commissionType = 'FIXED';
-        exchangeDetails.commissionAmount = brokerBranch.fixedCommission;
-      } else {
-        exchangeDetails.commissionType = 'VARIABLE';
-        exchangeDetails.commissionAmount = 
-          (req.body.exchange.exchange_price * brokerBranch.maxCommission) / 100;
-      }
     }
 
     // Handle payment details
@@ -296,12 +304,11 @@ exports.createBooking = async (req, res) => {
           throw new Error('Financer rate not found for this branch');
         }
 
-        gcAmount = (req.body.payment.amount * financerRate.gcRate) / 100;
+        gcAmount = (baseAmount * financerRate.gcRate) / 100;
       }
 
       payment = {
         type: 'FINANCE',
-        amount: req.body.payment.amount,
         financer: req.body.payment.financer_id,
         scheme: req.body.payment.scheme || null,
         emiPlan: req.body.payment.emi_plan || null,
@@ -310,8 +317,7 @@ exports.createBooking = async (req, res) => {
       };
     } else {
       payment = {
-        type: 'CASH',
-        amount: req.body.payment.amount
+        type: 'CASH'
       };
     }
 
@@ -356,7 +362,7 @@ exports.createBooking = async (req, res) => {
       hypothecationCharges: req.body.hypothecationCharges || 0,
       customerDetails: {
         name: req.body.customer_details.name,
-        gender: req.body.customer_details.gender,
+        panNo: req.body.customer_details.pan_no || '',
         dob: req.body.customer_details.dob,
         occupation: req.body.customer_details.occupation,
         address: req.body.customer_details.address,
