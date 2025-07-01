@@ -12,45 +12,44 @@ const Color = require('../models/Color');
 
 // Helper function to calculate discounts
 const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
-  const eligibleComponents = priceComponents.filter(c => c.isDiscountable);
+  // Filter out non-discountable components (including HPA charges)
+  const eligibleComponents = priceComponents.filter(c => 
+    c.isDiscountable && c.headerDetails?.header_key !== 'HYPOTHECATION CHARGES (IF APPLICABLE)'
+  );
 
-  if (eligibleComponents.length === 0) {
+  if (eligibleComponents.length === 0 && discountAmount > 0) {
     throw new Error('No discountable components available');
   }
 
-  // Sort by GST rate descending
+  // Rest of the discount calculation remains the same...
   eligibleComponents.sort((a, b) => {
     const gstA = a.headerDetails?.metadata?.gst_rate || 0;
     const gstB = b.headerDetails?.metadata?.gst_rate || 0;
     return gstB - gstA;
   });
 
-  // Calculate total eligible value
   const totalEligible = eligibleComponents.reduce((sum, c) => sum + c.originalValue, 0);
-
-  let remainingDiscount = discountType === 'PERCENTAGE'
-    ? (totalEligible * discountAmount) / 100
+  let remainingDiscount = discountType === 'PERCENTAGE' 
+    ? (totalEligible * discountAmount) / 100 
     : discountAmount;
 
   return priceComponents.map(component => {
+    // Never discount HPA charges
+    if (component.headerDetails?.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
+      return component;
+    }
+    
     if (!component.isDiscountable) {
-      return {
-        ...component,
-        discountedValue: component.originalValue
-      };
+      return component;
     }
 
     const targetComponent = eligibleComponents.find(c => c.header === component.header);
     if (!targetComponent || remainingDiscount <= 0) {
-      return {
-        ...component,
-        discountedValue: component.originalValue
-      };
+      return component;
     }
 
-    const maxDiscount = component.originalValue * 0.95; // 95% max discount
+    const maxDiscount = component.originalValue * 0.95;
     const desiredDiscount = Math.min(maxDiscount, remainingDiscount);
-
     remainingDiscount -= desiredDiscount;
 
     return {
@@ -60,10 +59,12 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
   });
 };
 
-// Helper to validate discount limits
+// Updated validateDiscountLimits to ignore HPA charges
 const validateDiscountLimits = (priceComponents) => {
   const violations = priceComponents.filter(
-    c => c.discountedValue < (0.05 * c.originalValue)
+    c => c.isDiscountable && 
+         c.headerDetails?.header_key !== 'HYPOTHECATION CHARGES (IF APPLICABLE)' &&
+         c.discountedValue < (0.05 * c.originalValue)
   );
 
   if (violations.length > 0) {
@@ -72,7 +73,37 @@ const validateDiscountLimits = (priceComponents) => {
   }
 };
 
-// Create Booking Endpoint
+// In createBooking - HPA charge handling
+const priceComponents = await Promise.all(headers.map(async (header) => {
+  const priceData = model.prices.find(
+    p => p.header_id.equals(header._id) && p.branch_id.equals(req.body.branch)
+  );
+
+  // SPECIAL HANDLING FOR HYPOTHECATION CHARGES
+  if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
+    return {
+      header: header._id,
+      headerDetails: header,
+      originalValue: priceData?.value || 0,
+      discountedValue: req.body.hpa ? (priceData?.value || 0) : 0,
+      isDiscountable: false,  // Never discountable
+      isMandatory: false,     // Never mandatory
+      metadata: priceData?.metadata || {}
+    };
+  }
+
+  // Normal handling for other headers
+  return {
+    header: header._id,
+    headerDetails: header,
+    originalValue: priceData?.value || 0,
+    discountedValue: priceData?.value || 0,
+    isDiscountable: header.is_discount,
+    isMandatory: header.is_mandatory,
+    metadata: priceData?.metadata || {}
+  };
+}));
+
 exports.createBooking = async (req, res) => {
   try {
     // Validate required fields
@@ -94,7 +125,7 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Validate model exists
+    // Validate model and color
     const model = await Model.findById(req.body.model_id).populate('colors');
     if (!model) {
       return res.status(400).json({
@@ -103,27 +134,15 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Validate color exists and is available for model
     const color = await Color.findById(req.body.model_color);
-    if (!color) {
+    if (!color || !model.colors.some(c => c._id.toString() === req.body.model_color.toString())) {
       return res.status(400).json({
         success: false,
         message: 'Invalid color selected'
       });
     }
 
-    const colorAvailable = model.colors.some(c => 
-      c._id.toString() === req.body.model_color.toString()
-    );
-    
-    if (!colorAvailable) {
-      return res.status(400).json({
-        success: false,
-        message: 'Selected color is not available for this model'
-      });
-    }
-
-    // Validate GSTIN for B2B customers
+    // Validate GSTIN for B2B
     if (req.body.customer_type === 'B2B' && !req.body.gstin) {
       return res.status(400).json({
         success: false,
@@ -131,80 +150,71 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Get ALL headers for this vehicle type
-    const headers = await Header.find({ 
-      type: model.type
-    }).sort({ priority: 1 });
+    // Get all headers
+    const headers = await Header.find({ type: model.type }).sort({ priority: 1 });
 
-    // Create price components from all available data
+    // Create price components with special HPA handling
     const priceComponents = await Promise.all(headers.map(async (header) => {
       const priceData = model.prices.find(
         p => p.header_id.equals(header._id) && p.branch_id.equals(req.body.branch)
       );
 
+      // SPECIAL HANDLING FOR HYPOTHECATION CHARGES
+      if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
+        return {
+          header: header._id,
+          headerDetails: header,
+          originalValue: priceData?.value || 0,
+          discountedValue: req.body.hpa ? (priceData?.value || 0) : 0,
+          isDiscountable: false,  // Force false regardless of header setting
+          isMandatory: false,     // Force false regardless of header setting
+          metadata: priceData?.metadata || {}
+        };
+      }
+
+      // Normal handling for all other headers
       return {
         header: header._id,
         headerDetails: header,
         originalValue: priceData?.value || 0,
         discountedValue: priceData?.value || 0,
-        isDiscountable: header.is_discount,
-        isMandatory: header.is_mandatory,
+        isDiscountable: header.is_discount,  // Respect header setting
+        isMandatory: header.is_mandatory,    // Respect header setting
         metadata: priceData?.metadata || {}
       };
     }));
 
-    // Calculate base amount from price components
-    const baseAmount = priceComponents.reduce(
-      (sum, c) => sum + c.discountedValue, 0
-    );
+    // Calculate base amount
+    const baseAmount = priceComponents.reduce((sum, c) => sum + c.discountedValue, 0);
 
-    // Handle HPA charges if applicable
-    if (req.body.hpa) {
-      const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
-      if (hpaHeader) {
-        const hpaPrice = model.prices.find(
-          p => p.header_id.equals(hpaHeader._id) && p.branch_id.equals(req.body.branch)
-        );
-        
-        if (hpaPrice) {
-          priceComponents.push({
-            header: hpaHeader._id,
-            headerDetails: hpaHeader,
-            originalValue: hpaPrice.value,
-            discountedValue: hpaPrice.value,
-            isDiscountable: false,
-            isMandatory: false,
-            metadata: hpaPrice.metadata || {}
-          });
-          req.body.hypothecationCharges = hpaPrice.value;
-        }
-      }
-    }
+    // Set HPA charges
+    const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
+    req.body.hypothecationCharges = req.body.hpa 
+      ? (model.prices.find(
+          p => p.header_id.equals(hpaHeader?._id) && p.branch_id.equals(req.body.branch))
+        )?.value || 0 
+      :0;
 
     // Handle accessories
     let accessoriesTotal = 0;
     let accessories = [];
     
-    if (req.body.accessories && req.body.accessories.selected && req.body.accessories.selected.length > 0) {
-      // Validate and map accessory IDs
+    if (req.body.accessories?.selected?.length > 0) {
       const accessoryIds = req.body.accessories.selected.map(acc => {
-        if (!acc.id || !mongoose.Types.ObjectId.isValid(acc.id)) {
+        if (!mongoose.Types.ObjectId.isValid(acc.id)) {
           throw new Error(`Invalid accessory ID: ${acc.id}`);
         }
         return new mongoose.Types.ObjectId(acc.id);
       });
 
-      // Find valid active accessories
       const validAccessories = await Accessory.find({
         _id: { $in: accessoryIds },
         status: 'active'
       }).lean();
 
-      // Verify all accessories were found
       if (validAccessories.length !== req.body.accessories.selected.length) {
-        const foundIds = validAccessories.map(a => a._id.toString());
         const missingIds = req.body.accessories.selected
-          .filter(a => !foundIds.includes(a.id))
+          .filter(a => !validAccessories.some(v => v._id.toString() === a.id))
           .map(a => a.id);
         throw new Error(`Invalid accessory IDs: ${missingIds.join(', ')}`);
       }
@@ -213,40 +223,31 @@ exports.createBooking = async (req, res) => {
       const incompatibleAccessories = validAccessories.filter(
         a => !a.applicable_models.some(m => m.toString() === req.body.model_id.toString())
       );
-      
       if (incompatibleAccessories.length > 0) {
         throw new Error(`Incompatible accessories: ${
           incompatibleAccessories.map(a => a.name).join(', ')
         }`);
       }
 
-      // Get accessories total header
       const accessoriesTotalHeader = await Header.findOne({
         header_key: 'ACCESSORIES TOTAL',
         type: model.type
       });
-      
       if (!accessoriesTotalHeader) {
         throw new Error('ACCESSORIES TOTAL header not configured');
       }
 
-      // Get base accessories price
       const accessoriesTotalPrice = model.prices.find(
         p => p.header_id.equals(accessoriesTotalHeader._id) && 
              p.branch_id.equals(req.body.branch)
       )?.value || 0;
 
-      // Calculate selected accessories total
       const selectedAccessoriesTotal = req.body.accessories.selected.reduce(
-        (sum, acc) => {
-          const validAcc = validAccessories.find(a => a._id.toString() === acc.id);
-          return sum + (validAcc ? validAcc.price : 0);
-        }, 0
+        (sum, acc) => sum + (validAccessories.find(a => a._id.toString() === acc.id)?.price || 0), 
+        0
       );
 
       accessoriesTotal = Math.max(selectedAccessoriesTotal, accessoriesTotalPrice);
-      
-      // Only include accessories if custom selection exceeds base price
       accessories = selectedAccessoriesTotal > accessoriesTotalPrice ? 
         validAccessories.map(acc => ({
           accessory: acc._id,
@@ -254,9 +255,9 @@ exports.createBooking = async (req, res) => {
         })) : [];
     }
 
-    // Handle exchange if applicable
+    // Handle exchange
     let exchangeDetails = null;
-    if (req.body.exchange && req.body.exchange.is_exchange) {
+    if (req.body.exchange?.is_exchange) {
       if (!req.body.exchange.broker_id) {
         throw new Error('Broker selection is required for exchange');
       }
@@ -266,8 +267,7 @@ exports.createBooking = async (req, res) => {
         throw new Error('Invalid broker selected');
       }
 
-      const brokerBranch = broker.branches.find(b => b.branch.equals(req.body.branch));
-      if (!brokerBranch) {
+      if (!broker.branches.some(b => b.branch.equals(req.body.branch))) {
         throw new Error('Broker not available for this branch');
       }
 
@@ -279,7 +279,7 @@ exports.createBooking = async (req, res) => {
       };
     }
 
-    // Handle payment details
+    // Handle payment
     let payment = {};
     if (req.body.payment.type.toLowerCase() === 'finance') {
       if (!req.body.payment.financer_id) {
@@ -291,7 +291,6 @@ exports.createBooking = async (req, res) => {
         throw new Error('Invalid financer selected');
       }
 
-      // Calculate GC amount if applicable
       let gcAmount = 0;
       if (req.body.payment.gc_applicable) {
         const financerRate = await FinancerRate.findOne({
@@ -321,7 +320,7 @@ exports.createBooking = async (req, res) => {
       };
     }
 
-    // Apply discounts if provided
+    // Apply discounts
     let discounts = [];
     if (req.body.discount) {
       const discount = {
@@ -330,12 +329,7 @@ exports.createBooking = async (req, res) => {
         approvalStatus: 'PENDING'
       };
 
-      const updatedComponents = calculateDiscounts(
-        priceComponents, 
-        discount.amount, 
-        discount.type
-      );
-      
+      const updatedComponents = calculateDiscounts(priceComponents, discount.amount, discount.type);
       validateDiscountLimits(updatedComponents);
 
       updatedComponents.forEach(updated => {
@@ -351,7 +345,7 @@ exports.createBooking = async (req, res) => {
     // Calculate total amount
     const totalAmount = baseAmount + accessoriesTotal;
 
-    // Create the booking
+    // Create booking
     const bookingData = {
       model: req.body.model_id,
       color: req.body.model_color,
