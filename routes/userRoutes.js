@@ -82,7 +82,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.get('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER '), 
   userController.getUsers
 );
 
@@ -125,7 +125,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER '), 
   userController.getUser
 );
 
@@ -190,7 +190,7 @@ router.get('/:id',
  */
 router.put('/:id',
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER '), 
   logAction('UPDATE', 'User'), 
   userController.updateUser
 );

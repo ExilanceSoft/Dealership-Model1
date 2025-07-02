@@ -132,6 +132,13 @@ const bookingSchema = new mongoose.Schema({
     enum: ['MH', 'BH', 'CRTM'],
     required: true
   },
+  rtoAmount: {
+    type: Number,
+    min: 0,
+    required: function() {
+      return this.rto === 'BH' || this.rto === 'CRTM';
+    }
+  },
   hpa: {
     type: Boolean,
     default: false
@@ -141,6 +148,11 @@ const bookingSchema = new mongoose.Schema({
     min: 0
   },
   customerDetails: {
+    salutation: {
+      type: String,
+      enum: ['Mr.', 'Mrs.', 'Miss', 'Dr.', 'Prof.'],
+      required: true
+    },
     name: {
       type: String,
       required: true,
@@ -221,6 +233,11 @@ const bookingSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  discountedAmount: {  // Added this new field
+    type: Number,
+    required: true,
+    min: 0
+  },
   status: {
     type: String,
     enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'],
@@ -252,6 +269,28 @@ bookingSchema.pre('save', async function(next) {
     const count = await this.constructor.countDocuments();
     this.bookingNumber = `BK${(count + 1).toString().padStart(6, '0')}`;
   }
+  
+  // Set RTO amount if RTO type is BH or CRTM
+  if ((this.rto === 'BH' || this.rto === 'CRTM') && !this.rtoAmount) {
+    const model = await mongoose.model('Model').findById(this.model);
+    if (model) {
+      const rtoHeader = await mongoose.model('Header').findOne({
+        header_key: 'RTO CHARGES'
+      });
+      
+      if (rtoHeader) {
+        const rtoPrice = model.prices.find(
+          p => p.header_id.equals(rtoHeader._id) && 
+               p.branch_id.equals(this.branch)
+        );
+        
+        if (rtoPrice) {
+          this.rtoAmount = rtoPrice.value;
+        }
+      }
+    }
+  }
+  
   next();
 });
 
@@ -292,6 +331,10 @@ bookingSchema.virtual('approvedByDetails', {
   localField: 'approvedBy',
   foreignField: '_id',
   justOne: true
+});
+
+bookingSchema.virtual('fullCustomerName').get(function() {
+  return `${this.customerDetails.salutation} ${this.customerDetails.name}`;
 });
 
 module.exports = mongoose.model('Booking', bookingSchema);

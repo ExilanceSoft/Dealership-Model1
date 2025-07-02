@@ -12,7 +12,6 @@ const Color = require('../models/Color');
 
 // Helper function to calculate discounts
 const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
-  // Filter out non-discountable components (including HPA charges)
   const eligibleComponents = priceComponents.filter(c => 
     c.isDiscountable && c.headerDetails?.header_key !== 'HYPOTHECATION CHARGES (IF APPLICABLE)'
   );
@@ -21,7 +20,6 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
     throw new Error('No discountable components available');
   }
 
-  // Rest of the discount calculation remains the same...
   eligibleComponents.sort((a, b) => {
     const gstA = a.headerDetails?.metadata?.gst_rate || 0;
     const gstB = b.headerDetails?.metadata?.gst_rate || 0;
@@ -34,7 +32,6 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
     : discountAmount;
 
   return priceComponents.map(component => {
-    // Never discount HPA charges
     if (component.headerDetails?.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
       return component;
     }
@@ -59,7 +56,6 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
   });
 };
 
-// Updated validateDiscountLimits to ignore HPA charges
 const validateDiscountLimits = (priceComponents) => {
   const violations = priceComponents.filter(
     c => c.isDiscountable && 
@@ -73,48 +69,16 @@ const validateDiscountLimits = (priceComponents) => {
   }
 };
 
-// In createBooking - HPA charge handling
-const priceComponents = await Promise.all(headers.map(async (header) => {
-  const priceData = model.prices.find(
-    p => p.header_id.equals(header._id) && p.branch_id.equals(req.body.branch)
-  );
-
-  // SPECIAL HANDLING FOR HYPOTHECATION CHARGES
-  if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
-    return {
-      header: header._id,
-      headerDetails: header,
-      originalValue: priceData?.value || 0,
-      discountedValue: req.body.hpa ? (priceData?.value || 0) : 0,
-      isDiscountable: false,  // Never discountable
-      isMandatory: false,     // Never mandatory
-      metadata: priceData?.metadata || {}
-    };
-  }
-
-  // Normal handling for other headers
-  return {
-    header: header._id,
-    headerDetails: header,
-    originalValue: priceData?.value || 0,
-    discountedValue: priceData?.value || 0,
-    isDiscountable: header.is_discount,
-    isMandatory: header.is_mandatory,
-    metadata: priceData?.metadata || {}
-  };
-}));
-
 exports.createBooking = async (req, res) => {
   try {
-    // Validate required fields
+    // Validate required fields (branch removed from required fields)
     const requiredFields = [
       { field: 'model_id', message: 'Model selection is required' },
       { field: 'model_color', message: 'Color selection is required' },
       { field: 'customer_type', message: 'Customer type (B2B/B2C) is required' },
       { field: 'rto_type', message: 'RTO state (MH/BH/CRTM) is required' },
       { field: 'customer_details', message: 'Customer details are required' },
-      { field: 'payment', message: 'Payment details are required' },
-      { field: 'branch', message: 'Branch selection is required' }
+      { field: 'payment', message: 'Payment details are required' }
     ];
     
     const missingFields = requiredFields.filter(item => !req.body[item.field]);
@@ -122,6 +86,56 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missingFields.map(f => f.message).join(', ')}`
+      });
+    }
+
+    // Check if user is superadmin
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    let branchId = req.body.branch;
+    
+    if (!isSuperAdmin) {
+      // For non-superadmin users, use their assigned branch
+      if (!req.user.branch) {
+        return res.status(400).json({
+          success: false,
+          message: 'Your account is not associated with any branch'
+        });
+      }
+      branchId = req.user.branch;
+      
+      // If they tried to set a different branch, reject
+      if (req.body.branch && req.body.branch.toString() !== req.user.branch.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only create bookings for your own branch'
+        });
+      }
+    } else {
+      // For superadmin, branch is required
+      if (!req.body.branch) {
+        return res.status(400).json({
+          success: false,
+          message: 'Branch selection is required'
+        });
+      }
+      
+      // Validate the branch exists
+      const branchExists = await mongoose.model('Branch').exists({ _id: req.body.branch });
+      if (!branchExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid branch selected'
+        });
+      }
+    }
+
+    // Validate salutation
+    const validSalutations = ['Mr.', 'Mrs.', 'Miss', 'Dr.', 'Prof.'];
+    if (!req.body.customer_details.salutation || 
+        !validSalutations.includes(req.body.customer_details.salutation)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid salutation (Mr., Mrs., Miss, Dr., Prof.) is required'
       });
     }
 
@@ -156,7 +170,7 @@ exports.createBooking = async (req, res) => {
     // Create price components with special HPA handling
     const priceComponents = await Promise.all(headers.map(async (header) => {
       const priceData = model.prices.find(
-        p => p.header_id.equals(header._id) && p.branch_id.equals(req.body.branch)
+        p => p.header_id.equals(header._id) && p.branch_id.equals(branchId)
       );
 
       // SPECIAL HANDLING FOR HYPOTHECATION CHARGES
@@ -166,8 +180,8 @@ exports.createBooking = async (req, res) => {
           headerDetails: header,
           originalValue: priceData?.value || 0,
           discountedValue: req.body.hpa ? (priceData?.value || 0) : 0,
-          isDiscountable: false,  // Force false regardless of header setting
-          isMandatory: false,     // Force false regardless of header setting
+          isDiscountable: false,
+          isMandatory: false,
           metadata: priceData?.metadata || {}
         };
       }
@@ -178,8 +192,8 @@ exports.createBooking = async (req, res) => {
         headerDetails: header,
         originalValue: priceData?.value || 0,
         discountedValue: priceData?.value || 0,
-        isDiscountable: header.is_discount,  // Respect header setting
-        isMandatory: header.is_mandatory,    // Respect header setting
+        isDiscountable: header.is_discount,
+        isMandatory: header.is_mandatory,
         metadata: priceData?.metadata || {}
       };
     }));
@@ -191,9 +205,15 @@ exports.createBooking = async (req, res) => {
     const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
     req.body.hypothecationCharges = req.body.hpa 
       ? (model.prices.find(
-          p => p.header_id.equals(hpaHeader?._id) && p.branch_id.equals(req.body.branch))
+          p => p.header_id.equals(hpaHeader?._id) && p.branch_id.equals(branchId))
         )?.value || 0 
-      :0;
+      : 0;
+
+    // Set RTO amount if RTO type is BH or CRTM
+    let rtoAmount = 0;
+    if (['BH', 'CRTM'].includes(req.body.rto_type)) {
+      rtoAmount = req.body.rto_type === 'BH' ? 5000 : 4500;
+    }
 
     // Handle accessories
     let accessoriesTotal = 0;
@@ -239,7 +259,7 @@ exports.createBooking = async (req, res) => {
 
       const accessoriesTotalPrice = model.prices.find(
         p => p.header_id.equals(accessoriesTotalHeader._id) && 
-             p.branch_id.equals(req.body.branch)
+             p.branch_id.equals(branchId)
       )?.value || 0;
 
       const selectedAccessoriesTotal = req.body.accessories.selected.reduce(
@@ -267,7 +287,7 @@ exports.createBooking = async (req, res) => {
         throw new Error('Invalid broker selected');
       }
 
-      if (!broker.branches.some(b => b.branch.equals(req.body.branch))) {
+      if (!broker.branches.some(b => b.branch.equals(branchId))) {
         throw new Error('Broker not available for this branch');
       }
 
@@ -295,7 +315,7 @@ exports.createBooking = async (req, res) => {
       if (req.body.payment.gc_applicable) {
         const financerRate = await FinancerRate.findOne({
           financeProvider: req.body.payment.financer_id,
-          branch: req.body.branch,
+          branch: branchId,
           is_active: true
         });
 
@@ -322,6 +342,7 @@ exports.createBooking = async (req, res) => {
 
     // Apply discounts
     let discounts = [];
+    let totalDiscount = 0;
     if (req.body.discount) {
       const discount = {
         amount: req.body.discount.value,
@@ -339,11 +360,17 @@ exports.createBooking = async (req, res) => {
         }
       });
 
+      // Calculate actual discount applied
+      totalDiscount = priceComponents.reduce((sum, component) => {
+        return sum + (component.originalValue - component.discountedValue);
+      }, 0);
+
       discounts = [discount];
     }
 
-    // Calculate total amount
-    const totalAmount = baseAmount + accessoriesTotal;
+    // Calculate total amounts
+    const totalAmount = baseAmount + accessoriesTotal + rtoAmount;
+    const discountedAmount = totalAmount - totalDiscount;
 
     // Create booking
     const bookingData = {
@@ -352,9 +379,11 @@ exports.createBooking = async (req, res) => {
       customerType: req.body.customer_type,
       gstin: req.body.gstin || '',
       rto: req.body.rto_type,
+      rtoAmount: ['BH', 'CRTM'].includes(req.body.rto_type) ? rtoAmount : undefined,
       hpa: req.body.hpa || false,
       hypothecationCharges: req.body.hypothecationCharges || 0,
       customerDetails: {
+        salutation: req.body.customer_details.salutation,
         name: req.body.customer_details.name,
         panNo: req.body.customer_details.pan_no || '',
         dob: req.body.customer_details.dob,
@@ -378,8 +407,9 @@ exports.createBooking = async (req, res) => {
       discounts: discounts,
       accessoriesTotal: accessoriesTotal,
       totalAmount: totalAmount,
+      discountedAmount: discountedAmount,
       status: discounts.length > 0 ? 'PENDING_APPROVAL' : 'DRAFT',
-      branch: req.body.branch,
+      branch: branchId, // Use the determined branchId here
       createdBy: req.user.id
     };
 
@@ -434,7 +464,80 @@ exports.createBooking = async (req, res) => {
     });
   }
 };
-// ... (keep the rest of the controller methods the same)
+
+// Update getBookings to filter by user's branch if not superadmin
+exports.getBookings = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    // Base query
+    const query = {};
+    
+    // For non-superadmin users, filter by their branch
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    if (!isSuperAdmin) {
+      if (!req.user.branch) {
+        return res.status(400).json({
+          success: false,
+          message: 'Your account is not associated with any branch'
+        });
+      }
+      query.branch = req.user.branch;
+    } else {
+      // For superadmin, allow filtering by branch if specified
+      if (req.query.branch) {
+        query.branch = req.query.branch;
+      }
+    }
+    
+    // Optional filters
+    if (req.query.status) {
+      query.status = req.query.status;
+    }
+    if (req.query.customerType) {
+      query.customerType = req.query.customerType;
+    }
+    if (req.query.model) {
+      query.model = req.query.model;
+    }
+    if (req.query.fromDate && req.query.toDate) {
+      query.createdAt = {
+        $gte: new Date(req.query.fromDate),
+        $lte: new Date(req.query.toDate)
+      };
+    }
+
+    const [bookings, total] = await Promise.all([
+      Booking.find(query)
+        .skip(skip)
+        .limit(limit)
+        .populate('modelDetails', 'model_name type')
+        .populate('colorDetails', 'name code')
+        .populate('rtoDetails', 'rto_code rto_name')
+        .populate('createdByDetails', 'name email')
+        .sort({ createdAt: -1 }),
+      Booking.countDocuments(query)
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: bookings.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      data: bookings
+    });
+  } catch (err) {
+    console.error('Error fetching bookings:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching bookings',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
 exports.getBookings = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;

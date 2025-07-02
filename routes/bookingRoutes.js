@@ -330,7 +330,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN'),
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER'),
   logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
