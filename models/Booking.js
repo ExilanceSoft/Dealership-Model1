@@ -1,16 +1,35 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const exchangeVehicleSchema = new mongoose.Schema({
   broker: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Broker'
+    ref: 'Broker',
+    required: function() {
+      return this.parent().exchange === true;
+    }
   },
   price: {
     type: Number,
-    min: 0
+    min: 0,
+    required: function() {
+      return this.parent().exchange === true;
+    }
   },
-  vehicleNumber: String,
-  chassisNumber: String
+  vehicleNumber: {
+    type: String,
+    trim: true,
+    required: function() {
+      return this.parent().exchange === true;
+    }
+  },
+  chassisNumber: {
+    type: String,
+    trim: true,
+    required: function() {
+      return this.parent().exchange === true;
+    }
+  }
 }, { _id: false });
 
 const paymentDetailSchema = new mongoose.Schema({
@@ -21,24 +40,48 @@ const paymentDetailSchema = new mongoose.Schema({
   },
   financer: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'FinanceProvider'
+    ref: 'FinanceProvider',
+    required: function() { return this.type === 'FINANCE'; }
   },
-  scheme: String,
-  emiPlan: String,
-  gcApplicable: Boolean,
-  gcAmount: Number
+  scheme: {
+    type: String,
+    trim: true,
+    required: function() { return this.type === 'FINANCE'; }
+  },
+  emiPlan: {
+    type: String,
+    trim: true,
+    required: function() { return this.type === 'FINANCE'; }
+  },
+  gcApplicable: {
+    type: Boolean,
+    default: false
+  },
+  gcAmount: {
+    type: Number,
+    min: 0,
+    required: function() { return this.gcApplicable === true; }
+  }
 }, { _id: false });
 
 const accessorySchema = new mongoose.Schema({
   accessory: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Accessory',
-    required: true
+    ref: 'Accessory'
   },
   price: {
     type: Number,
     required: true,
     min: 0
+  },
+  discount: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  isAdjustment: {
+    type: Boolean,
+    default: false
   }
 }, { _id: false });
 
@@ -56,7 +99,13 @@ const priceComponentSchema = new mongoose.Schema({
   discountedValue: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    validate: {
+      validator: function(v) {
+        return v <= this.originalValue;
+      },
+      message: 'Discounted value cannot be greater than original value'
+    }
   },
   isDiscountable: {
     type: Boolean,
@@ -93,30 +142,41 @@ const discountSchema = new mongoose.Schema({
     enum: ['PENDING', 'APPROVED', 'REJECTED'],
     default: 'PENDING'
   },
-  approvalNote: String
+  approvalNote: {
+    type: String,
+    trim: true
+  },
+  appliedOn: {
+    type: Date,
+    default: Date.now
+  }
 }, { _id: false });
 
 const bookingSchema = new mongoose.Schema({
   bookingNumber: {
     type: String,
-    unique: true
+    unique: true,
+    index: true
   },
   model: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Model',
-    required: true
+    required: [true, 'Model is required']
   },
   color: {
-    type: String,
-    required: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Color',
+    required: [true, 'Color is required']
   },
   customerType: {
     type: String,
     enum: ['B2B', 'B2C'],
-    required: true
+    required: [true, 'Customer type is required']
   },
   gstin: {
     type: String,
+    trim: true,
+    uppercase: true,
     validate: {
       validator: function(v) {
         if (this.customerType === 'B2B') {
@@ -130,7 +190,7 @@ const bookingSchema = new mongoose.Schema({
   rto: {
     type: String,
     enum: ['MH', 'BH', 'CRTM'],
-    required: true
+    required: [true, 'RTO is required']
   },
   rtoAmount: {
     type: Number,
@@ -145,21 +205,24 @@ const bookingSchema = new mongoose.Schema({
   },
   hypothecationCharges: {
     type: Number,
-    min: 0
+    min: 0,
+    default: 0
   },
   customerDetails: {
     salutation: {
       type: String,
       enum: ['Mr.', 'Mrs.', 'Miss', 'Dr.', 'Prof.'],
-      required: true
+      required: [true, 'Salutation is required']
     },
     name: {
       type: String,
-      required: true,
+      required: [true, 'Customer name is required'],
       trim: true
     },
     panNo: {
       type: String,
+      trim: true,
+      uppercase: true,
       validate: {
         validator: function(v) {
           if (!v) return true;
@@ -168,11 +231,30 @@ const bookingSchema = new mongoose.Schema({
         message: 'Invalid PAN number format'
       }
     },
-    dob: Date,
-    occupation: String,
-    address: String,
-    taluka: String,
-    district: String,
+    dob: {
+      type: Date,
+      required: [true, 'Date of birth is required']
+    },
+    occupation: {
+      type: String,
+      trim: true,
+      required: [true, 'Occupation is required']
+    },
+    address: {
+      type: String,
+      trim: true,
+      required: [true, 'Address is required']
+    },
+    taluka: {
+      type: String,
+      trim: true,
+      required: [true, 'Taluka is required']
+    },
+    district: {
+      type: String,
+      trim: true,
+      required: [true, 'District is required']
+    },
     pincode: {
       type: String,
       validate: {
@@ -180,11 +262,12 @@ const bookingSchema = new mongoose.Schema({
           return /^[1-9][0-9]{5}$/.test(v);
         },
         message: 'Invalid pincode'
-      }
+      },
+      required: [true, 'Pincode is required']
     },
     mobile1: {
       type: String,
-      required: true,
+      required: [true, 'Primary mobile number is required'],
       validate: {
         validator: function(v) {
           return /^[6-9]\d{9}$/.test(v);
@@ -206,14 +289,24 @@ const bookingSchema = new mongoose.Schema({
       type: String,
       validate: {
         validator: function(v) {
+          if (!v) return true;
           return /^[0-9]{12}$/.test(v);
         },
         message: 'Invalid Aadhar number'
       }
     },
-    nomineeName: String,
-    nomineeRelation: String,
-    nomineeAge: Number
+    nomineeName: {
+      type: String,
+      trim: true
+    },
+    nomineeRelation: {
+      type: String,
+      trim: true
+    },
+    nomineeAge: {
+      type: Number,
+      min: 0
+    }
   },
   exchange: {
     type: Boolean,
@@ -226,17 +319,24 @@ const bookingSchema = new mongoose.Schema({
   discounts: [discountSchema],
   accessoriesTotal: {
     type: Number,
+    min: 0,
     default: 0
   },
   totalAmount: {
     type: Number,
-    required: true,
+    required: [true, 'Total amount is required'],
     min: 0
   },
-  discountedAmount: {  // Added this new field
+  discountedAmount: {
     type: Number,
-    required: true,
-    min: 0
+    required: [true, 'Discounted amount is required'],
+    min: 0,
+    validate: {
+      validator: function(v) {
+        return v <= this.totalAmount;
+      },
+      message: 'Discounted amount cannot be greater than total amount'
+    }
   },
   status: {
     type: String,
@@ -246,12 +346,46 @@ const bookingSchema = new mongoose.Schema({
   branch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
-    required: true
+    required: [true, 'Branch is required']
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: [true, 'Creator user is required']
+  },
+  salesExecutive: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: async function() {
+      try {
+        if (!this.createdBy) return false;
+        const User = mongoose.model('User');
+        const creator = await User.findById(this.createdBy).populate('roles');
+        if (!creator) return false;
+        
+        const isSuperAdmin = creator.roles.some(r => r.isSuperAdmin);
+        const isSalesExecutive = creator.roles.some(r => r.name === 'SALES_EXECUTIVE');
+        
+        return isSuperAdmin || !isSalesExecutive;
+      } catch (err) {
+        console.error('Error validating salesExecutive requirement:', err);
+        return false;
+      }
+    },
+    validate: {
+      validator: async function(v) {
+        try {
+          if (!v) return true;
+          const User = mongoose.model('User');
+          const user = await User.findById(v).populate('roles');
+          return user && user.isActive && user.roles.some(r => r.name === 'SALES_EXECUTIVE');
+        } catch (err) {
+          console.error('Error validating salesExecutive:', err);
+          return false;
+        }
+      },
+      message: 'Selected user must be an active SALES_EXECUTIVE'
+    }
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -270,7 +404,6 @@ bookingSchema.pre('save', async function(next) {
     this.bookingNumber = `BK${(count + 1).toString().padStart(6, '0')}`;
   }
   
-  // Set RTO amount if RTO type is BH or CRTM
   if ((this.rto === 'BH' || this.rto === 'CRTM') && !this.rtoAmount) {
     const model = await mongoose.model('Model').findById(this.model);
     if (model) {
@@ -302,12 +435,22 @@ bookingSchema.index({ rto: 1 });
 bookingSchema.index({ branch: 1 });
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ createdBy: 1 });
+bookingSchema.index({ salesExecutive: 1 });
 bookingSchema.index({ 'customerDetails.mobile1': 1 });
+bookingSchema.index({ createdAt: 1 });
+bookingSchema.index({ updatedAt: 1 });
 
-// Virtuals
+// Virtual population
 bookingSchema.virtual('modelDetails', {
   ref: 'Model',
   localField: 'model',
+  foreignField: '_id',
+  justOne: true
+});
+
+bookingSchema.virtual('colorDetails', {
+  ref: 'Color',
+  localField: 'color',
   foreignField: '_id',
   justOne: true
 });
@@ -323,18 +466,32 @@ bookingSchema.virtual('createdByDetails', {
   ref: 'User',
   localField: 'createdBy',
   foreignField: '_id',
-  justOne: true
+  justOne: true,
+  options: { select: 'name email mobile' }
+});
+
+bookingSchema.virtual('salesExecutiveDetails', {
+  ref: 'User',
+  localField: 'salesExecutive',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name email mobile' }
 });
 
 bookingSchema.virtual('approvedByDetails', {
   ref: 'User',
   localField: 'approvedBy',
   foreignField: '_id',
-  justOne: true
+  justOne: true,
+  options: { select: 'name email mobile' }
 });
 
 bookingSchema.virtual('fullCustomerName').get(function() {
-  return `${this.customerDetails.salutation} ${this.customerDetails.name}`;
+  return `${this.customerDetails.salutation} ${this.customerDetails.name}`.trim();
 });
 
-module.exports = mongoose.model('Booking', bookingSchema);
+// Add pagination plugin
+bookingSchema.plugin(mongoosePaginate);
+
+const Booking = mongoose.model('Booking', bookingSchema);
+module.exports = Booking;

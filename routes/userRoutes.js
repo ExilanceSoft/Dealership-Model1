@@ -82,7 +82,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.get('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER '), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
   userController.getUsers
 );
 
@@ -125,7 +125,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER '), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
   userController.getUser
 );
 
@@ -190,7 +190,7 @@ router.get('/:id',
  */
 router.put('/:id',
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER '), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
   logAction('UPDATE', 'User'), 
   userController.updateUser
 );
@@ -240,7 +240,7 @@ router.put('/:id',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN'), 
+  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   logAction('DELETE', 'User'), 
   userController.deleteUser
 );
@@ -301,7 +301,7 @@ router.delete('/:id',
  */
 router.get('/:id/permissions', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'SALES_EXECUTIVE'), 
   userController.getUserPermissions
 );
 
@@ -367,7 +367,7 @@ router.get('/:id/permissions',
  */
 router.post('/assign-permissions', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'SALES_EXECUTIVE'), 
   logAction('ASSIGN_USER_PERMISSIONS', 'User'), 
   userController.assignUserPermissions
 );

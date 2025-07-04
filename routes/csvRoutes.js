@@ -69,7 +69,7 @@ const upload = require('../middlewares/upload');
  */
 router.get('/export-template',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   csvController.exportCSVTemplate
 );
 
@@ -156,7 +156,7 @@ router.get('/export-template',
  */
 router.post('/import',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   upload.single('file'),
   csvController.importCSV
 );

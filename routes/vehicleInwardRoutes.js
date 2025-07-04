@@ -238,7 +238,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER','SALES_EXECUTIVE'),
   logAction('CREATE', 'Vehicle'),
   vehicleController.createVehicle
 );
@@ -433,7 +433,7 @@ router.get('/qr/:qrCode', vehicleController.getVehicleByQrCode);
 router.put(
   '/:vehicleId/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER','SALES_EXECUTIVE'),
   logAction('UPDATE_STATUS', 'Vehicle'),
   vehicleController.updateVehicleStatus
 );

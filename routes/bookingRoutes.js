@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bookingController = require('../controllers/bookingController');
 const { protect, authorize } = require('../middlewares/auth');
+const pdfController = require('../controllers/pdfController');
 const { logAction } = require('../middlewares/audit');
 
 /**
@@ -330,7 +331,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER'),
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
@@ -395,37 +396,33 @@ router.post('/',
  *               properties:
  *                 success:
  *                   type: boolean
- *                 count:
- *                   type: integer
- *                   description: Number of items in current page
- *                 total:
- *                   type: integer
- *                   description: Total number of items
- *                 page:
- *                   type: integer
- *                   description: Current page number
- *                 pages:
- *                   type: integer
- *                   description: Total number of pages
  *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Booking'
+ *                   type: object
+ *                   properties:
+ *                     bookings:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Booking'
+ *                     total:
+ *                       type: integer
+ *                       description: Total number of items
+ *                     pages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *                     currentPage:
+ *                       type: integer
+ *                       description: Current page number
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden (no permission)
  *       500:
  *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN'),
-  bookingController.getBookings
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  bookingController.getAllBookings
 );
 
 /**
@@ -456,23 +453,14 @@ router.get('/',
  *         description: Forbidden (not authorized to view this booking)
  *       404:
  *         description: Booking not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get('/:id', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN'),
-  bookingController.getBooking
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  bookingController.getBookingById
 );
-
 /**
  * @swagger
  * /api/v1/bookings/{id}:
@@ -526,7 +514,7 @@ router.get('/:id',
  */
 router.put('/:id', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN'),
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('UPDATE', 'Booking'), 
   bookingController.updateBooking
 );
@@ -587,7 +575,7 @@ router.put('/:id',
  */
 router.post('/:id/approve', 
   protect, 
-  authorize('MANAGER', 'ADMIN', 'SUPERADMIN'),
+  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
 );
@@ -648,7 +636,7 @@ router.post('/:id/approve',
  */
 router.post('/:id/reject', 
   protect, 
-  authorize('MANAGER', 'ADMIN', 'SUPERADMIN'),
+  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('REJECT', 'Booking'), 
   bookingController.rejectBooking
 );
@@ -700,7 +688,7 @@ router.post('/:id/reject',
  */
 router.post('/:id/complete', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN'),
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('COMPLETE', 'Booking'), 
   bookingController.completeBooking
 );
@@ -761,9 +749,447 @@ router.post('/:id/complete',
  */
 router.post('/:id/cancel', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN'),
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('CANCEL', 'Booking'), 
   bookingController.cancelBooking
 );
 
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/receipt:
+ *   get:
+ *     summary: Generate booking receipt (PDF)
+ *     description: Generates a PDF booking receipt. Only available for APPROVED or COMPLETED bookings.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: PDF booking receipt
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Booking not in APPROVED or COMPLETED state
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/receipt', 
+  protect, 
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  pdfController.generateBookingReceipt
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/helmet-invoice:
+ *   get:
+ *     summary: Generate helmet invoice (PDF)
+ *     description: Generates a PDF invoice for the standard helmet included with the vehicle.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: PDF helmet invoice
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/helmet-invoice', 
+  protect, 
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  pdfController.generateHelmetInvoice
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/accessories-challan:
+ *   get:
+ *     summary: Generate accessories challan (PDF)
+ *     description: Generates a PDF accessories challan for the booking. Only available if booking has accessories.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: PDF accessories challan
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Booking has no accessories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/accessories-challan', 
+  protect, 
+  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  pdfController.generateAccessoriesChallan
+);
+// Add these new routes to your existing bookingRoutes.js file
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/form:
+ *   get:
+ *     summary: Generate booking form (for bookings without discounts)
+ *     description: Generates a booking form document for standard bookings without discounts.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking form data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bookingNumber:
+ *                       type: string
+ *                     date:
+ *                       type: string
+ *                     customerDetails:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         address:
+ *                           type: string
+ *                         mobile:
+ *                           type: string
+ *                         gstin:
+ *                           type: string
+ *                         pan:
+ *                           type: string
+ *                     vehicleDetails:
+ *                       type: object
+ *                       properties:
+ *                         model:
+ *                           type: string
+ *                         color:
+ *                           type: string
+ *                         type:
+ *                           type: string
+ *                     paymentDetails:
+ *                       type: object
+ *                       properties:
+ *                         type:
+ *                           type: string
+ *                         totalAmount:
+ *                           type: number
+ *                         accessoriesTotal:
+ *                           type: number
+ *                         hypothecationCharges:
+ *                           type: number
+ *                     status:
+ *                       type: string
+ *                     isExchange:
+ *                       type: boolean
+ *                     exchangeDetails:
+ *                       type: object
+ *                 documentType:
+ *                   type: string
+ *                   enum: [BOOKING_FORM]
+ *       400:
+ *         description: Booking has discounts - use receipt endpoint instead
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/form', 
+  protect, 
+  authorize('SALES', 'ADMIN', 'SUPERADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  bookingController.generateBookingForm
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/receipt:
+ *   get:
+ *     summary: Generate booking receipt (for bookings with discounts)
+ *     description: Generates a detailed booking receipt document for bookings with discounts.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking receipt data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bookingNumber:
+ *                       type: string
+ *                     date:
+ *                       type: string
+ *                     customerDetails:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         address:
+ *                           type: string
+ *                         mobile:
+ *                           type: string
+ *                         gstin:
+ *                           type: string
+ *                         pan:
+ *                           type: string
+ *                     vehicleDetails:
+ *                       type: object
+ *                       properties:
+ *                         model:
+ *                           type: string
+ *                         color:
+ *                           type: string
+ *                         type:
+ *                           type: string
+ *                     priceDetails:
+ *                       type: object
+ *                       properties:
+ *                         components:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                               hsnCode:
+ *                                 type: string
+ *                               originalValue:
+ *                                 type: number
+ *                               discountedValue:
+ *                                 type: number
+ *                               gstRate:
+ *                                 type: number
+ *                               isDiscountable:
+ *                                 type: boolean
+ *                         accessories:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                               price:
+ *                                 type: number
+ *                               discount:
+ *                                 type: number
+ *                         totalAmount:
+ *                           type: number
+ *                         discountedAmount:
+ *                           type: number
+ *                         totalDiscount:
+ *                           type: number
+ *                     paymentDetails:
+ *                       type: object
+ *                       properties:
+ *                         type:
+ *                           type: string
+ *                         financer:
+ *                           type: string
+ *                         gcAmount:
+ *                           type: number
+ *                     discounts:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           amount:
+ *                             type: number
+ *                           type:
+ *                             type: string
+ *                           approvedBy:
+ *                             type: string
+ *                     status:
+ *                       type: string
+ *                     isExchange:
+ *                       type: boolean
+ *                     exchangeDetails:
+ *                       type: object
+ *                     branchDetails:
+ *                       type: object
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         address:
+ *                           type: string
+ *                         gstin:
+ *                           type: string
+ *                 documentType:
+ *                   type: string
+ *                   enum: [BOOKING_RECEIPT]
+ *       400:
+ *         description: Booking has no discounts - use form endpoint instead
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/receipt', 
+  protect, 
+  authorize('SALES', 'ADMIN', 'SUPERADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  bookingController.generateBookingReceipt
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/print:
+ *   get:
+ *     summary: Automatically generate appropriate document (form or receipt)
+ *     description: Automatically determines whether to generate a booking form or receipt based on the booking's discount status.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking document data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/BookingFormResponse'
+ *                 - $ref: '#/components/schemas/BookingReceiptResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/print', 
+  protect, 
+  authorize('SALES', 'ADMIN', 'SUPERADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  async (req, res) => {
+    try {
+      const booking = await Booking.findById(req.params.id);
+      
+      if (!booking) {
+        return res.status(404).json({ success: false, message: 'Booking not found' });
+      }
+
+      if (booking.discounts && booking.discounts.length > 0) {
+        return bookingController.generateBookingReceipt(req, res);
+      } else {
+        return bookingController.generateBookingForm(req, res);
+      }
+    } catch (err) {
+      console.error('Error determining document type:', err);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error generating booking document',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
+    }
+  }
+);
 module.exports = router;

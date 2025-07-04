@@ -174,7 +174,7 @@ const upload = multer({
  */
 router.post('/', 
   protect, 
-  authorize('SUPERADMIN'), 
+  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   upload.fields([{ name: 'logo1', maxCount: 1 }, { name: 'logo2', maxCount: 1 }]),
   logAction('CREATE', 'Branch'), 
   branchController.createBranch
@@ -238,7 +238,7 @@ router.post('/',
  */
 router.get('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
   branchController.getBranches
 );
 
@@ -276,7 +276,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
   branchController.getBranch
 );
 
@@ -347,7 +347,7 @@ router.get('/:id',
  */
 router.put('/:id', 
   protect, 
-  authorize('SUPERADMIN'), 
+  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   upload.fields([{ name: 'logo1', maxCount: 1 }, { name: 'logo2', maxCount: 1 }]),
   logAction('UPDATE', 'Branch'), 
   branchController.updateBranch
@@ -400,7 +400,7 @@ router.put('/:id',
  */
 router.patch('/:id/status', 
   protect, 
-  authorize('SUPERADMIN'), 
+  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   logAction('UPDATE', 'Branch'), 
   branchController.updateBranchStatus
 );
@@ -439,7 +439,7 @@ router.patch('/:id/status',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN'), 
+  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   logAction('DELETE', 'Branch'), 
   branchController.deleteBranch
 );

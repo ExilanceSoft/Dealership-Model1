@@ -135,7 +135,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('CREATE', 'Color'),
   colorController.createColor
 );
@@ -274,7 +274,7 @@ router.get('/:colorId', colorController.getColorById);
 router.put(
   '/:colorId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE', 'Color'),
   colorController.updateColor
 );
@@ -309,7 +309,7 @@ router.put(
 router.delete(
   '/:colorId',
   protect,
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN','SALES_EXECUTIVE'),
   logAction('DELETE', 'Color'),
   colorController.deleteColor
 );
@@ -365,7 +365,7 @@ router.delete(
 router.post(
   '/:colorId/assign',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('ASSIGN_COLOR', 'Model'),
   colorController.assignColorToModels
 );
@@ -421,7 +421,7 @@ router.post(
 router.post(
   '/:colorId/unassign',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UNASSIGN_COLOR', 'Model'),
   colorController.unassignColorFromModels
 );
@@ -477,7 +477,7 @@ router.post(
 router.put(
   '/:colorId/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE_STATUS', 'Color'),
   colorController.updateColorStatus
 );

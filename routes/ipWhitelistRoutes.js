@@ -40,7 +40,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
   logAction('CREATE', 'IP Whitelist'), 
   ipController.addIP
 );
@@ -59,7 +59,7 @@ router.post('/',
  */
 router.get('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
   ipController.getIPs
 );
 
@@ -83,7 +83,7 @@ router.get('/',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
   logAction('DELETE', 'IP Whitelist'), 
   ipController.removeIP
 );

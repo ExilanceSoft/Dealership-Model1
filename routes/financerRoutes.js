@@ -159,7 +159,7 @@ const { protect, authorize } = require('../middlewares/auth');
  */
 router.post('/providers', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN'), 
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
   financeController.createProvider
 );
 
@@ -265,7 +265,7 @@ router.get('/providers/:id', financeController.getProvider);
  */
 router.put('/providers/:id', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN'), 
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
   financeController.updateProvider
 );
 
@@ -300,7 +300,7 @@ router.put('/providers/:id',
  */
 router.delete('/providers/:id', 
   protect, 
-  authorize('SUPERADMIN'), 
+  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   financeController.deleteProvider
 );
 
@@ -352,7 +352,7 @@ router.delete('/providers/:id',
  */
 router.post('/rates', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN'), 
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
   financeController.createRate
 );
 
@@ -431,7 +431,7 @@ router.get('/rates/:id', financeController.getRate);
  */
 router.put('/rates/:id', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN'), 
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
   financeController.updateRate
 );
 
@@ -464,7 +464,7 @@ router.put('/rates/:id',
  */
 router.delete('/rates/:id', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN'), 
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
   financeController.deleteRate
 );
 

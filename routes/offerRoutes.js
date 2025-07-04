@@ -134,7 +134,7 @@ const upload = require('../middlewares/upload');
  */
 router.post('/',
   protect,
-  authorize('ADMIN'),
+  authorize('ADMIN','SALES_EXECUTIVE'),
   upload.single('image'),
   offerController.createOffer
 );
@@ -314,7 +314,7 @@ router.get('/:id', offerController.getOfferById);
  */
 router.put('/:id',
   protect,
-  authorize('ADMIN'),
+  authorize('ADMIN','SALES_EXECUTIVE'),
   upload.single('image'),
   offerController.updateOffer
 );
@@ -350,7 +350,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   protect,
-  authorize('ADMIN'),
+  authorize('ADMIN','SALES_EXECUTIVE'),
   offerController.deleteOffer
 );
 

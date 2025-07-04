@@ -4,18 +4,23 @@ const Role = require('../models/Role');
 const { generateOTP, sendOTPSMS } = require('../utils/otpService');
 const AuditLog = require('../models/AuditLog');
 
-// Check if SuperAdmin exists
 const superAdminExists = async () => {
-  const superAdminRole = await Role.findOne({ isSuperAdmin: true });
-  if (!superAdminRole) return false;
-  
-  const superAdminUser = await User.findOne({ 
-    roles: superAdminRole._id,
-    isActive: true 
-  });
-  return !!superAdminUser;
+  try {
+    const superAdminRole = await Role.findOne({ isSuperAdmin: true });
+    if (!superAdminRole) return false;
+    
+    const superAdminUser = await User.findOne({ 
+      roles: superAdminRole._id,
+      isActive: true 
+    });
+    return !!superAdminUser;
+  } catch (error) {
+    console.error('Error checking SuperAdmin existence:', error);
+    return false;
+  }
 };
 
+// Unified registration endpoint
 // Unified registration endpoint
 exports.register = async (req, res) => {
   try {
@@ -26,6 +31,24 @@ exports.register = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Name, email and mobile are required'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    // Validate mobile format
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid mobile number'
       });
     }
 
@@ -41,6 +64,7 @@ exports.register = async (req, res) => {
     // Check if SuperAdmin exists
     const hasExistingSuperAdmin = await superAdminExists();
     let roleToAssign;
+    let requestingUser = null;
 
     // First user becomes SuperAdmin
     if (!hasExistingSuperAdmin) {
@@ -55,11 +79,40 @@ exports.register = async (req, res) => {
         { upsert: true, new: true }
       );
     } else {
-      // For subsequent registrations
-      if (!req.user) {
+      // For subsequent registrations - require authentication
+      const authHeader = req.headers['authorization'];
+      if (!authHeader) {
         return res.status(401).json({
           success: false,
-          message: 'Authentication required for registration'
+          message: 'Authorization header missing'
+        });
+      }
+
+      const token = authHeader.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Token not provided'
+        });
+      }
+
+      // Verify token
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid or expired token'
+        });
+      }
+
+      // Get the requesting user
+      requestingUser = await User.findById(decoded.id).populate('roles');
+      if (!requestingUser) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found'
         });
       }
 
@@ -71,11 +124,31 @@ exports.register = async (req, res) => {
         });
       }
 
+      // Validate the role being assigned
       roleToAssign = await Role.findById(roleId);
       if (!roleToAssign) {
         return res.status(404).json({
           success: false,
           message: 'Role not found'
+        });
+      }
+
+      // Check permissions
+      const isSuperAdmin = requestingUser.roles.some(role => role.isSuperAdmin);
+      const canRegisterUsers = await requestingUser.hasPermission('USER', 'CREATE');
+
+      if (!isSuperAdmin && !canRegisterUsers) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to register users'
+        });
+      }
+
+      // Non-SuperAdmins can't assign SuperAdmin role
+      if (roleToAssign.isSuperAdmin && !isSuperAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only SuperAdmin can create another SuperAdmin'
         });
       }
     }
@@ -86,11 +159,39 @@ exports.register = async (req, res) => {
       email,
       mobile,
       roles: [roleToAssign._id],
-      ...(!roleToAssign.isSuperAdmin && { branch }) // Add branch if not SuperAdmin
+      branch: !roleToAssign.isSuperAdmin ? branch : undefined
     });
+
+    // Log the registration action if performed by an admin
+    if (requestingUser) {
+      await AuditLog.create({
+        action: 'CREATE_USER',
+        entity: 'User',
+        entityId: user._id,
+        user: requestingUser._id,
+        ip: req.ip || req.connection.remoteAddress, // Add IP address here
+        details: {
+          name: user.name,
+          email: user.email,
+          role: roleToAssign.name
+        }
+      });
+    }
+
+    // Generate and send OTP
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    await User.findByIdAndUpdate(user._id, {
+      otp,
+      otpExpires
+    });
+
+    await sendOTPSMS(mobile, otp);
 
     res.status(201).json({
       success: true,
+      message: 'User registered successfully. OTP sent for verification.',
       data: {
         id: user._id,
         name: user.name,
@@ -108,8 +209,6 @@ exports.register = async (req, res) => {
     });
   }
 };
-
-
 // Request OTP
 exports.requestOTP = async (req, res) => {
   try {

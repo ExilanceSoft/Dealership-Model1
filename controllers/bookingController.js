@@ -71,7 +71,7 @@ const validateDiscountLimits = (priceComponents) => {
 
 exports.createBooking = async (req, res) => {
   try {
-    // Validate required fields (branch removed from required fields)
+    // Validate required fields
     const requiredFields = [
       { field: 'model_id', message: 'Model selection is required' },
       { field: 'model_color', message: 'Color selection is required' },
@@ -89,12 +89,11 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Check if user is superadmin
+    // Check user permissions and branch
     const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
     let branchId = req.body.branch;
     
     if (!isSuperAdmin) {
-      // For non-superadmin users, use their assigned branch
       if (!req.user.branch) {
         return res.status(400).json({
           success: false,
@@ -103,7 +102,6 @@ exports.createBooking = async (req, res) => {
       }
       branchId = req.user.branch;
       
-      // If they tried to set a different branch, reject
       if (req.body.branch && req.body.branch.toString() !== req.user.branch.toString()) {
         return res.status(403).json({
           success: false,
@@ -111,7 +109,6 @@ exports.createBooking = async (req, res) => {
         });
       }
     } else {
-      // For superadmin, branch is required
       if (!req.body.branch) {
         return res.status(400).json({
           success: false,
@@ -119,12 +116,50 @@ exports.createBooking = async (req, res) => {
         });
       }
       
-      // Validate the branch exists
       const branchExists = await mongoose.model('Branch').exists({ _id: req.body.branch });
       if (!branchExists) {
         return res.status(400).json({
           success: false,
           message: 'Invalid branch selected'
+        });
+      }
+    }
+
+    // Validate sales executive selection
+    if (req.body.sales_executive) {
+      if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid sales executive ID format'
+        });
+      }
+
+      const salesExecutive = await User.findById(req.body.sales_executive)
+        .populate('roles');
+      
+      if (!salesExecutive || !salesExecutive.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or inactive sales executive selected'
+        });
+      }
+
+      const isSalesExecutive = salesExecutive.roles.some(r => 
+        r.name === 'SALES_EXECUTIVE'
+      );
+      
+      if (!isSalesExecutive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selected user must have SALES_EXECUTIVE role'
+        });
+      }
+
+      if (!salesExecutive.branch || 
+          salesExecutive.branch.toString() !== branchId.toString()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sales executive must belong to the selected branch'
         });
       }
     }
@@ -167,39 +202,70 @@ exports.createBooking = async (req, res) => {
     // Get all headers
     const headers = await Header.find({ type: model.type }).sort({ priority: 1 });
 
-    // Create price components with special HPA handling
+    // Create price components with mandatory/optional handling
     const priceComponents = await Promise.all(headers.map(async (header) => {
       const priceData = model.prices.find(
         p => p.header_id.equals(header._id) && p.branch_id.equals(branchId)
       );
 
-      // SPECIAL HANDLING FOR HYPOTHECATION CHARGES
+      // Skip if no price data found for this branch
+      if (!priceData) return null;
+
+      // Special handling for hypothecation charges
       if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
         return {
           header: header._id,
           headerDetails: header,
-          originalValue: priceData?.value || 0,
-          discountedValue: req.body.hpa ? (priceData?.value || 0) : 0,
+          originalValue: priceData.value,
+          discountedValue: req.body.hpa ? priceData.value : 0,
           isDiscountable: false,
           isMandatory: false,
-          metadata: priceData?.metadata || {}
+          metadata: priceData.metadata || {}
         };
       }
 
-      // Normal handling for all other headers
-      return {
-        header: header._id,
-        headerDetails: header,
-        originalValue: priceData?.value || 0,
-        discountedValue: priceData?.value || 0,
-        isDiscountable: header.is_discount,
-        isMandatory: header.is_mandatory,
-        metadata: priceData?.metadata || {}
-      };
+      // Handle mandatory components - always include these
+      if (header.is_mandatory) {
+        return {
+          header: header._id,
+          headerDetails: header,
+          originalValue: priceData.value,
+          discountedValue: priceData.value,
+          isDiscountable: header.is_discount,
+          isMandatory: true,
+          metadata: priceData.metadata || {}
+        };
+      }
+
+      // Handle optional components - only include if explicitly selected
+      if (req.body.optionalComponents && 
+          Array.isArray(req.body.optionalComponents) &&
+          req.body.optionalComponents.includes(header._id.toString())) {
+        return {
+          header: header._id,
+          headerDetails: header,
+          originalValue: priceData.value,
+          discountedValue: priceData.value,
+          isDiscountable: header.is_discount,
+          isMandatory: false,
+          metadata: priceData.metadata || {}
+        };
+      }
+
+      // Skip all other optional components that weren't selected
+      return null;
     }));
 
-    // Calculate base amount
-    const baseAmount = priceComponents.reduce((sum, c) => sum + c.discountedValue, 0);
+    // Filter out null components
+    const filteredComponents = priceComponents.filter(c => c !== null);
+
+    // Verify at least one price component exists
+    if (filteredComponents.length === 0) {
+      throw new Error('No valid price components found for this model and branch');
+    }
+
+    // Calculate base amount using filtered components
+    const baseAmount = filteredComponents.reduce((sum, c) => sum + c.discountedValue, 0);
 
     // Set HPA charges
     const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
@@ -209,7 +275,7 @@ exports.createBooking = async (req, res) => {
         )?.value || 0 
       : 0;
 
-    // Set RTO amount if RTO type is BH or CRTM
+    // Set RTO amount
     let rtoAmount = 0;
     if (['BH', 'CRTM'].includes(req.body.rto_type)) {
       rtoAmount = req.body.rto_type === 'BH' ? 5000 : 4500;
@@ -218,7 +284,7 @@ exports.createBooking = async (req, res) => {
     // Handle accessories
     let accessoriesTotal = 0;
     let accessories = [];
-    
+
     if (req.body.accessories?.selected?.length > 0) {
       const accessoryIds = req.body.accessories.selected.map(acc => {
         if (!mongoose.Types.ObjectId.isValid(acc.id)) {
@@ -239,7 +305,6 @@ exports.createBooking = async (req, res) => {
         throw new Error(`Invalid accessory IDs: ${missingIds.join(', ')}`);
       }
 
-      // Check model compatibility
       const incompatibleAccessories = validAccessories.filter(
         a => !a.applicable_models.some(m => m.toString() === req.body.model_id.toString())
       );
@@ -262,17 +327,27 @@ exports.createBooking = async (req, res) => {
              p.branch_id.equals(branchId)
       )?.value || 0;
 
-      const selectedAccessoriesTotal = req.body.accessories.selected.reduce(
-        (sum, acc) => sum + (validAccessories.find(a => a._id.toString() === acc.id)?.price || 0), 
+      const selectedAccessoriesTotal = validAccessories.reduce(
+        (sum, acc) => sum + acc.price, 
         0
       );
 
       accessoriesTotal = Math.max(selectedAccessoriesTotal, accessoriesTotalPrice);
-      accessories = selectedAccessoriesTotal > accessoriesTotalPrice ? 
-        validAccessories.map(acc => ({
-          accessory: acc._id,
-          price: acc.price
-        })) : [];
+      
+      accessories = validAccessories.map(acc => ({
+        accessory: acc._id,
+        price: acc.price,
+        discount: 0
+      }));
+
+      if (selectedAccessoriesTotal < accessoriesTotalPrice) {
+        const difference = accessoriesTotalPrice - selectedAccessoriesTotal;
+        accessories.push({
+          accessory: null, 
+          price: difference,
+          discount: 0
+        });
+      }
     }
 
     // Handle exchange
@@ -350,18 +425,17 @@ exports.createBooking = async (req, res) => {
         approvalStatus: 'PENDING'
       };
 
-      const updatedComponents = calculateDiscounts(priceComponents, discount.amount, discount.type);
+      const updatedComponents = calculateDiscounts(filteredComponents, discount.amount, discount.type);
       validateDiscountLimits(updatedComponents);
 
       updatedComponents.forEach(updated => {
-        const original = priceComponents.find(c => c.header?.toString() === updated.header?.toString());
+        const original = filteredComponents.find(c => c.header?.toString() === updated.header?.toString());
         if (original) {
           original.discountedValue = updated.discountedValue;
         }
       });
 
-      // Calculate actual discount applied
-      totalDiscount = priceComponents.reduce((sum, component) => {
+      totalDiscount = filteredComponents.reduce((sum, component) => {
         return sum + (component.originalValue - component.discountedValue);
       }, 0);
 
@@ -395,22 +469,23 @@ exports.createBooking = async (req, res) => {
         mobile1: req.body.customer_details.mobile1,
         mobile2: req.body.customer_details.mobile2 || '',
         aadharNumber: req.body.customer_details.aadhar_number || '',
-        nomineeName: req.body.customer_details.nominee_name || '',
-        nomineeRelation: req.body.customer_details.nominee_relation || '',
-        nomineeAge: req.body.customer_details.nominee_age || 0
+        nomineeName: req.body.customer_details.nomineeName || undefined,
+        nomineeRelation: req.body.customer_details.nomineeRelation || undefined,
+        nomineeAge: req.body.customer_details.nomineeAge ? parseInt(req.body.customer_details.nomineeAge) : undefined
       },
       exchange: req.body.exchange ? req.body.exchange.is_exchange : false,
       exchangeDetails: exchangeDetails,
       payment: payment,
       accessories: accessories,
-      priceComponents: priceComponents,
+      priceComponents: filteredComponents,
       discounts: discounts,
       accessoriesTotal: accessoriesTotal,
       totalAmount: totalAmount,
       discountedAmount: discountedAmount,
       status: discounts.length > 0 ? 'PENDING_APPROVAL' : 'DRAFT',
-      branch: branchId, // Use the determined branchId here
-      createdBy: req.user.id
+      branch: branchId,
+      createdBy: req.user.id,
+      salesExecutive: req.body.sales_executive || req.user.id
     };
 
     const booking = await Booking.create(bookingData);
@@ -419,6 +494,7 @@ exports.createBooking = async (req, res) => {
       'modelDetails',
       'branchDetails',
       'createdByDetails',
+      'salesExecutiveDetails',
       { path: 'priceComponents.header', model: 'Header' },
       { path: 'accessories.accessory', model: 'Accessory' }
     ]);
@@ -465,144 +541,23 @@ exports.createBooking = async (req, res) => {
   }
 };
 
-// Update getBookings to filter by user's branch if not superadmin
-exports.getBookings = async (req, res) => {
+// Get booking by ID with all populated details (fixed version)
+exports.getBookingById = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const bookingId = req.params.id;
     
-    // Base query
-    const query = {};
-    
-    // For non-superadmin users, filter by their branch
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    if (!isSuperAdmin) {
-      if (!req.user.branch) {
-        return res.status(400).json({
-          success: false,
-          message: 'Your account is not associated with any branch'
-        });
-      }
-      query.branch = req.user.branch;
-    } else {
-      // For superadmin, allow filtering by branch if specified
-      if (req.query.branch) {
-        query.branch = req.query.branch;
-      }
-    }
-    
-    // Optional filters
-    if (req.query.status) {
-      query.status = req.query.status;
-    }
-    if (req.query.customerType) {
-      query.customerType = req.query.customerType;
-    }
-    if (req.query.model) {
-      query.model = req.query.model;
-    }
-    if (req.query.fromDate && req.query.toDate) {
-      query.createdAt = {
-        $gte: new Date(req.query.fromDate),
-        $lte: new Date(req.query.toDate)
-      };
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
     }
 
-    const [bookings, total] = await Promise.all([
-      Booking.find(query)
-        .skip(skip)
-        .limit(limit)
-        .populate('modelDetails', 'model_name type')
-        .populate('colorDetails', 'name code')
-        .populate('rtoDetails', 'rto_code rto_name')
-        .populate('createdByDetails', 'name email')
-        .sort({ createdAt: -1 }),
-      Booking.countDocuments(query)
-    ]);
-
-    res.status(200).json({
-      success: true,
-      count: bookings.length,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-      data: bookings
-    });
-  } catch (err) {
-    console.error('Error fetching bookings:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching bookings',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-exports.getBookings = async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-    
-    // Base query
-    const query = { branch: req.user.branch };
-    
-    // Optional filters
-    if (req.query.status) {
-      query.status = req.query.status;
-    }
-    if (req.query.customerType) {
-      query.customerType = req.query.customerType;
-    }
-    if (req.query.model) {
-      query.model = req.query.model;
-    }
-    if (req.query.fromDate && req.query.toDate) {
-      query.createdAt = {
-        $gte: new Date(req.query.fromDate),
-        $lte: new Date(req.query.toDate)
-      };
-    }
-
-    const [bookings, total] = await Promise.all([
-      Booking.find(query)
-        .skip(skip)
-        .limit(limit)
-        .populate('modelDetails', 'model_name type')
-        .populate('colorDetails', 'name code')
-        .populate('rtoDetails', 'rto_code rto_name')
-        .populate('createdByDetails', 'name email')
-        .sort({ createdAt: -1 }),
-      Booking.countDocuments(query)
-    ]);
-
-    res.status(200).json({
-      success: true,
-      count: bookings.length,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-      data: bookings
-    });
-  } catch (err) {
-    console.error('Error fetching bookings:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching bookings',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-
-exports.getBooking = async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id)
-      .populate('modelDetails')
-      .populate('colorDetails')
-      .populate('rtoDetails')
-      .populate('branchDetails')
-      .populate('createdByDetails')
-      .populate('approvedByDetails')
+    const booking = await Booking.findById(bookingId)
+      .populate('model')
+      .populate('color')
+      .populate('branch')
+      .populate('createdBy', 'name email')
       .populate({
         path: 'priceComponents.header',
         model: 'Header'
@@ -613,14 +568,13 @@ exports.getBooking = async (req, res) => {
       })
       .populate({
         path: 'exchangeDetails.broker',
-        model: 'Broker',
-        select: 'name brokerId'
+        model: 'Broker'
       })
       .populate({
         path: 'payment.financer',
-        model: 'FinanceProvider',
-        select: 'name'
-      });
+        model: 'FinanceProvider'
+      })
+      .populate('approvedBy', 'name email');
 
     if (!booking) {
       return res.status(404).json({
@@ -629,24 +583,109 @@ exports.getBooking = async (req, res) => {
       });
     }
 
-    // Check if user has access to this booking
-    if (!req.user.roles.some(r => r.isSuperAdmin) && 
-        !booking.branch.equals(req.user.branch)) {
+    // Check if user has permission to view this booking
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
       return res.status(403).json({
         success: false,
-        message: 'Unauthorized to access this booking'
+        message: 'You are not authorized to view this booking'
       });
     }
-    
+
     res.status(200).json({
       success: true,
       data: booking
     });
+
   } catch (err) {
-    console.error('Error fetching booking:', err);
+    console.error('Error getting booking:', err);
     res.status(500).json({
       success: false,
-      message: 'Error fetching booking',
+      message: 'Server error while fetching booking',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+exports.getAllBookings = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      branch, 
+      fromDate, 
+      toDate,
+      customerType,
+      model
+    } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    
+    // Status filter
+    if (status) {
+      filter.status = status;
+    }
+    
+    // Customer type filter
+    if (customerType) {
+      filter.customerType = customerType;
+    }
+    
+    // Model filter
+    if (model) {
+      filter.model = model;
+    }
+    
+    // Date range filter
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+    
+    // Branch filter (non-superadmins can only see their branch)
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    if (!isSuperAdmin) {
+      filter.branch = req.user.branch;
+    } else if (branch) {
+      filter.branch = branch;
+    }
+    
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 }, // Newest first
+      populate: [
+        'model',
+        { path: 'color', select: 'name code' },
+        'branch',
+        {
+          path: 'createdBy',
+          select: 'name email'
+        }
+      ],
+      lean: true
+    };
+    
+    const bookings = await Booking.paginate(filter, options);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        bookings: bookings.docs,
+        total: bookings.totalDocs,
+        pages: bookings.totalPages,
+        currentPage: bookings.page
+      }
+    });
+    
+  } catch (err) {
+    console.error('Error getting bookings:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching bookings',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
@@ -1113,6 +1152,187 @@ exports.cancelBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error cancelling booking',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+// Generate Booking Form (for bookings without discounts)
+exports.generateBookingForm = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking ID' });
+    }
+
+    const booking = await Booking.findById(bookingId)
+      .populate('modelDetails')
+      .populate('colorDetails')
+      .populate('branchDetails')
+      .populate('createdByDetails')
+      .populate('salesExecutiveDetails')
+      .populate('exchangeDetails.broker')
+      .populate('payment.financer');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Check if user has permission
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    if (!isSuperAdmin && !booking.branch.equals(req.user.branch)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Format data for the form
+    const formData = {
+      bookingNumber: booking.bookingNumber,
+      date: booking.createdAt.toLocaleDateString('en-IN'),
+      customerDetails: {
+        name: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
+        address: booking.customerDetails.address,
+        mobile: booking.customerDetails.mobile1,
+        gstin: booking.gstin || 'N/A',
+        pan: booking.customerDetails.panNo || 'N/A'
+      },
+      vehicleDetails: {
+        model: booking.modelDetails.model_name,
+        color: booking.colorDetails.name,
+        type: booking.modelDetails.type
+      },
+      paymentDetails: {
+        type: booking.payment.type,
+        totalAmount: booking.totalAmount,
+        accessoriesTotal: booking.accessoriesTotal,
+        hypothecationCharges: booking.hypothecationCharges
+      },
+      status: booking.status,
+      isExchange: booking.exchange,
+      exchangeDetails: booking.exchangeDetails
+    };
+
+    res.status(200).json({ 
+      success: true, 
+      data: formData,
+      documentType: 'BOOKING_FORM'
+    });
+
+  } catch (err) {
+    console.error('Error generating booking form:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error generating booking form',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Generate Booking Receipt (for bookings with discounts)
+exports.generateBookingReceipt = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking ID' });
+    }
+
+    const booking = await Booking.findById(bookingId)
+      .populate('modelDetails')
+      .populate('colorDetails')
+      .populate('branchDetails')
+      .populate('createdByDetails')
+      .populate('salesExecutiveDetails')
+      .populate('exchangeDetails.broker')
+      .populate('payment.financer')
+      .populate('priceComponents.header')
+      .populate('accessories.accessory');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Check if booking has discounts (should be a receipt)
+    if (booking.discounts.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This booking has no discounts - use booking form instead' 
+      });
+    }
+
+    // Check if user has permission
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    if (!isSuperAdmin && !booking.branch.equals(req.user.branch)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Format price components with tax details
+    const priceComponents = booking.priceComponents.map(comp => ({
+      name: comp.header.header_key,
+      hsnCode: comp.header.metadata?.hsnCode || 'N/A',
+      originalValue: comp.originalValue,
+      discountedValue: comp.discountedValue,
+      gstRate: comp.header.metadata?.gstRate || 0,
+      isDiscountable: comp.isDiscountable
+    }));
+
+    // Format data for the receipt
+    const receiptData = {
+      bookingNumber: booking.bookingNumber,
+      date: booking.createdAt.toLocaleDateString('en-IN'),
+      customerDetails: {
+        name: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
+        address: booking.customerDetails.address,
+        mobile: booking.customerDetails.mobile1,
+        gstin: booking.gstin || 'N/A',
+        pan: booking.customerDetails.panNo || 'N/A'
+      },
+      vehicleDetails: {
+        model: booking.modelDetails.model_name,
+        color: booking.colorDetails.name,
+        type: booking.modelDetails.type
+      },
+      priceDetails: {
+        components: priceComponents,
+        accessories: booking.accessories.map(acc => ({
+          name: acc.accessory?.name || 'Additional Charges',
+          price: acc.price,
+          discount: acc.discount
+        })),
+        totalAmount: booking.totalAmount,
+        discountedAmount: booking.discountedAmount,
+        totalDiscount: booking.totalAmount - booking.discountedAmount
+      },
+      paymentDetails: {
+        type: booking.payment.type,
+        financer: booking.payment.type === 'FINANCE' ? booking.payment.financer.name : null,
+        gcAmount: booking.payment.gcAmount || 0
+      },
+      discounts: booking.discounts.map(d => ({
+        amount: d.amount,
+        type: d.type,
+        approvedBy: d.approvedBy?.name || 'Pending Approval'
+      })),
+      status: booking.status,
+      isExchange: booking.exchange,
+      exchangeDetails: booking.exchangeDetails,
+      branchDetails: {
+        name: booking.branchDetails.name,
+        address: booking.branchDetails.address,
+        gstin: booking.branchDetails.gstin
+      }
+    };
+
+    res.status(200).json({ 
+      success: true, 
+      data: receiptData,
+      documentType: 'BOOKING_RECEIPT'
+    });
+
+  } catch (err) {
+    console.error('Error generating booking receipt:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error generating booking receipt',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }

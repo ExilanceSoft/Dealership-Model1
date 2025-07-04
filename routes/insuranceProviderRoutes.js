@@ -81,7 +81,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('CREATE_INSURANCE_PROVIDER'),
   insuranceProviderController.createInsuranceProvider
 );
@@ -226,7 +226,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE_INSURANCE_PROVIDER'),
   insuranceProviderController.updateInsuranceProvider
 );
@@ -278,7 +278,7 @@ router.put(
 router.patch(
   '/:id/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE_INSURANCE_PROVIDER_STATUS'),
   insuranceProviderController.updateInsuranceProviderStatus
 );
@@ -313,7 +313,7 @@ router.patch(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN','SALES_EXECUTIVE'),
   logAction('DELETE_INSURANCE_PROVIDER'),
   insuranceProviderController.deleteInsuranceProvider
 );

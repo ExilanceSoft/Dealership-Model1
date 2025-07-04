@@ -86,7 +86,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('CREATE_RTO'),
   rtoController.createRTO
 );
@@ -231,7 +231,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('UPDATE_RTO'),
   rtoController.updateRTO
 );
@@ -283,7 +283,7 @@ router.put(
 router.patch(
   '/:id/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('UPDATE_RTO_STATUS'),
   rtoController.updateRTOStatus
 );
@@ -318,7 +318,7 @@ router.patch(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN','SALES_EXECUTIVE'),
   logAction('DELETE_RTO'),
   rtoController.deleteRTO
 );

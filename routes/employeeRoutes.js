@@ -221,7 +221,7 @@ const { protect, authorize } = require('../middlewares/auth');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'HR'),
+  authorize('SUPERADMIN', 'ADMIN', 'HR','SALES_EXECUTIVE'),
   employeeController.createEmployee
 );
 
@@ -482,7 +482,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'HR'),
+  authorize('SUPERADMIN', 'ADMIN', 'HR','SALES_EXECUTIVE'),
   employeeController.updateEmployee
 );
 
@@ -550,7 +550,7 @@ router.put(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'HR'),
+  authorize('SUPERADMIN', 'ADMIN', 'HR','SALES_EXECUTIVE'),
   employeeController.deleteEmployee
 );
 

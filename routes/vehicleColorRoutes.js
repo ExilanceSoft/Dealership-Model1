@@ -39,7 +39,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'SALES_EXECUTIVE'), 
   logAction('CREATE', 'VehicleColor'), 
   vehicleColorController.createColor
 );
@@ -128,7 +128,7 @@ router.get('/model/:modelId', vehicleColorController.getColorsByModel);
  */
 router.put('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  authorize('SUPERADMIN', 'SALES_EXECUTIVE'), 
   logAction('UPDATE', 'VehicleColor'), 
   vehicleColorController.updateColor
 );
@@ -161,7 +161,7 @@ router.put('/:id',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN'), 
+  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   logAction('DELETE', 'VehicleColor'), 
   vehicleColorController.deleteColor
 );

@@ -137,7 +137,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'),
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'),
   logAction('CREATE_OR_ADD_BROKER', 'Broker'),
   brokerController.createOrAddBroker
 );
@@ -169,7 +169,7 @@ router.post(
 router.get(
   '/branch/:branchId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'),
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'),
   brokerController.getBrokersByBranch
 );
 /**
@@ -317,7 +317,7 @@ router.get(
 router.put(
   '/:brokerId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','MANAGER'),
+  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('UPDATE_BROKER', 'Broker'),  // Ensure this matches your enum
   brokerController.updateBroker
 );
@@ -355,7 +355,7 @@ router.put(
 router.delete(
   '/:brokerId/branch/:branchId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','MANAGER'),
+  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'),
   logAction('REMOVE_BROKER_BRANCH', 'Broker'),
   brokerController.removeBrokerBranch
 );
@@ -405,7 +405,7 @@ router.delete(
 router.get(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER'), // Optional but recommended
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'), // Optional but recommended
   brokerController.getAllBrokers
 );
 

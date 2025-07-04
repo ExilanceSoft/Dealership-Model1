@@ -132,7 +132,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   logAction('CREATE', 'Accessory'),
   accessoryController.createAccessory
 );
@@ -322,7 +322,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE', 'Accessory'),
   accessoryController.updateAccessory
 );
@@ -385,7 +385,7 @@ router.put(
 router.put(
   '/:id/status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE_STATUS', 'Accessory'),
   accessoryController.updateAccessoryStatus
 );
@@ -448,7 +448,7 @@ router.put(
 router.put(
   '/:id/part-number-status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE_PART_NUMBER_STATUS', 'Accessory'),
   accessoryController.updatePartNumberStatus
 );
@@ -483,7 +483,7 @@ router.put(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN','SALES_EXECUTIVE'),
   logAction('DELETE', 'Accessory'),
   accessoryController.deleteAccessory
 );

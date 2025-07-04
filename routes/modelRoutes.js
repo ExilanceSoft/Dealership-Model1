@@ -186,7 +186,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('CREATE', 'Model'),
   modelController.createModel
 );
@@ -268,7 +268,7 @@ router.get(
 router.put(
   '/:modelId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE', 'Model'),
   modelController.updateModel
 );
@@ -314,7 +314,7 @@ router.put(
 router.put(
   '/:modelId/prices',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE', 'ModelPrices'),
   modelController.updateModelPrices
 );
@@ -349,7 +349,7 @@ router.put(
 router.delete(
   '/:modelId',
   protect,
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN','SALES_EXECUTIVE'),
   logAction('DELETE', 'Model'),
   modelController.deleteModel
 );
@@ -442,7 +442,7 @@ router.get(
 router.get(
   '/all/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   modelController.getAllModelsStatus
 );
 
@@ -636,7 +636,7 @@ router.get(
 router.delete(
   '/cleanup',
   protect,
-  authorize('SUPERADMIN'),
+  authorize('SUPERADMIN','SALES_EXECUTIVE'),
   logAction('CLEANUP', 'Models'),
   modelController.cleanupModels
 );
@@ -813,7 +813,7 @@ router.post(
 router.put(
   '/:modelId/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('UPDATE_STATUS', 'Model'),
   modelController.updateModelStatus
 );

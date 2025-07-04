@@ -241,7 +241,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   protect,
-  authorize('ADMIN'),
+  authorize('ADMIN','SALES_EXECUTIVE'),
   termsConditionController.deleteTermsCondition
 );
 
