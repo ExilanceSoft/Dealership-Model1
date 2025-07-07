@@ -121,6 +121,7 @@ exports.deleteProvider = async (req, res) => {
       });
     }
 
+    // Check if provider has any rates (active or inactive)
     const ratesExist = await FinanceRate.exists({ financeProvider: provider._id });
     if (ratesExist) {
       return res.status(400).json({
@@ -129,12 +130,20 @@ exports.deleteProvider = async (req, res) => {
       });
     }
 
-    await provider.remove();
-    res.status(200).json({ success: true, data: {} });
+    // Use deleteOne() instead of remove() as it's more modern
+    await FinanceProvider.deleteOne({ _id: provider._id });
+    
+    res.status(200).json({ 
+      success: true, 
+      data: {},
+      message: 'Provider deleted successfully'
+    });
   } catch (err) {
+    console.error('Error deleting provider:', err); // Add logging
     res.status(500).json({
       success: false,
-      message: 'Error deleting provider'
+      message: 'Error deleting provider',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };

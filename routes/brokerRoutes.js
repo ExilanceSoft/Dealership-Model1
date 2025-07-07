@@ -409,5 +409,77 @@ router.get(
   brokerController.getAllBrokers
 );
 
+/**
+ * @swagger
+ * /api/v1/brokers/{id}:
+ *   get:
+ *     summary: Get a single broker by ID
+ *     tags: [Brokers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the broker to retrieve
+ *     responses:
+ *       200:
+ *         description: Broker details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Broker'
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/:id',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  brokerController.getBrokerById
+);
+// In brokerRoutes.js - add this new route before module.exports
+/**
+ * @swagger
+ * /api/v1/brokers/{id}:
+ *   delete:
+ *     summary: Delete a broker (Admin+)
+ *     tags: [Brokers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the broker to delete
+ *     responses:
+ *       200:
+ *         description: Broker deleted successfully
+ *       400:
+ *         description: Invalid broker ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not Admin+)
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Server error
+ */
+router.delete(
+  '/:id',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN'),
+  logAction('DELETE_BROKER', 'Broker'),
+  brokerController.deleteBroker
+);
 
 module.exports = router;

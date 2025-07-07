@@ -575,7 +575,7 @@ router.put('/:id',
  */
 router.post('/:id/approve', 
   protect, 
-  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
 );
@@ -636,7 +636,7 @@ router.post('/:id/approve',
  */
 router.post('/:id/reject', 
   protect, 
-  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
   logAction('REJECT', 'Booking'), 
   bookingController.rejectBooking
 );

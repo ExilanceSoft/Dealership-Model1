@@ -173,7 +173,50 @@ exports.getBrokersByBranch = async (req, res) => {
     });
   }
 };
+exports.getBrokerById = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Broker ID is required'
+      });
+    }
+
+    const broker = await Broker.findById(id)
+      .populate({
+        path: 'branches.branch',
+        select: 'name code'
+      })
+      .populate({
+        path: 'branches.addedBy',
+        select: 'name email'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name email'
+      });
+
+    if (!broker) {
+      return res.status(404).json({
+        success: false,
+        message: 'Broker not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: broker
+    });
+  } catch (err) {
+    console.error('Error fetching broker by ID:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Error fetching broker'
+    });
+  }
+};
 exports.updateBroker = async (req, res) => {
   try {
     const { brokerId } = req.params;
@@ -290,6 +333,55 @@ exports.removeBrokerBranch = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error removing broker branch'
+    });
+  }
+};
+
+// In brokerController.js - add this new method
+exports.deleteBroker = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Broker ID is required'
+      });
+    }
+
+    const broker = await Broker.findByIdAndDelete(id);
+
+    if (!broker) {
+      return res.status(404).json({
+        success: false,
+        message: 'Broker not found'
+      });
+    }
+
+    // Log the deletion
+    await AuditLog.create({
+      action: 'DELETE_BROKER',
+      entity: 'Broker',
+      entityId: id,
+      user: userId,
+      ip: req.ip,
+      metadata: {
+        name: broker.name,
+        mobile: broker.mobile,
+        email: broker.email
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    console.error('Error deleting broker:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Error deleting broker'
     });
   }
 };

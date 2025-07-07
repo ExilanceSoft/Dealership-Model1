@@ -810,71 +810,64 @@ exports.updateBooking = async (req, res) => {
 
 exports.approveBooking = async (req, res) => {
   try {
-    // Find booking
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
+    // 1. Quick initial validation
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid booking ID' });
     }
 
-    // Check if booking needs approval
-    if (booking.status !== 'PENDING_APPROVAL') {
-      return res.status(400).json({
-        success: false,
-        message: 'Booking does not require approval'
-      });
+    // 2. Fast permission check
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    const isManagerOrAdmin = req.user.roles.some(r => 
+      ['MANAGER', 'ADMIN', 'SUPERADMIN'].includes(r.name)
+    );
+    
+    if (!isSuperAdmin && !isManagerOrAdmin) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to approve bookings' });
     }
 
-    // Check if user has approval permissions
-    const canApprove = req.user.roles.some(role => 
-      role.permissions.some(p => 
-        p.module === 'BOOKING' && p.action === 'APPROVE'
-      )
+    // 3. Single optimized DB operation
+    const booking = await Booking.findOneAndUpdate(
+      { 
+        _id: req.params.id,
+        status: 'PENDING_APPROVAL'
+      },
+      { 
+        $set: { 
+          status: 'APPROVED',
+          approvedBy: req.user.id,
+          'discounts.$[].approvedBy': req.user.id,
+          'discounts.$[].approvalStatus': 'APPROVED',
+          'discounts.$[].approvalNote': req.body.approvalNote || ''
+        } 
+      },
+      { 
+        new: true,
+        populate: [
+          { path: 'modelDetails', select: 'model_name type' },
+          { path: 'colorDetails', select: 'name code' },
+          { path: 'branchDetails', select: 'name address' },
+          { path: 'approvedByDetails', select: 'name email' }
+        ]
+      }
     );
 
-    if (!canApprove) {
-      return res.status(403).json({
-        success: false,
-        message: 'Unauthorized to approve bookings'
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found or not pending approval' 
       });
     }
 
-    // Update booking status
-    booking.status = 'APPROVED';
-    booking.approvedBy = req.user.id;
-    
-    // Update discount approval status
-    booking.discounts = booking.discounts.map(d => ({
-      ...d.toObject(),
-      approvedBy: req.user.id,
-      approvalStatus: 'APPROVED',
-      approvalNote: req.body.approvalNote
-    }));
-
-    await booking.save();
-
-    await booking.populate([
-      'modelDetails',
-      'colorDetails',
-      'rtoDetails',
-      'branchDetails',
-      'createdByDetails',
-      'approvedByDetails'
-    ]);
-
-    await AuditLog.create({
+    // 4. Non-blocking audit log
+    AuditLog.create({
       action: 'APPROVE',
       entity: 'Booking',
       entityId: booking._id,
       user: req.user.id,
       ip: req.ip,
-      metadata: {
-        approvalNote: req.body.approvalNote
-      },
+      metadata: { approvalNote: req.body.approvalNote },
       status: 'SUCCESS'
-    });
+    }).catch(err => console.error('Audit log error:', err));
 
     res.status(200).json({
       success: true,
@@ -882,17 +875,6 @@ exports.approveBooking = async (req, res) => {
     });
   } catch (err) {
     console.error('Error approving booking:', err);
-    
-    await AuditLog.create({
-      action: 'APPROVE',
-      entity: 'Booking',
-      entityId: req.params.id,
-      user: req.user?.id,
-      ip: req.ip,
-      status: 'FAILED',
-      error: err.message
-    });
-
     res.status(500).json({
       success: false,
       message: 'Error approving booking',
@@ -900,7 +882,6 @@ exports.approveBooking = async (req, res) => {
     });
   }
 };
-
 exports.rejectBooking = async (req, res) => {
   try {
     // Find booking
