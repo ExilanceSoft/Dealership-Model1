@@ -22,6 +22,26 @@ const validateVehicleFields = (type, body) => {
   return errors;
 };
 
+// Standard population options
+const populateOptions = [
+  {
+    path: 'modelDetails',
+    select: 'model_name type status prices colors createdAt'
+  },
+  {
+    path: 'locationDetails',
+    select: 'name address city state'
+  },
+  {
+    path: 'colorDetails',
+    select: 'name hex_code status models createdAt'
+  },
+  {
+    path: 'addedByDetails',
+    select: 'name email'
+  }
+];
+
 // Create a new vehicle
 exports.createVehicle = async (req, res, next) => {
   try {
@@ -45,35 +65,6 @@ exports.createVehicle = async (req, res, next) => {
       return next(new AppError(fieldErrors.join(', '), 400));
     }
     
-    // Check if model exists
-    const modelExists = await Model.findById(model);
-    if (!modelExists) {
-      return next(new AppError('Model not found', 404));
-    }
-    
-    // Check if unload location exists
-    const locationExists = await Branch.findById(unloadLocation);
-    if (!locationExists) {
-      return next(new AppError('Unload location not found', 404));
-    }
-    
-    // Check if all colors exist
-    const colorsExist = await Color.countDocuments({ _id: { $in: colors } });
-    if (colorsExist !== colors.length) {
-      return next(new AppError('One or more colors not found', 404));
-    }
-    
-    // Check if chassis number already exists
-    const existingVehicle = await Vehicle.findOne({ chassisNumber });
-    if (existingVehicle) {
-      return next(new AppError('Vehicle with this chassis number already exists', 400));
-    }
-    
-    // Validate damages if hasDamage is true
-    if (hasDamage && (!damages || damages.length === 0)) {
-      return next(new AppError('Damage details are required when hasDamage is true', 400));
-    }
-    
     // Create the vehicle
     const newVehicle = await Vehicle.create({
       ...req.body,
@@ -82,10 +73,10 @@ exports.createVehicle = async (req, res, next) => {
     
     // Generate QR code data URL
     const qrCodeData = {
-      model: modelExists.model_name,
+      model: newVehicle.modelDetails?.model_name || 'Unknown Model',
       chassisNumber: newVehicle.chassisNumber,
-      colors: colors,
-      location: locationExists.name,
+      colors: newVehicle.colors,
+      location: newVehicle.locationDetails?.name || 'Unknown Location',
       status: newVehicle.status,
       qrCode: newVehicle.qrCode
     };
@@ -97,7 +88,7 @@ exports.createVehicle = async (req, res, next) => {
       newVehicle._id,
       { qrCodeImage: qrCodeUrl },
       { new: true }
-    ).populate('modelDetails locationDetails colorDetails addedByDetails');
+    ).populate(populateOptions);
     
     res.status(201).json({
       status: 'success',
@@ -145,8 +136,8 @@ exports.getAllVehicles = async (req, res, next) => {
       query = query.where('hasDamage').equals(false);
     }
     
-    // Populate related data
-    query = query.populate('modelDetails locationDetails colorDetails addedByDetails');
+    // Apply consistent population
+    query = query.populate(populateOptions);
     
     const vehicles = await query;
     
@@ -171,7 +162,7 @@ exports.getVehicleById = async (req, res, next) => {
     }
     
     const vehicle = await Vehicle.findById(req.params.vehicleId)
-      .populate('modelDetails locationDetails colorDetails addedByDetails');
+      .populate(populateOptions);
     
     if (!vehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
@@ -195,7 +186,7 @@ exports.getVehicleByQrCode = async (req, res, next) => {
     const { qrCode } = req.params;
     
     const vehicle = await Vehicle.findOne({ qrCode })
-      .populate('modelDetails locationDetails colorDetails addedByDetails');
+      .populate(populateOptions);
     
     if (!vehicle) {
       return next(new AppError('No vehicle found with that QR code', 404));
@@ -231,7 +222,7 @@ exports.updateVehicleStatus = async (req, res, next) => {
       vehicleId,
       { status },
       { new: true, runValidators: true }
-    ).populate('modelDetails locationDetails colorDetails addedByDetails');
+    ).populate(populateOptions);
     
     if (!updatedVehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
@@ -270,7 +261,7 @@ exports.addDamage = async (req, res, next) => {
         $set: { hasDamage: true, status: 'damaged' }
       },
       { new: true, runValidators: true }
-    ).populate('modelDetails locationDetails colorDetails addedByDetails');
+    ).populate(populateOptions);
     
     if (!updatedVehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
@@ -298,7 +289,7 @@ exports.generateQrCode = async (req, res, next) => {
     }
     
     const vehicle = await Vehicle.findById(vehicleId)
-      .populate('modelDetails locationDetails colorDetails');
+      .populate(populateOptions);
     
     if (!vehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
@@ -306,10 +297,10 @@ exports.generateQrCode = async (req, res, next) => {
     
     // Generate QR code data URL
     const qrCodeData = {
-      model: vehicle.modelDetails.model_name,
+      model: vehicle.modelDetails?.model_name || 'Unknown Model',
       chassisNumber: vehicle.chassisNumber,
       colors: vehicle.colors,
-      location: vehicle.locationDetails.name,
+      location: vehicle.locationDetails?.name || 'Unknown Location',
       status: vehicle.status,
       qrCode: vehicle.qrCode
     };
@@ -321,7 +312,7 @@ exports.generateQrCode = async (req, res, next) => {
       vehicleId,
       { qrCodeImage: qrCodeUrl },
       { new: true }
-    ).populate('modelDetails locationDetails colorDetails addedByDetails');
+    ).populate(populateOptions);
     
     res.status(200).json({
       status: 'success',
@@ -332,6 +323,33 @@ exports.generateQrCode = async (req, res, next) => {
     });
   } catch (err) {
     logger.error(`Error generating QR code: ${err.message}`);
+    next(err);
+  }
+};
+
+// Get vehicles by branch
+exports.getVehiclesByBranch = async (req, res, next) => {
+  try {
+    const { branchId } = req.params;
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(branchId)) {
+      return next(new AppError('Invalid branch ID format', 400));
+    }
+
+    // Find vehicles by unloadLocation (branch)
+    const vehicles = await Vehicle.find({ unloadLocation: branchId })
+      .populate(populateOptions);
+
+    res.status(200).json({
+      status: 'success',
+      results: vehicles.length,
+      data: {
+        vehicles
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting vehicles by branch: ${err.message}`);
     next(err);
   }
 };

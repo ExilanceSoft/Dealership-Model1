@@ -325,3 +325,81 @@ exports.getBranchRates = async (req, res) => {
     });
   }
 };
+
+exports.getAllRates = async (req, res) => {
+  try {
+    const { active, branchId, providerId } = req.query;
+    const query = {};
+    
+    // Add filters if provided
+    if (active === 'true') query.is_active = true;
+    if (active === 'false') query.is_active = false;
+    if (branchId) query.branch = branchId;
+    if (providerId) query.financeProvider = providerId;
+
+    const rates = await FinanceRate.find(query)
+      .populate({
+        path: 'branchDetails',
+        select: 'name address city'
+      })
+      .populate({
+        path: 'financeProviderDetails',
+        select: 'name'
+      })
+      .populate({
+        path: 'createdByDetails',
+        select: 'name email'
+      })
+      .populate({
+        path: 'updatedByDetails',
+        select: 'name email'
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ 
+      success: true, 
+      data: rates 
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching rates',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+exports.getProviderWithRates = async (req, res) => {
+  try {
+    const providerId = req.params.id;
+
+    // Get provider details
+    const provider = await FinanceProvider.findById(providerId)
+      .populate('createdByDetails updatedByDetails', 'name email');
+
+    if (!provider) {
+      return res.status(404).json({
+        success: false,
+        message: 'Provider not found'
+      });
+    }
+
+    // Get all rates for this provider
+    const rates = await FinanceRate.find({ financeProvider: providerId })
+      .populate('branchDetails', 'name city')
+      .populate('createdByDetails updatedByDetails', 'name email');
+
+    // Combine the results
+    const result = {
+      provider: provider.toObject(),
+      rates: rates
+    };
+
+    res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching provider with rates'
+    });
+  }
+};

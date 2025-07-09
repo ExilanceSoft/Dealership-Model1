@@ -1,0 +1,116 @@
+{
+  "model_id": "685d1c1d7c59ad32056ab6e4",
+  "model_color": "685a2c6711aa5936a398061e",
+  "customer_type": "B2B",
+  "gstin": "22ABCDE1234F1Z5",
+  "rto_type": "MH",
+  "branch": "685641b4a584a450570f20ae",
+  "customer_details": {
+    "name": "Rahul Sharma",
+    "gender": "Male",
+    "dob": "1985-05-15",
+    "occupation": "Business",
+    "address": "456 Business Park, Nashik",
+    "taluka": "Nashik",
+    "district": "Nashik",
+    "pincode": "422005",
+    "mobile1": "9876543210",
+    "aadhar_number": "112233445566"
+  },
+  "payment": {
+    "type": "FINANCE",
+    "amount": 55000,
+    "financer_id": "6858e5364ba774fad31322dc",
+    "scheme": "Special 10%",
+    "emi_plan": "24 months",
+    "gc_applicable": true,
+    "gc_amount": 1500
+  },
+  "discount": {
+    "type": "fixed",
+    "value": 3000
+  },
+  "accessories": {
+    "selected": [
+      {
+        "name": "TVS HELMET",{
+  "model_id": "685d1c1d7c59ad32056ab6e4",
+  "model_color": "685a2c6711aa5936a398061e",
+  "customer_type": "B2B",
+  "gstin": "22ABCDE1234F1Z5",
+  "rto_type": "MH",
+  "branch": "685641b4a584a450570f20ae",
+  "customer_details": {
+    "name": "Rahul Sharma",
+    "gender": "Male",
+    "dob": "1985-05-15",
+    "occupation": "Business",
+    "address": "456 Business Park, Nashik",
+    "taluka": "Nashik",
+    "district": "Nashik",
+    "pincode": "422005",
+    "mobile1": "9876543210",
+    "aadhar_number": "112233445566"
+  },
+  "payment": {
+    "type": "FINANCE",
+    "amount": 55000,
+    "financer_id": "6858e5364ba774fad31322dc",
+    "scheme": "Special 10%",
+    "emi_plan": "24 months",
+    "gc_applicable": true,
+    "gc_amount": 1500
+  },
+  "discount": {
+    "type": "fixed",
+    "value": 3000
+  },
+  "accessories": {
+    "selected": [
+      {
+        "name": "TVS HELMET",
+        "price": 980
+      },
+      {
+        "name": "PLOISH COATING",
+        "price": 1295
+      },
+      {
+        "name": "ESSENTIAL FITTMENTS",
+        "price": 750
+      }
+    ]
+  },
+  "hpa": true,
+  "exchange": {
+    "is_exchange": true,
+    "broker_id": "684d4250d47c5a0108cba475",
+    "exchange_price": 25000,
+    "vehicle_number": "MH15DE4567",
+    "chassis_number": "CHS123456789"
+  }
+}
+        "price": 980
+      },
+      {
+        "name": "PLOISH COATING",
+        "price": 1295
+      },
+      {
+        "name": "ESSENTIAL FITTMENTS",
+        "price": 750
+      }
+    ]
+  },
+  "hpa": true,
+  "exchange": {
+    "is_exchange": true,
+    "broker_id": "684d4250d47c5a0108cba475",
+    "exchange_price": 25000,
+    "vehicle_number": "MH15DE4567",
+    "chassis_number": "CHS123456789"
+  }
+}
+
+
+in that we just have to choose rto type mh,bh,crtm and just if we select bh and crtm then we add rto amont 

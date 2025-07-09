@@ -1,0 +1,7 @@
+Today's Update:
+1.Create API for change priority proper with proper validation.
+2.Change Headers According to there type should be add and fetch.
+3.Create Import and upload csv as per Headers and models Type.
+4.Craete Excel for Fetch quotation,headers,price, and all details proper.
+5.Create All apis for attachments as per models.
+6.Working on Up Backend on live server 

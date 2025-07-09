@@ -44,3 +44,18 @@
 {"timestamp":"2025-07-04 09:52:09","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
 {"timestamp":"2025-07-07 09:52:58","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017","stack":null}
 {"timestamp":"2025-07-07 09:53:48","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017","stack":null}
+{"timestamp":"2025-07-07 16:26:37","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:33","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 18:05:25","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 19:25:13","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 08:54:01","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 08:54:01","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 08:54:01","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 09:42:09","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 10:21:14","level":"\u001b[31MERROR\u001b[39M","message":"Error getting vehicles: populateOptions is not defined","stack":null}
+{"timestamp":"2025-07-09 11:05:15","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 15:54:42","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}

@@ -1,236 +1,272 @@
+// routes/financeLetterRoutes.js
 const express = require('express');
 const router = express.Router();
-const brokerController = require('../controllers/brokerController');
+const financeLetterController = require('../controllers/financeLetterController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const multer = require('multer');
+
+// Configure multer for file upload
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
 
 /**
  * @swagger
  * tags:
- *   name: Brokers
- *   description: Broker management with multi-branch support
+ *   name: FinanceLetter
+ *   description: Finance letter management
  */
 
 /**
  * @swagger
- * components:
- *   schemas:
- *     BrokerBranch:
- *       type: object
- *       required:
- *         - branch
- *         - addedBy
- *         - commissionType
- *       properties:
- *         branch:
- *           type: string
- *           description: Reference to Branch
- *         addedBy:
- *           type: string
- *           description: User who added this branch association
- *         commissionType:
- *           type: string
- *           enum: [FIXED, VARIABLE]
- *         fixedCommission:
- *           type: number
- *           minimum: 0
- *         minCommission:
- *           type: number
- *           minimum: 0
- *         maxCommission:
- *           type: number
- *           minimum: 0
- *         isActive:
- *           type: boolean
- *           default: true
- * 
- *     Broker:
- *       type: object
- *       required:
- *         - name
- *         - mobile
- *         - email
- *         - branches
- *       properties:
- *         id:
- *           type: string
- *         brokerId:
- *           type: string
- *         name:
- *           type: string
- *         mobile:
- *           type: string
- *         email:
- *           type: string
- *         branches:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/BrokerBranch'
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- * 
- *     BrokerInput:
- *       type: object
- *       required:
- *         - name
- *         - mobile
- *         - email
- *         - branchData
- *       properties:
- *         name:
- *           type: string
- *         mobile:
- *           type: string
- *         email:
- *           type: string
- *         branchData:
- *           type: object
- *           required:
- *             - branch
- *             - commissionType
- *           properties:
- *             branch:
- *               type: string
- *             commissionType:
- *               type: string
- *               enum: [FIXED, VARIABLE]
- *             fixedCommission:
- *               type: number
- *             minCommission:
- *               type: number
- *             maxCommission:
- *               type: number
- *             isActive:
- *               type: boolean
- */
-
-/**
- * @swagger
- * /api/v1/brokers:
- *   post:
- *     summary: Create new broker or add to existing broker (Branch Manager+)
- *     tags: [Brokers]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/BrokerInput'
- *     responses:
- *       201:
- *         description: Broker created or updated successfully
- *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Branch Manager+)
- *       500:
- *         description: Server error
- */
-router.post(
-  '/',
-  protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'),
-  logAction('CREATE_OR_ADD_BROKER', 'Broker'),
-  brokerController.createOrAddBroker
-);
-
-/**
- * @swagger
- * /api/v1/brokers/branch/{branchId}:
+ * /api/v1/finance-letter:
  *   get:
- *     summary: Get all brokers for a specific branch (Branch Manager+)
- *     tags: [Brokers]
+ *     summary: Get all finance letters with pagination (Admin only)
+ *     tags: [FinanceLetter]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: branchId
- *         required: true
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Items per page
+ *       - in: query
+ *         name: status
  *         schema:
  *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *         description: Filter by status
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *         description: Field to sort by (createdAt, updatedAt)
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Sort order
  *     responses:
  *       200:
- *         description: List of brokers for the branch
+ *         description: List of finance letters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       bookingId:
+ *                         type: string
+ *                       bookingReference:
+ *                         type: string
+ *                       vehicle:
+ *                         type: string
+ *                       customerName:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       verifiedBy:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                       verificationNote:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *       400:
+ *         description: Invalid query parameters
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Branch Manager+)
+ *         description: Forbidden (not admin)
  *       500:
  *         description: Server error
  */
 router.get(
-  '/branch/:branchId',
+  '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'),
-  brokerController.getBrokersByBranch
+  authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
+  financeLetterController.getAllFinanceLetters
 );
+
 /**
  * @swagger
- * /api/v1/brokers/{brokerId}:
- *   put:
- *     summary: Update basic broker details (Admin+)
- *     tags: [Brokers]
+ * /api/v1/finance-letter/{bookingId}:
+ *   get:
+ *     summary: Get finance letter details for a booking
+ *     tags: [FinanceLetter]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: brokerId
+ *         name: bookingId
  *         required: true
  *         schema:
  *           type: string
- *         description: ID of the broker to update
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Finance letter details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     customerName:
+ *                       type: string
+ *                     financeLetterStatus:
+ *                       type: string
+ *                       enum: [NOT_SUBMITTED, PENDING, APPROVED, REJECTED]
+ *                     verificationNote:
+ *                       type: string
+ *                     verifiedBy:
+ *                       type: string
+ *       400:
+ *         description: Invalid booking ID
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:bookingId', 
+  protect, 
+  financeLetterController.getFinanceLetterDetails
+);
+
+/**
+ * @swagger
+ * /api/v1/finance-letter/{bookingId}/submit:
+ *   post:
+ *     summary: Submit finance letter for a booking
+ *     tags: [FinanceLetter]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               financeLetter:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Finance letter submitted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     financeLetterId:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *       400:
+ *         description: Missing finance letter or invalid booking ID
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:bookingId/submit',
+  protect,
+  upload.single('financeLetter'),
+  logAction('SUBMIT_FINANCE_LETTER', 'FINANCE_LETTER'),
+  financeLetterController.submitFinanceLetter
+);
+
+/**
+ * @swagger
+ * /api/v1/finance-letter/{financeLetterId}/verify:
+ *   post:
+ *     summary: Verify finance letter (Admin only)
+ *     tags: [FinanceLetter]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: financeLetterId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Finance letter ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - status
  *             properties:
- *               name:
+ *               status:
  *                 type: string
- *                 example: "neha"
- *               mobile:
+ *                 enum: [APPROVED, REJECTED]
+ *               verificationNote:
  *                 type: string
- *                 example: "7989908767"
- *               email:
- *                 type: string
- *                 format: email
- *                 example: "nehaokk12@gmail.com"
- *               branches:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     branch:
- *                       type: string
- *                       example: "684d348c05326d3a467e431e"
- *                     commissionType:
- *                       type: string
- *                       enum: [FIXED, VARIABLE]
- *                       example: "VARIABLE"
- *                     fixedCommission:
- *                       type: number
- *                       example: 0
- *                     minCommission:
- *                       type: number
- *                       example: 900
- *                     maxCommission:
- *                       type: number
- *                       example: 1000
- *                     isActive:
- *                       type: boolean
- *                       example: true
  *     responses:
  *       200:
- *         description: Broker details updated successfully
+ *         description: Finance letter verification status updated
  *         content:
  *           application/json:
  *             schema:
@@ -238,150 +274,51 @@ router.get(
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
  *                 data:
  *                   type: object
  *                   properties:
- *                     _id:
+ *                     status:
  *                       type: string
- *                       example: "684d4b805b62898835fdceb2"
- *                     name:
+ *                     verifiedBy:
  *                       type: string
- *                       example: "neha"
- *                     mobile:
+ *                     verificationNote:
  *                       type: string
- *                       example: "7989908767"
- *                     email:
- *                       type: string
- *                       example: "nehaokk12@gmail.com"
- *                     brokerId:
- *                       type: string
- *                       example: "BRK0003"
- *                     branches:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           branch:
- *                             type: string
- *                             example: "684d348c05326d3a467e431e"
- *                           addedBy:
- *                             type: string
- *                             example: "68495ef550af1ed0494b8db2"
- *                           commissionType:
- *                             type: string
- *                             enum: [FIXED, VARIABLE]
- *                             example: "VARIABLE"
- *                           fixedCommission:
- *                             type: number
- *                             example: 0
- *                           minCommission:
- *                             type: number
- *                             example: 900
- *                           maxCommission:
- *                             type: number
- *                             example: 1000
- *                           isActive:
- *                             type: boolean
- *                             example: true
- *                           createdAt:
- *                             type: string
- *                             format: date-time
- *                             example: "2025-06-14T10:14:24.166Z"
- *                     createdBy:
- *                       type: string
- *                       example: "68495ef550af1ed0494b8db2"
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-06-14T10:14:24.175Z"
- *                     updatedAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-06-14T10:14:24.175Z"
- *                     __v:
- *                       type: number
- *                       example: 0
  *       400:
- *         description: Validation error
+ *         description: Invalid status or finance letter ID
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden
+ *         description: Forbidden (not admin)
  *       404:
- *         description: Broker not found
+ *         description: Finance letter not found
  *       500:
  *         description: Server error
  */
-
-router.put(
-  '/:brokerId',
+router.post('/:financeLetterId/verify',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'),
-  logAction('UPDATE_BROKER', 'Broker'),  // Ensure this matches your enum
-  brokerController.updateBroker
-);
-/**
- * @swagger
- * /api/v1/brokers/{brokerId}/branch/{branchId}:
- *   delete:
- *     summary: Remove broker from branch (Admin+)
- *     tags: [Brokers]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: brokerId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: branchId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Broker removed from branch
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Broker-branch association not found
- *       500:
- *         description: Server error
- */
-router.delete(
-  '/:brokerId/branch/:branchId',
-  protect,
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'),
-  logAction('REMOVE_BROKER_BRANCH', 'Broker'),
-  brokerController.removeBrokerBranch
+  authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
+  logAction('VERIFY_FINANCE_LETTER', 'FINANCE_LETTER'),
+  financeLetterController.verifyFinanceLetter
 );
 
 /**
  * @swagger
- * /api/v1/brokers:
+ * /api/v1/finance-letter/{bookingId}/document:
  *   get:
- *     summary: Get all brokers (SUPERADMIN sees all, others see only their branches)
- *     tags: [Brokers]
+ *     summary: Get finance letter document for a booking
+ *     tags: [FinanceLetter]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: query
- *         name: branch
+ *       - in: path
+ *         name: bookingId
+ *         required: true
  *         schema:
  *           type: string
- *         description: Filter by branch ID (must be accessible to user)
- *       - in: query
- *         name: isActive
- *         schema:
- *           type: boolean
- *         description: Filter by active status
+ *         description: Booking ID
  *     responses:
  *       200:
- *         description: List of brokers
+ *         description: Finance letter document
  *         content:
  *           application/json:
  *             schema:
@@ -389,97 +326,25 @@ router.delete(
  *               properties:
  *                 success:
  *                   type: boolean
- *                 count:
- *                   type: integer
  *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Broker'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not authorized to access requested branch)
- *       500:
- *         description: Server error
- */
-router.get(
-  '/',
-  protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'), // Optional but recommended
-  brokerController.getAllBrokers
-);
-
-/**
- * @swagger
- * /api/v1/brokers/{id}:
- *   get:
- *     summary: Get a single broker by ID
- *     tags: [Brokers]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID of the broker to retrieve
- *     responses:
- *       200:
- *         description: Broker details
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Broker'
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Broker not found
- *       500:
- *         description: Server error
- */
-router.get(
-  '/:id',
-  protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
-  brokerController.getBrokerById
-);
-// In brokerRoutes.js - add this new route before module.exports
-/**
- * @swagger
- * /api/v1/brokers/{id}:
- *   delete:
- *     summary: Delete a broker (Admin+)
- *     tags: [Brokers]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID of the broker to delete
- *     responses:
- *       200:
- *         description: Broker deleted successfully
+ *                   type: object
+ *                   properties:
+ *                     documentPath:
+ *                       type: string
+ *                     status:
+ *                       type: string
  *       400:
- *         description: Invalid broker ID
+ *         description: Invalid booking ID
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
  *       404:
- *         description: Broker not found
+ *         description: Finance letter not found
  *       500:
  *         description: Server error
  */
-router.delete(
-  '/:id',
+router.get('/:bookingId/document',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
-  logAction('DELETE_BROKER', 'Broker'),
-  brokerController.deleteBroker
+  financeLetterController.getFinanceLetterDocument
 );
 
 module.exports = router;

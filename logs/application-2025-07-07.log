@@ -8,3 +8,6 @@
 {"timestamp":"2025-07-07 15:32:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-07 15:41:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-07 15:43:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-07 15:46:23","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-07 16:26:37","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-07 18:45:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

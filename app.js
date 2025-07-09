@@ -58,6 +58,8 @@ const insuranceProviderRoutes = require('./routes/insuranceProviderRoutes');
 const financerRoutes = require('./routes/financerRoutes');
 const accessoryRoutes = require('./routes/accessoryRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
+const kycRoutes = require('./routes/kycRoutes')
+const FinanceLetterRoutes = require('./routes/financeLetterRoutes');
 
 // Create Express application
 const app = express();
@@ -133,6 +135,8 @@ app.use('/api/v1/insurance-providers', insuranceProviderRoutes);
 app.use('/api/v1/financers', financerRoutes);
 app.use('/api/v1/accessories', accessoryRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
+app.use('/api/v1/kyc',kycRoutes);
+app.use('/api/v1/finance-letter',FinanceLetterRoutes)
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 

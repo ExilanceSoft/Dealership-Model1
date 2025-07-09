@@ -66,7 +66,11 @@ exports.getAllAccessories = async (req, res, next) => {
 
     // Execute query with population
     const accessories = await Accessory.find(filter)
-      .populate('applicableModelsDetails', 'model_name type')
+      .populate({
+        path: 'applicableModelsDetails',
+        select: 'model_name type status',
+        match: { status: 'active' } // Only include active models
+      })
       .populate('createdByDetails', 'name email');
 
     res.status(200).json({
@@ -249,3 +253,4 @@ exports.getAccessoriesByModel = async (req, res, next) => {
     next(err);
   }
 };
+

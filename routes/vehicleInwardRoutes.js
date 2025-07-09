@@ -547,4 +547,46 @@ router.get(
   vehicleController.generateQrCode
 );
 
+/**
+ * @swagger
+ * /api/v1/inward/branch/{branchId}:
+ *   get:
+ *     summary: Get vehicles by branch
+ *     tags: [Vehicle Inward]
+ *     parameters:
+ *       - in: path
+ *         name: branchId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: List of vehicles in the specified branch
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: number
+ *                   example: 10
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     vehicles:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Vehicle'
+ *       400:
+ *         description: Invalid ID format
+ *       404:
+ *         description: Branch not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/branch/:branchId', vehicleController.getVehiclesByBranch);
 module.exports = router;

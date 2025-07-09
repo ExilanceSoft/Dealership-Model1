@@ -1,0 +1,321 @@
+{
+  "model": "6856827e5f0d2e8b0f278ef8",
+  "unloadLocation": "685641b4a584a450570f20ae",
+  "type": "EV",
+  "colors": [
+    "685a2c6711aa5936a398061e",
+    "685a2f7280276fa42d4ab0dc"
+  ],
+  "batteryNumber": "BATT123456",
+  "keyNumber": "KEY123456",
+  "chassisNumber": "CHS1234567890",
+  "motorNumber": "MOTOR123456",
+  "chargerNumber": "CHARGER123",
+  "engineNumber": "ENG123456",
+  "hasDamage": false,
+  "damages": [
+    {
+      "description": "string",
+      "images": [
+        "string"
+      ]
+    }
+  ]
+}
+model,broker,headers,financer,accessories
+
+booking:
+select model (max 1)
+customer type(B2B) and (B2C)
+if B2B then add GSTIN Number
+select model color
+select rto(MH,BH,CRTM)
+if BH (add RTO Amount)
+if CRTM (add RTO Amount)
+Select HPA (yes/no)==>
+when we select model at that time we get all its detail and from is mendatory false we can able to get all its detail 
+when i selectt model so i have one api from that we can able to get the data of all from that 
+GET
+/api/v1/models/{modelId}
+Get a model by ID
+Parameters
+Name	Description
+modelId *
+string
+(path)
+	
+Responses
+Curl
+
+curl -X 'GET' \
+  'http://localhost:5002/api/v1/models/685d1c1d7c59ad32056ab6e7' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4NTU0YTFmMTJkMGM4Mjc5YzM4NjdmYiIsIm1vYmlsZSI6Ijc1ODgxOTIzOTQiLCJyb2xlcyI6WyJTVVBFUkFETUlOIl0sImlhdCI6MTc1MTA5ODAxMiwiZXhwIjoxNzUxMTI2ODEyfQ.V_1uoB9rhJH04kWtuIijNPhgqlV8rHYCmB9tUDq37r0'
+
+Request URL
+
+http://localhost:5002/api/v1/models/685d1c1d7c59ad32056ab6e7
+
+Server response
+Code	Details
+200	
+Response body
+
+{
+  "status": "success",
+  "data": {
+    "model": {
+      "_id": "685d1c1d7c59ad32056ab6e7",
+      "model_name": "XL 100 HD KICKSTART OBD IIB",
+      "prices": [
+        {
+          "value": 46954,
+          "header_id": "685bdfc67d7436e62972ec9c",
+          "header_key": "Ex-Showroom",
+          "category_key": "vehicle_price",
+          "priority": 1,
+          "is_mandatory": true,
+          "is_discount": false,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 187141090,
+            "gst_rate": 28
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 6409,
+          "header_id": "685be00f7d7436e62972eca8",
+          "header_key": "INSURCANCE 4+1 INCLUSIVE OF ADDITIONAL COVERS",
+          "category_key": "vehicle_price",
+          "priority": 3,
+          "is_mandatory": true,
+          "is_discount": false,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 0,
+            "gst_rate": 0
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 2113,
+          "header_id": "685be0387d7436e62972ecb1",
+          "header_key": "MANDATORY STANDARD FITMENTS",
+          "category_key": "vehicle_price",
+          "priority": 4,
+          "is_mandatory": true,
+          "is_discount": true,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 3213525,
+            "gst_rate": 28
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 0,
+          "header_id": "685be0567d7436e62972ecb7",
+          "header_key": "PDI LOGISTIC HANDLING CHARGES",
+          "category_key": "vehicle_price",
+          "priority": 5,
+          "is_mandatory": true,
+          "is_discount": false,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 65465465,
+            "gst_rate": 18
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 500,
+          "header_id": "685be06a7d7436e62972ecbd",
+          "header_key": "HYPOTHECATION CHARGES (IF APPLICABLE)",
+          "category_key": "vehicle_price",
+          "priority": 6,
+          "is_mandatory": true,
+          "is_discount": false,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 0,
+            "gst_rate": 0
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 61994,
+          "header_id": "685be0887d7436e62972ecc3",
+          "header_key": "ON ROAD PRICE",
+          "category_key": "vehicle_price",
+          "priority": 7,
+          "is_mandatory": true,
+          "is_discount": false,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 0,
+            "gst_rate": 0
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 750,
+          "header_id": "685be0b27d7436e62972ecc9",
+          "header_key": "ESSENTIAL FITTMENTS",
+          "category_key": "AddONservices",
+          "priority": 8,
+          "is_mandatory": true,
+          "is_discount": true,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 54545455,
+            "gst_rate": 18
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 1500,
+          "header_id": "685be0d97d7436e62972eccf",
+          "header_key": "Add ON Services Total",
+          "category_key": "AddONservices",
+          "priority": 9,
+          "is_mandatory": true,
+          "is_discount": true,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 5454545454,
+            "gst_rate": 18
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 750,
+          "header_id": "685be1367d7436e62972ecde",
+          "header_key": "MANDATORY STEEL ACCESSORIES",
+          "category_key": "Accesories",
+          "priority": 10,
+          "is_mandatory": true,
+          "is_discount": true,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 4545454,
+            "gst_rate": 28
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 0,
+          "header_id": "685be1177d7436e62972ecd8",
+          "header_key": "ADDON SERVICES TOTAL",
+          "category_key": "AddONservices",
+          "priority": 10,
+          "is_mandatory": true,
+          "is_discount": true,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 0,
+            "gst_rate": 0
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 0,
+          "header_id": "685be1587d7436e62972ece4",
+          "header_key": "Additional Accessory",
+          "category_key": "Accesories",
+          "priority": 11,
+          "is_mandatory": true,
+          "is_discount": true,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 54545454,
+            "gst_rate": 28
+          },
+          "branch_id": "685641b4a584a450570f20ae",
+          "branch_name": "Cidco Nashik",
+          "branch_city": "Pune"
+        },
+        {
+          "value": 980,
+          "header_id": "685be1727d7436e62972ecea",
+          "header_key": "TVS HELMET",
+          "category_key": "Accesories",
+          "priority": 12,
+          "is_mandatory": true,
+          "is_discount": true,
+          "metadata": {
+            "page_no": 5,
+            "hsn_code": 54545454,
+            "gst_rate": 18
+          },
+
+if i want to give discout then which are is_discount only on that discput will be applucable and that will be like 
+
+if yes then HYPOTHECATION CHARGES which we have will be applicable as per model we choose from over hedader broo that as per model selected 
+selected models header should be come if that header is_mandatory :true then they will be auto selected and if false then we can add which headers we want to add so there prices will be get this 
+add Personal Details:
+Mr./Mrs/Miss/ name
+Birth date:
+occupation
+address
+taluka
+district
+pincode
+mobile1
+mobile2
+aadhar number
+Nominee name
+Nominee Relation
+Nominee age 
+select exchange mode(yes/no)
+if yes
+select broker
+and as per there master we have fixed and variable broker price so as per that we can able to add 
+exchange price 
+exchange vehicle number
+exchange chassis number 
+after this in booking we have next process is 
+payment
+select payment type (cash/finanace)
+if cash 
+add amount in ruppes
+if finanace 
+select financer 
+add finanacer scheme
+add EMI scheme
+select GC applicale (yes/no)
+if yes then add GC applicable amount
+next field is amount
+if no just add 
+field amount
+from accessories select accessories with there prices and if all selected accessories price total when we do is that greter than price from header ACCESSORIES TOTAL then keep that price but if that will be less thne in total price will be that ACCESSORIES TOTAL which is as haeder map we have as per selected model  
+if cash then no GC
+Accessory Name — Name of the accessory (e.g., Seat Cover, Alloy Wheel).
+
+Price — Cost of the accessory.
+
+Applicable Models — Multiple vehicle models where this accessory can be used.
+
+Model Part Numbers — For each applicable model, a part number specific to that accessory.
+
+Status — Active/Inactive (for soft disabling instead of deletion).

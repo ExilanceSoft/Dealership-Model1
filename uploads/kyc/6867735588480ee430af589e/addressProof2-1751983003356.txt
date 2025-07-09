@@ -1,0 +1,1401 @@
+root@srv818140:~/MotarsBackend/controllers# cat quotationController.js
+const Quotation = require('../models/QuotationModel');
+const Customer = require('../models/CustomerModel');
+const Model = require('../models/ModelModel');
+const Header = require('../models/HeaderModel');
+const AppError = require('../utils/appError');
+const logger = require('../config/logger');
+const Offer = require('../models/OfferModel');
+const mongoose = require('mongoose');
+const User = require('../models/User');
+const Branch = require('../models/Branch');
+const FinanceDocument = require('../models/FinanceDocument');
+const TermsCondition = require('../models/TermsCondition');
+const pdfGenerator = require('../utils/pdfGenerator');
+const path = require('path');
+const fs = require('fs');
+const Attachment = require('../models/AttachmentModel');
+const ExcelJS = require('exceljs');
+
+
+const getUniqueAttachmentsForModels = async (modelIds) => {
+  const attachments = await Attachment.find({
+    $or: [
+      { isForAllModels: true },
+      { applicableModels: { $in: modelIds } }
+    ]
+  })
+  .populate('createdBy', 'name email')
+  .populate('applicableModels', 'model_name');
+
+  const uniqueAttachmentsMap = new Map();
+  attachments.forEach(attachment => {
+    if (!uniqueAttachmentsMap.has(attachment._id.toString())) {
+      uniqueAttachmentsMap.set(attachment._id.toString(), attachment);
+    }
+  });
+
+  return Array.from(uniqueAttachmentsMap.values());
+};
+
+const prepareAttachmentResponse = (attachments) => {
+  return attachments.map(attachment => ({
+    _id: attachment._id,
+    title: attachment.title,
+    description: attachment.description,
+    isForAllModels: attachment.isForAllModels,
+    applicableModels: attachment.isForAllModels
+      ? []
+      : attachment.applicableModels.map(model => ({
+          _id: model._id,
+          model_name: model.model_name
+        })),
+    attachments: attachment.attachments.map(item => ({
+      type: item.type,
+      url: item.url,
+      content: item.content,
+      thumbnail: item.thumbnail
+    })),
+    createdBy: {
+      _id: attachment.createdBy._id,
+      name: attachment.createdBy.name,
+      email: attachment.createdBy.email
+    },
+    createdAt: attachment.createdAt
+  }));
+};
+
+const getQuotationDetails = async (quotationId) => {
+  return await Quotation.findById(quotationId)
+    .populate('customer')
+    .populate('creator')
+    .populate('termsConditions')
+    .populate({
+      path: 'models.model_id',
+      select: 'model_name prices',
+      populate: {
+        path: 'prices.header_id',
+        select: 'header_key category_key priority metadata'
+      }
+    })
+    .populate({
+      path: 'base_model_id',
+      select: 'model_name prices',
+      populate: {
+        path: 'prices.header_id',
+        select: 'header_key category_key priority metadata'
+      }
+    });
+};
+
+
+exports.createQuotation = async (req, res, next) => {
+  try {
+    const {
+      customerDetails,
+      selectedModels,
+      expected_delivery_date,
+      finance_needed = false
+    } = req.body;
+
+    const creator = req.user;
+
+    if (!customerDetails || !selectedModels || !Array.isArray(selectedModels)) {
+      return next(new AppError('Missing required fields or invalid data format', 400));
+    }
+
+    let customer;
+    if (customerDetails._id) {
+      customer = await Customer.findById(customerDetails._id);
+      if (!customer) {
+        return next(new AppError('Customer not found', 404));
+      }
+    } else {
+      if (!customerDetails.name || !customerDetails.address || !customerDetails.mobile1) {
+        return next(new AppError('Missing required customer fields', 400));
+      }
+
+      customer = await Customer.create({
+        name: customerDetails.name,
+        address: customerDetails.address,
+        taluka: customerDetails.taluka || '',
+        district: customerDetails.district || '',
+        mobile1: customerDetails.mobile1,
+        mobile2: customerDetails.mobile2 || '',
+        createdBy: creator._id
+      });
+    }
+
+    const financeDocuments = await FinanceDocument.find({}).sort({ createdAt: 1 });
+    const termsConditions = await TermsCondition.find({ isActive: true }).sort({ order: 1 });
+
+    const models = await Model.find({
+      _id: { $in: selectedModels.map(m => m.model_id) }
+    }).populate({
+      path: 'prices.header_id',
+      select: 'header_key category_key priority metadata'
+    });
+
+    if (models.length !== selectedModels.length) {
+      return next(new AppError('One or more model IDs are invalid', 400));
+    }
+
+    const modelIds = models.map(model => model._id);
+    const attachments = await getUniqueAttachmentsForModels(modelIds);
+
+    const branchId = creator.branch_id?._id;
+    if (!branchId) {
+      return next(new AppError('User must be assigned to a branch to create quotations', 400));
+    }
+
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+      return next(new AppError('Branch not found', 404));
+    }
+
+    const modelsWithBranchPrices = models.map(model => {
+      const filteredPrices = model.prices.filter(price =>
+        price.branch_id && price.branch_id.equals(branchId)
+      );
+      return {
+        ...model.toObject(),
+        prices: filteredPrices
+      };
+    });
+
+    const headers = await Header.find();
+    const exShowroomHeader = headers.find(h =>
+      h.header_key.toLowerCase().includes('ex-showroom') ||
+      h.category_key.toLowerCase().includes('ex-showroom')
+    );
+
+    const allOffers = await Offer.find({
+      isActive: true,
+      $or: [
+        { applyToAllModels: true },
+        { applicableModels: { $in: modelIds } }
+      ]
+    }).populate('applicableModels', 'model_name');
+
+    const uniqueOffersMap = new Map();
+    allOffers.forEach(offer => {
+      if (!uniqueOffersMap.has(offer._id.toString())) {
+        uniqueOffersMap.set(offer._id.toString(), offer);
+      }
+    });
+    const uniqueOffers = Array.from(uniqueOffersMap.values());
+
+    const allModels = [];
+    const responseModels = await Promise.all(modelsWithBranchPrices.map(async model => {
+      const exShowroomPrice = exShowroomHeader
+        ? model.prices.find(p => p.header_id._id.equals(exShowroomHeader._id))?.value
+        : null;
+
+      const seriesMatch = model.model_name.match(/^([A-Za-z0-9]+)/);
+      const series = seriesMatch ? seriesMatch[1] : 'Unknown';
+
+      let baseModel = null;
+      let isBaseModel = false;
+
+      if (series) {
+        const seriesModels = await Model.find({
+          model_name: new RegExp(`^${series}`)
+        }).populate({
+          path: 'prices.header_id',
+          select: 'header_key category_key'
+        });
+
+        if (seriesModels.length > 0) {
+          const seriesModelsWithBranchPrices = seriesModels.map(seriesModel => {
+            const filteredPrices = seriesModel.prices.filter(price =>
+              price.branch_id && price.branch_id.equals(branchId)
+            );
+            return {
+              ...seriesModel.toObject(),
+              prices: filteredPrices
+            };
+          });
+
+          const modelsWithPrices = seriesModelsWithBranchPrices.map(m => {
+            const price = exShowroomHeader
+              ? m.prices.find(p => p.header_id._id.equals(exShowroomHeader._id))?.value
+              : null;
+            return {
+              model_id: m._id,
+              model_name: m.model_name,
+              price: price,
+              model: m
+            };
+          }).filter(m => m.price !== null && m.price !== undefined);
+
+          if (modelsWithPrices.length > 0) {
+            modelsWithPrices.sort((a, b) => a.price - b.price);
+            baseModel = modelsWithPrices[0];
+            isBaseModel = baseModel.model_id.toString() === model._id.toString();
+            if (!isBaseModel) {
+              allModels.push(baseModel);
+            }
+          }
+        }
+      }
+
+      const modelOffers = uniqueOffers.filter(offer =>
+        offer.applyToAllModels ||
+        (offer.applicableModels && offer.applicableModels.some(appModel =>
+          appModel && appModel._id && appModel._id.equals(model._id)
+        ))
+        .map(offer => ({
+          _id: offer._id,
+          title: offer.title,
+          description: offer.description,
+          image: offer.image,
+          url: offer.url,
+          createdAt: offer.createdAt
+        })));
+
+      return {
+        selected_model: {
+          _id: model._id,
+          model_name: model.model_name,
+          prices: model.prices.map(p => ({
+            value: p.value,
+            header_key: p.header_id?.header_key || 'deleted',
+            category_key: p.header_id?.category_key || 'deleted',
+            priority: p.header_id?.priority || 0,
+            metadata: p.header_id?.metadata || {},
+            branch_id: p.branch_id || null
+          })),
+          ex_showroom_price: exShowroomPrice,
+          series: series,
+          createdAt: model.createdAt,
+          is_base_model: isBaseModel,
+          offers: modelOffers
+        }
+      };
+    }));
+
+    let finalBaseModel = null;
+    const allSelectedAreBaseModels = responseModels.every(m => m.selected_model.is_base_model);
+
+    if (!allSelectedAreBaseModels && allModels.length > 0) {
+      const uniqueBaseModels = allModels.reduce((acc, current) => {
+        const x = acc.find(item => item.model_id.equals(current.model_id));
+        if (!x) {
+          return acc.concat([current]);
+        } else {
+          return acc;
+        }
+      }, []);
+
+      if (uniqueBaseModels.length === 1) {
+        finalBaseModel = uniqueBaseModels[0];
+      }
+    }
+
+    if (finalBaseModel) {
+      const isBaseModelSameAsSelected = responseModels.some(m =>
+        m.selected_model._id.toString() === finalBaseModel.model_id.toString()
+      );
+      if (isBaseModelSameAsSelected) {
+        finalBaseModel = null;
+      }
+    }
+
+    const completeAllModels = [];
+
+    if (finalBaseModel) {
+      const baseModelDetails = await Model.findById(finalBaseModel.model_id)
+        .populate({
+          path: 'prices.header_id',
+          select: 'header_key category_key priority metadata'
+        });
+
+      if (baseModelDetails) {
+        const filteredPrices = baseModelDetails.prices.filter(price =>
+          price.branch_id && price.branch_id.equals(branchId)
+        );
+
+        const exShowroomPrice = exShowroomHeader
+          ? filteredPrices.find(p => p.header_id._id.equals(exShowroomHeader._id))?.value
+          : null;
+
+        completeAllModels.push({
+          _id: baseModelDetails._id,
+          model_name: baseModelDetails.model_name,
+          prices: filteredPrices.map(p => ({
+            value: p.value,
+            header_key: p.header_id?.header_key || 'deleted',
+            category_key: p.header_id?.category_key || 'deleted',
+            priority: p.header_id?.priority || 0,
+            metadata: p.header_id?.metadata || {},
+            branch_id: p.branch_id || null
+          })),
+          ex_showroom_price: exShowroomPrice,
+          series: baseModelDetails.model_name.match(/^([A-Za-z0-9]+)/)?.[1] || 'Unknown',
+          createdAt: baseModelDetails.createdAt,
+          is_base_model: true
+        });
+      }
+    }
+
+    completeAllModels.push(...responseModels.map(model => ({
+      _id: model.selected_model._id,
+      model_name: model.selected_model.model_name,
+      prices: model.selected_model.prices,
+      ex_showroom_price: model.selected_model.ex_showroom_price,
+      series: model.selected_model.series,
+      createdAt: model.selected_model.createdAt,
+      is_base_model: model.selected_model.is_base_model
+    })));
+
+    // Create the quotation first
+    const quotation = await Quotation.create({
+      customer_id: customer._id,
+      customerDetails: {
+        _id: customer._id,
+        name: customer.name,
+        address: customer.address,
+        taluka: customer.taluka,
+        district: customer.district,
+        mobile1: customer.mobile1,
+        mobile2: customer.mobile2,
+        finance_needed: finance_needed,
+        createdAt: customer.createdAt
+      },
+      models: responseModels.map(m => ({
+        model_id: m.selected_model._id,
+        model_name: m.selected_model.model_name,
+        base_price: m.selected_model.ex_showroom_price || 0,
+        prices: m.selected_model.prices,
+        ex_showroom_price: m.selected_model.ex_showroom_price,
+        series: m.selected_model.series,
+        is_base_model: m.selected_model.is_base_model,
+        offers: m.selected_model.offers
+      })),
+      base_model_id: finalBaseModel ? finalBaseModel.model_id : null,
+      base_model_name: finalBaseModel ? finalBaseModel.model_name : null,
+      expected_delivery_date: expected_delivery_date || null,
+      finance_needed: finance_needed,
+      createdBy: creator._id,
+      userDetails: {
+        _id: creator._id,
+        username: creator.username,
+        email: creator.email,
+        mobile: creator.mobile,
+        full_name: creator.full_name,
+        branch: branch ? {
+          _id: branch._id,
+          name: branch.name,
+          address: branch.address,
+          city: branch.city,
+          state: branch.state,
+          pincode: branch.pincode,
+          phone: branch.phone,
+          email: branch.email,
+          gst_number: branch.gst_number,
+          is_active: branch.is_active
+        } : null,
+        role: creator.role_id ? {
+          _id: creator.role_id._id,
+          name: creator.role_id.name,
+        } : null
+      },
+      AllModels: completeAllModels,
+      financeDocuments: financeDocuments.map(doc => ({
+        _id: doc._id,
+        name: doc.name,
+        isRequired: doc.isRequired,
+        description: doc.description || '',
+        createdAt: doc.createdAt
+      })),
+      terms_conditions: termsConditions.map(tc => tc._id),
+      termsConditions: termsConditions.map(tc => ({
+        _id: tc._id,
+        title: tc.title,
+        content: tc.content,
+        order: tc.order
+      })),
+      attachments: prepareAttachmentResponse(attachments),
+      modelSpecificOffers: responseModels.map(model => ({
+        model_id: model.selected_model._id,
+        model_name: model.selected_model.model_name,
+        offers: model.selected_model.offers.map(offer => ({
+          _id: offer._id,
+          title: offer.title,
+          description: offer.description,
+          image: offer.image,
+          url: offer.url,
+          createdAt: offer.createdAt
+        }))
+      })),
+      allUniqueOffers: uniqueOffers.map(offer => ({
+        _id: offer._id,
+        title: offer.title,
+        description: offer.description,
+        image: offer.image,
+        url: offer.url,
+        createdAt: offer.createdAt,
+        applyToAllModels: offer.applyToAllModels,
+        applicableModels: offer.applicableModels
+          ? offer.applicableModels.map(model => ({
+              _id: model?._id,
+              model_name: model?.model_name
+            })).filter(m => m._id)
+          : []
+      })),
+      status: 'draft'
+    });
+
+    // Now generate PDF with the created quotation
+    const pdfFileName = `quotation_${quotation.quotation_number}_${Date.now()}.pdf`;
+    const pdfDir = path.join(__dirname, '../public/quotations');
+    const pdfUrl = `/quotations/${pdfFileName}`;
+
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    await pdfGenerator.generateQuotationPDF({
+      ...quotation.toObject(),
+      pdfUrl: pdfUrl
+    }, path.join(pdfDir, pdfFileName));
+
+    // Update quotation with PDF URL
+    quotation.pdfUrl = pdfUrl;
+    await quotation.save({ validateBeforeSave: true });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        ...quotation.toObject(),
+        pdfUrl: pdfUrl
+      }
+    });
+
+  } catch (err) {
+    logger.error(`Error in quotation preparation: ${err.message}`);
+    next(err);
+  }
+};
+// Add this at the bottom of quotationController.js
+// exports.getQuotationPDF = async (req, res, next) => {
+//   try {
+//     const { filename } = req.params;
+
+//     // Validate filename to prevent directory traversal
+//     if (!filename || !filename.match(/^quotation_[A-Za-z0-9-]+\.pdf$/)) {
+//       return next(new AppError('Invalid filename', 400));
+//     }
+
+//     const filePath = path.join(__dirname, `../public/quotations/${filename}`);
+
+//     // Check if file exists
+//     if (!fs.existsSync(filePath)) {
+//       return next(new AppError('PDF not found', 404));
+//     }
+
+//     // Set headers and send file
+//     res.setHeader('Content-Type', 'application/pdf');
+//     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+
+//     const fileStream = fs.createReadStream(filePath);
+//     fileStream.pipe(res);
+//   } catch (err) {
+//     logger.error(`Error serving PDF file: ${err.message}`);
+//     next(err);
+//   }
+// };
+
+exports.getAllQuotations = async (req, res, next) => {
+  try {
+    let query = {};
+
+    // If user is not super admin, only show their own quotations
+    if (req.user.role_id?.name !== 'super_admin') {
+      query.createdBy = req.user._id;
+    }
+
+    const quotations = await Quotation.find(query)
+      .populate('customer', 'name mobile1 address taluka district')
+      .populate({
+        path: 'creator',
+        select: 'full_name email mobile',
+        populate: {
+          path: 'branch_id',
+          select: 'name city'
+        }
+      })
+      .populate({
+        path: 'models.model_id',
+        select: 'model_name prices',
+        populate: {
+          path: 'prices.header_id',
+          select: 'header_key category_key priority metadata'
+        }
+      })
+      .populate({
+        path: 'base_model_id',
+        select: 'model_name prices',
+        populate: {
+          path: 'prices.header_id',
+          select: 'header_key category_key priority metadata'
+        }
+      })
+      .sort({ createdAt: -1 });
+
+    // Get branch ID for price filtering
+    const branchId = req.user.branch_id?._id;
+
+    // Get ex-showroom header for price reference
+    const headers = await Header.find();
+    const exShowroomHeader = headers.find(h =>
+      h.header_key?.toLowerCase().includes('ex-showroom') ||
+      h.category_key?.toLowerCase().includes('ex-showroom')
+    );
+
+    // Format the response with complete model information
+    const formattedQuotations = await Promise.all(quotations.map(async (quotation) => {
+      // Process models with branch-specific prices
+      const modelsWithDetails = await Promise.all(quotation.models.map(async (modelItem) => {
+        if (!modelItem.model_id) {
+          return {
+            _id: modelItem._id,
+            model_name: 'Deleted Model',
+            prices: [],
+            ex_showroom_price: 0,
+            base_price: modelItem.base_price,
+            series: 'Unknown'
+          };
+        }
+
+        const model = modelItem.model_id;
+
+        // Filter prices for the user's branch
+        const filteredPrices = (model.prices || []).filter(price =>
+          price?.branch_id && price.branch_id.equals(branchId)
+        );
+
+        // Get ex-showroom price
+        const exShowroomPrice = exShowroomHeader
+          ? filteredPrices.find(p => p?.header_id?._id?.equals(exShowroomHeader._id))?.value
+          : null;
+
+        return {
+          _id: model._id,
+          model_name: model.model_name,
+          prices: filteredPrices.map(p => ({
+            value: p.value,
+            header_key: p.header_id?.header_key || 'deleted',
+            category_key: p.header_id?.category_key || 'deleted',
+            priority: p.header_id?.priority || 0,
+            metadata: p.header_id?.metadata || {},
+            branch_id: p.branch_id || null
+          })),
+          ex_showroom_price: exShowroomPrice,
+          base_price: modelItem.base_price,
+          series: model.model_name?.match(/^([A-Za-z0-9]+)/)?.[1] || 'Unknown'
+        };
+      }));
+
+      // Process base model if exists
+      let baseModelWithDetails = null;
+      if (quotation.base_model_id) {
+        const baseModel = quotation.base_model_id;
+        const filteredPrices = (baseModel.prices || []).filter(price =>
+          price?.branch_id && price.branch_id.equals(branchId)
+        );
+
+        const exShowroomPrice = exShowroomHeader
+          ? filteredPrices.find(p => p?.header_id?._id?.equals(exShowroomHeader._id))?.value
+          : null;
+
+        baseModelWithDetails = {
+          _id: baseModel._id,
+          model_name: baseModel.model_name,
+          prices: filteredPrices.map(p => ({
+            value: p.value,
+            header_key: p.header_id?.header_key || 'deleted',
+            category_key: p.header_id?.category_key || 'deleted',
+            priority: p.header_id?.priority || 0,
+            metadata: p.header_id?.metadata || {},
+            branch_id: p.branch_id || null
+          })),
+          ex_showroom_price: exShowroomPrice,
+          series: baseModel.model_name?.match(/^([A-Za-z0-9]+)/)?.[1] || 'Unknown'
+        };
+      }
+
+      return {
+        _id: quotation._id,
+        quotation_number: quotation.quotation_number,
+        status: quotation.status,
+        createdAt: quotation.createdAt,
+        expected_delivery_date: quotation.expected_delivery_date,
+        finance_needed: quotation.finance_needed,
+        pdfUrl: quotation.pdfUrl,
+        customer: quotation.customer ? {
+          _id: quotation.customer._id,
+          name: quotation.customer.name,
+          mobile1: quotation.customer.mobile1,
+          address: quotation.customer.address,
+          taluka: quotation.customer.taluka,
+          district: quotation.customer.district
+        } : null,
+        creator: quotation.creator ? {
+          _id: quotation.creator._id,
+          name: quotation.creator.full_name,
+          email: quotation.creator.email,
+          mobile: quotation.creator.mobile,
+          branch: quotation.creator.branch_id ? {
+            _id: quotation.creator.branch_id._id,
+            name: quotation.creator.branch_id.name,
+            city: quotation.creator.branch_id.city
+          } : null
+        } : null,
+        models: modelsWithDetails,
+        base_model: baseModelWithDetails
+      };
+    }));
+
+    res.status(200).json({
+      status: 'success',
+      results: formattedQuotations.length,
+      data: {
+        quotations: formattedQuotations
+      }
+    });
+  } catch (err) {
+    logger.error(`Error fetching all quotations: ${err.message}`);
+    next(err);
+  }
+};
+// Add this new method to quotationController.js
+exports.getQuotationById = async (req, res, next) => {
+  try {
+    const quotationId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(quotationId)) {
+      return next(new AppError('Invalid quotation ID', 400));
+    }
+
+    const quotation = await getQuotationDetails(quotationId);
+
+    if (!quotation) {
+      return next(new AppError('Quotation not found', 404));
+    }
+
+    const creator = await User.findById(quotation.creator._id)
+      .populate('branch_id')
+      .populate('role_id');
+
+    if (!creator) {
+      return next(new AppError('Creator not found', 404));
+    }
+
+    const customer = quotation.customer;
+
+    const models = await Model.find({
+      _id: { $in: quotation.models.map(m => m.model_id) }
+    }).populate({
+      path: 'prices.header_id',
+      select: 'header_key category_key priority metadata'
+    });
+
+    const modelIds = models.map(model => model._id);
+    const attachments = await getUniqueAttachmentsForModels(modelIds);
+
+    const branchId = creator.branch_id?._id;
+    if (!branchId) {
+      return next(new AppError('Creator must be assigned to a branch', 400));
+    }
+
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+      return next(new AppError('Branch not found', 404));
+    }
+
+    const modelsWithBranchPrices = models.map(model => {
+      const filteredPrices = model.prices.filter(price =>
+        price.branch_id && price.branch_id.equals(branchId)
+      );
+      return {
+        ...model.toObject(),
+        prices: filteredPrices
+      };
+    });
+
+    const headers = await Header.find();
+    const exShowroomHeader = headers.find(h =>
+      h.header_key.toLowerCase().includes('ex-showroom') ||
+      h.category_key.toLowerCase().includes('ex-showroom')
+    );
+
+    const allOffers = await Offer.find({
+      isActive: true,
+      $or: [
+        { applyToAllModels: true },
+        { applicableModels: { $in: modelIds } }
+      ]
+    }).populate('applicableModels', 'model_name');
+
+    const uniqueOffersMap = new Map();
+    allOffers.forEach(offer => {
+      if (!uniqueOffersMap.has(offer._id.toString())) {
+        uniqueOffersMap.set(offer._id.toString(), offer);
+      }
+    });
+    const uniqueOffers = Array.from(uniqueOffersMap.values());
+
+    const responseModels = await Promise.all(modelsWithBranchPrices.map(async model => {
+      const exShowroomPrice = exShowroomHeader
+        ? model.prices.find(p => p.header_id._id.equals(exShowroomHeader._id))?.value
+        : null;
+
+      const seriesMatch = model.model_name.match(/^([A-Za-z0-9]+)/);
+      const series = seriesMatch ? seriesMatch[1] : 'Unknown';
+
+      const isBaseModel = quotation.base_model_id
+        ? quotation.base_model_id._id.equals(model._id)
+        : false;
+
+      const modelOffers = uniqueOffers
+        .filter(offer =>
+          offer.applyToAllModels ||
+          (offer.applicableModels && offer.applicableModels.some(appModel =>
+            appModel && appModel._id && appModel._id.equals(model._id)
+          )
+        ))
+        .map(offer => ({
+          _id: offer._id,
+          title: offer.title,
+          description: offer.description,
+          image: offer.image,
+          url: offer.url,
+          createdAt: offer.createdAt
+        }));
+
+      return {
+        selected_model: {
+          _id: model._id,
+          model_name: model.model_name,
+          prices: model.prices.map(p => ({
+            value: p.value,
+            header_key: p.header_id?.header_key || 'deleted',
+            category_key: p.header_id?.category_key || 'deleted',
+            priority: p.header_id?.priority || 0,
+            metadata: p.header_id?.metadata || {},
+            branch_id: p.branch_id || null
+          })),
+          ex_showroom_price: exShowroomPrice,
+          series: series,
+          createdAt: model.createdAt,
+          is_base_model: isBaseModel,
+          offers: modelOffers
+        }
+      };
+    }));
+
+    let baseModelData = null;
+    if (quotation.base_model_id) {
+      const baseModel = await Model.findById(quotation.base_model_id)
+        .populate({
+          path: 'prices.header_id',
+          select: 'header_key category_key priority metadata'
+        });
+
+      if (baseModel) {
+        const baseModelWithBranchPrices = {
+          ...baseModel.toObject(),
+          prices: baseModel.prices.filter(price =>
+            price.branch_id && price.branch_id.equals(branchId)
+          )
+        };
+
+        const exShowroomPrice = exShowroomHeader
+          ? baseModelWithBranchPrices.prices.find(p => p.header_id._id.equals(exShowroomHeader._id))?.value
+          : null;
+
+        baseModelData = {
+          _id: baseModel._id,
+          model_name: baseModel.model_name,
+          price: exShowroomPrice,
+          prices: baseModelWithBranchPrices.prices.map(p => ({
+            value: p.value,
+            header_id: {
+              _id: p.header_id._id,
+              header_key: p.header_id.header_key,
+              category_key: p.header_id.category_key
+            },
+            branch_id: p.branch_id
+          })),
+          createdAt: baseModel.createdAt,
+          __v: baseModel.__v,
+          id: baseModel._id
+        };
+      }
+    }
+
+    const allModels = [];
+    if (baseModelData) {
+      allModels.push(baseModelData);
+    }
+    allModels.push(...responseModels.map(model => ({
+      _id: model.selected_model._id,
+      model_name: model.selected_model.model_name,
+      prices: model.selected_model.prices,
+      ex_showroom_price: model.selected_model.ex_showroom_price,
+      series: model.selected_model.series,
+      createdAt: model.selected_model.createdAt,
+      is_base_model: model.selected_model.is_base_model
+    })));
+
+    const response = {
+      userDetails: {
+        _id: creator._id,
+        username: creator.username,
+        email: creator.email,
+        mobile: creator.mobile,
+        full_name: creator.full_name,
+        branch: branch ? {
+          _id: branch._id,
+          name: branch.name,
+          address: branch.address,
+          city: branch.city,
+          state: branch.state,
+          pincode: branch.pincode,
+          phone: branch.phone,
+          email: branch.email,
+          gst_number: branch.gst_number,
+          is_active: branch.is_active
+        } : null,
+        role: creator.role_id ? {
+          _id: creator.role_id._id,
+          name: creator.role_id.name,
+        } : null
+      },
+      customerDetails: {
+        _id: customer._id,
+        name: customer.name,
+        address: customer.address,
+        taluka: customer.taluka,
+        district: customer.district,
+        mobile1: customer.mobile1,
+        mobile2: customer.mobile2,
+        finance_needed: quotation.finance_needed,
+        createdAt: customer.createdAt
+      },
+      expected_delivery_date: quotation.expected_delivery_date ?
+        new Date(quotation.expected_delivery_date).toISOString().split('T')[0] :
+        null,
+      AllModels: allModels,
+      attachments: prepareAttachmentResponse(attachments),
+      quotation_id: quotation._id,
+      quotation_number: quotation.quotation_number,
+      pdfUrl: quotation.pdfUrl,
+      modelSpecificOffers: responseModels.map(model => ({
+        model_id: model.selected_model._id,
+        model_name: model.selected_model.model_name,
+        offers: model.selected_model.offers
+      })),
+      allUniqueOffers: uniqueOffers.map(offer => {
+        const offerObj = {
+          _id: offer._id,
+          title: offer.title,
+          description: offer.description,
+          image: offer.image,
+          url: offer.url,
+          createdAt: offer.createdAt,
+          applyToAllModels: offer.applyToAllModels,
+          applicableModels: []
+        };
+
+        if (offer.applicableModels && Array.isArray(offer.applicableModels)) {
+          offerObj.applicableModels = offer.applicableModels
+            .filter(model => model && model._id)
+            .map(model => ({
+              _id: model._id,
+              model_name: model.model_name
+            }));
+        }
+
+        return offerObj;
+      })
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data: response
+    });
+  } catch (err) {
+    logger.error(`Error fetching quotation by ID: ${err.message}`);
+    next(err);
+  }
+};
+
+// Add this at the bottom of quotationController.js
+exports.getQuotationPDF = async (req, res, next) => {
+  try {
+    const { filename } = req.params;
+
+    // Validate filename to prevent directory traversal
+    if (!filename || !filename.match(/^quotation_[A-Za-z0-9-]+\.pdf$/)) {
+      return next(new AppError('Invalid filename', 400));
+    }
+
+    const filePath = path.join(__dirname, `../public/quotations/${filename}`);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return next(new AppError('PDF not found', 404));
+    }
+
+    // Set headers and send file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (err) {
+    logger.error(`Error serving PDF file: ${err.message}`);
+    next(err);
+  }
+};
+
+exports.getTodaysQuotationCount = async (req, res, next) => {
+  try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    let query = {
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    };
+
+    // If user is not super admin, only count their own quotations
+    if (req.user.role_id.name !== 'super_admin') {
+      query.createdBy = req.user._id;
+    }
+
+    const count = await Quotation.countDocuments(query);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        count
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Get this month's quotation count
+exports.getThisMonthQuotationCount = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    endOfMonth.setHours(23, 59, 59, 999);
+
+    let query = {
+      createdAt: {
+        $gte: startOfMonth,
+        $lte: endOfMonth
+      }
+    };
+
+    // If user is not super admin, only count their own quotations
+    if (req.user.role_id.name !== 'super_admin') {
+      query.createdBy = req.user._id;
+    }
+
+    const count = await Quotation.countDocuments(query);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        count
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+exports.exportQuotationsToExcel = async (req, res, next) => {
+  try {
+    // Extract query parameters
+    const { startDate, endDate } = req.query;
+
+    // Validate date parameters if provided
+    if (startDate) {
+      const startDateObj = new Date(startDate);
+      if (isNaN(startDateObj.getTime())) {
+        return next(new AppError('Invalid start date format. Please use YYYY-MM-DD format.', 400));
+      }
+    }
+
+    if (endDate) {
+      const endDateObj = new Date(endDate);
+      if (isNaN(endDateObj.getTime())) {
+        return next(new AppError('Invalid end date format. Please use YYYY-MM-DD format.', 400));
+      }
+    }
+
+    // Validate date range if both dates are provided
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start > end) {
+        return next(new AppError('Start date cannot be after end date', 400));
+      }
+    }
+
+    // Build query object
+    let query = {};
+
+    // Add date range to query if provided
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = endOfDay;
+      }
+    }
+
+    // Add user filter if not super admin
+    if (req.user.role_id?.name !== 'super_admin') {
+      query.createdBy = req.user._id;
+    }
+
+    // Fetch quotations with all necessary population
+    const quotations = await Quotation.find(query)
+      .populate('customer', 'name mobile1 address taluka district')
+      .populate({
+        path: 'creator',
+        select: 'full_name email mobile',
+        populate: {
+          path: 'branch_id',
+          select: 'name city'
+        }
+      })
+      .populate({
+        path: 'models.model_id',
+        select: 'model_name prices',
+        populate: {
+          path: 'prices.header_id',
+          select: 'header_key category_key priority metadata'
+        }
+      })
+      .populate({
+        path: 'base_model_id',
+        select: 'model_name'
+      })
+      .sort({ createdAt: -1 });
+
+    // Generate filename with appropriate date ranges
+    let filename = 'quotations';
+    const currentDate = new Date().toISOString().split('T')[0];
+
+    // Handle different date filter scenarios with proper error messages
+    if (startDate && endDate) {
+      const formattedStart = new Date(startDate).toISOString().split('T')[0];
+      const formattedEnd = new Date(endDate).toISOString().split('T')[0];
+      filename += `_from_${formattedStart}_to_${formattedEnd}`;
+
+      if (quotations.length === 0) {
+        return next(new AppError(`No quotations found between ${formattedStart} and ${formattedEnd}`, 404));
+      }
+    } else if (startDate) {
+      const formattedStart = new Date(startDate).toISOString().split('T')[0];
+      filename += `_from_${formattedStart}_to_${currentDate}`;
+
+      if (quotations.length === 0) {
+        return next(new AppError(`No quotations found after ${formattedStart}`, 404));
+      }
+    } else if (endDate) {
+      const formattedEnd = new Date(endDate).toISOString().split('T')[0];
+      filename += `_until_${formattedEnd}`;
+
+      if (quotations.length === 0) {
+        return next(new AppError(`No quotations found before ${formattedEnd}`, 404));
+      }
+    } else {
+      filename += `_all_as_of_${currentDate}`;
+
+      if (quotations.length === 0) {
+        return next(new AppError('No quotations found in the system', 404));
+      }
+    }
+
+    // Create Excel workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Quotations');
+
+    // Define columns with proper formatting
+    sheet.columns = [
+      { header: 'Sr. No.', key: 'serial_number', width: 8 },
+      { header: 'Quotation No.', key: 'quotation_number', width: 20 },
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Customer Name', key: 'customer_name', width: 25 },
+      { header: 'Mobile', key: 'mobile', width: 15 },
+      { header: 'Address', key: 'address', width: 30 },
+      { header: 'Taluka/District', key: 'taluka_district', width: 20 },
+      { header: 'Finance Needed', key: 'finance_needed', width: 15 },
+      { header: 'Branch', key: 'branch', width: 20 },
+      { header: 'Model Name', key: 'model_name', width: 30 },
+      { header: 'Category', key: 'category_key', width: 20 },
+      { header: 'Price Item', key: 'header_key', width: 25 },
+      { header: 'Amount (₹)', key: 'value', width: 15, style: { numFmt: '#,##0.00' } },
+      { header: 'HSN Code', key: 'hsn_code', width: 15 },
+      { header: 'GST Rate (%)', key: 'gst_rate', width: 12, style: { numFmt: '0.00' } },
+      { header: 'Priority', key: 'priority', width: 10 }
+    ];
+
+    // Get standard items and categories for validation
+    const standardItems = await Header.find().distinct('header_key');
+    const standardCategories = await Header.find().distinct('category_key');
+
+    // Create reference sheet for standard items
+    const itemsSheet = workbook.addWorksheet('Standard Items');
+    itemsSheet.columns = [
+      { header: 'Category', key: 'category', width: 25 },
+      { header: 'Price Item', key: 'item', width: 30 },
+      { header: 'HSN Code', key: 'hsn', width: 15 },
+      { header: 'GST Rate', key: 'gst', width: 12 }
+    ];
+
+    // Populate standard items sheet
+    const headers = await Header.find().sort({ category_key: 1, priority: 1 });
+    headers.forEach(header => {
+      itemsSheet.addRow({
+        category: header.category_key,
+        item: header.header_key,
+        hsn: header.metadata?.hsn_code || 'N/A',
+        gst: header.metadata?.gst_rate || 'N/A'
+      });
+    });
+
+    // Format standard items sheet header
+    itemsSheet.getRow(1).eachCell(cell => {
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+    });
+
+    // Track merged ranges to avoid duplicate merges
+    const mergedRanges = new Set();
+    let serialNumber = 1;
+
+    // Process each quotation
+    quotations.forEach(quotation => {
+      const customer = quotation.customer || {};
+      const branch = quotation.creator?.branch_id || {};
+      const date = new Date(quotation.date || quotation.createdAt);
+      const formattedDate = date.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+
+      // Format taluka/district
+      const talukaDistrict = [
+        customer.taluka || '',
+        customer.district || ''
+      ].filter(Boolean).join('/');
+
+      // Add quotation header row
+      const headerRowIndex = sheet.rowCount + 1;
+
+      sheet.addRow({
+        serial_number: serialNumber,
+        quotation_number: quotation.quotation_number,
+        date: formattedDate,
+        customer_name: customer.name,
+        mobile: customer.mobile1,
+        address: customer.address,
+        taluka_district: talukaDistrict,
+        finance_needed: quotation.finance_needed ? 'Yes' : 'No',
+        branch: `${branch.name}${branch.city ? `, ${branch.city}` : ''}`,
+        model_name: '', // Will be filled by first model
+        category_key: '',
+        header_key: '',
+        value: '',
+        hsn_code: '',
+        gst_rate: '',
+        priority: ''
+      });
+
+      // Style the header row
+      const headerRow = sheet.getRow(headerRowIndex);
+      headerRow.eachCell(cell => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFDDEBF7' } // Light blue
+        };
+        cell.font = { bold: true };
+      });
+
+      // Process models and prices
+      let currentModelName = '';
+      let modelStartRow = sheet.rowCount + 1;
+
+      quotation.models.forEach(model => {
+        if (model.model_id?.prices) {
+          const shouldSetModelName = model.model_id.model_name !== currentModelName;
+          currentModelName = model.model_id.model_name;
+
+          // Set model name in header if first model
+          if (shouldSetModelName && modelStartRow === sheet.rowCount + 1) {
+            sheet.getCell(`J${headerRowIndex}`).value = currentModelName;
+          }
+
+          // Add price items
+          model.model_id.prices.forEach(price => {
+            sheet.addRow({
+              serial_number: '',
+              quotation_number: '',
+              date: '',
+              customer_name: '',
+              mobile: '',
+              address: '',
+              taluka_district: '',
+              finance_needed: '',
+              branch: '',
+              model_name: shouldSetModelName ? currentModelName : '',
+              category_key: price.header_id?.category_key || 'N/A',
+              header_key: price.header_id?.header_key || 'N/A',
+              value: price.value || 0,
+              hsn_code: price.header_id?.metadata?.hsn_code || 'N/A',
+              gst_rate: price.header_id?.metadata?.gst_rate || 'N/A',
+              priority: price.header_id?.priority || 0
+            });
+          });
+
+          // Merge model name cells if needed
+          if (shouldSetModelName && sheet.rowCount >= modelStartRow) {
+            const modelEndRow = sheet.rowCount;
+            const range = `J${modelStartRow}:J${modelEndRow}`;
+
+            if (!mergedRanges.has(range)) {
+              sheet.mergeCells(range);
+              mergedRanges.add(range);
+
+              // Style merged cells
+              for (let j = modelStartRow; j <= modelEndRow; j++) {
+                const cell = sheet.getCell(`J${j}`);
+                cell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFE2EFDA' } // Light green
+                };
+              }
+            }
+            modelStartRow = sheet.rowCount + 1;
+          }
+        }
+      });
+
+      // Merge common cells for the quotation
+      const lastRow = sheet.rowCount;
+      const commonColumns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+      commonColumns.forEach(col => {
+        const range = `${col}${headerRowIndex}:${col}${lastRow}`;
+        if (!mergedRanges.has(range)) {
+          sheet.mergeCells(range);
+          mergedRanges.add(range);
+
+          // Fill merged cells with header value
+          for (let i = headerRowIndex + 1; i <= lastRow; i++) {
+            const cell = sheet.getCell(`${col}${i}`);
+            cell.value = sheet.getCell(`${col}${headerRowIndex}`).value;
+          }
+        }
+      });
+
+      // Increment serial number and add spacer row
+      serialNumber++;
+      sheet.addRow({});
+    });
+
+    // Style main header row
+    sheet.getRow(1).eachCell(cell => {
+      cell.font = {
+        bold: true,
+        color: { argb: 'FFFFFFFF' }
+      };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4F81BD' }
+      };
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: 'center'
+      };
+    });
+
+    // Format currency cells
+    sheet.eachRow(row => {
+      if (row.number > 1 && row.getCell('M').value) {
+        row.getCell('M').numFmt = '₹#,##0.00';
+      }
+    });
+
+    // Freeze header and set autofilter
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    sheet.autoFilter = {
+      from: 'A1',
+      to: `${String.fromCharCode(64 + sheet.columns.length)}1`
+    };
+
+    // Add validation notes
+    const headerKeyCol = sheet.getColumn('L');
+    headerKeyCol.eachCell(cell => {
+      if (cell.row > 1 && !cell.value) {
+        cell.note = `Valid items: ${standardItems.join(', ')}`;
+      }
+    });
+
+    const categoryKeyCol = sheet.getColumn('K');
+    categoryKeyCol.eachCell(cell => {
+      if (cell.row > 1 && !cell.value) {
+        cell.note = `Valid categories: ${standardCategories.join(', ')}`;
+      }
+    });
+
+    // Set response headers
+    res.setHeader('Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition',
+      `attachment; filename=${filename}.xlsx`);
+
+    // Write Excel file to response
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (err) {
+    logger.error(`Error exporting quotations: ${err.message}`, {
+      stack: err.stack,
+      userId: req.user._id,
+      query: req.query
+    });
+    next(new AppError('An error occurred while generating the export. Please try again.', 500));
+  }
+};

@@ -80,6 +80,9 @@ const vehicleSchema = new mongoose.Schema({
     type: String,
     unique: true
   },
+  qrCodeImage: {
+    type: String
+  },
   status: {
     type: String,
     enum: ['in_stock', 'in_transit', 'sold', 'service', 'damaged'],
@@ -118,12 +121,44 @@ vehicleSchema.pre('save', async function(next) {
   next();
 });
 
+// Pre-save hook to validate references
+vehicleSchema.pre('save', async function(next) {
+  try {
+    if (this.isModified('model')) {
+      const modelExists = await mongoose.model('Model').exists({ _id: this.model });
+      if (!modelExists) throw new Error('Referenced Model does not exist');
+    }
+    
+    if (this.isModified('unloadLocation')) {
+      const branchExists = await mongoose.model('Branch').exists({ _id: this.unloadLocation });
+      if (!branchExists) throw new Error('Referenced Branch does not exist');
+    }
+    
+    if (this.isModified('colors')) {
+      const colorsExist = await mongoose.model('Color').countDocuments({ _id: { $in: this.colors } });
+      if (colorsExist !== this.colors.length) throw new Error('One or more Colors do not exist');
+    }
+    
+    if (this.isModified('addedBy')) {
+      const userExists = await mongoose.model('User').exists({ _id: this.addedBy });
+      if (!userExists) throw new Error('Referenced User does not exist');
+    }
+    
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Virtuals for populated data
 vehicleSchema.virtual('modelDetails', {
   ref: 'Model',
   localField: 'model',
   foreignField: '_id',
-  justOne: true
+  justOne: true,
+  options: { 
+    select: 'model_name type status prices colors createdAt'
+  }
 });
 
 vehicleSchema.virtual('locationDetails', {
@@ -131,13 +166,18 @@ vehicleSchema.virtual('locationDetails', {
   localField: 'unloadLocation',
   foreignField: '_id',
   justOne: true,
-  options: { select: 'name address city state' }
+  options: { 
+    select: 'name address city state'
+  }
 });
 
 vehicleSchema.virtual('colorDetails', {
   ref: 'Color',
   localField: 'colors',
-  foreignField: '_id'
+  foreignField: '_id',
+  options: { 
+    select: 'name hex_code status models createdAt'
+  }
 });
 
 vehicleSchema.virtual('addedByDetails', {
@@ -145,7 +185,9 @@ vehicleSchema.virtual('addedByDetails', {
   localField: 'addedBy',
   foreignField: '_id',
   justOne: true,
-  options: { select: 'name email' }
+  options: { 
+    select: 'name email'
+  }
 });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

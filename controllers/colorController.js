@@ -59,13 +59,12 @@ exports.getAllColors = async (req, res, next) => {
       query = query.where('status').equals(req.query.status.toLowerCase());
     }
 
-    // Populate model information if requested
-    if (req.query.populate === 'models') {
-      query = query.populate({
-        path: 'models',
-        select: 'model_name type status'
-      });
-    }
+    // Always populate model information with names
+    query = query.populate({
+      path: 'models',
+      select: 'model_name type status',
+      match: { status: 'active' } // Only include active models
+    });
 
     const colors = await query;
 

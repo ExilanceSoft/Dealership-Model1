@@ -1,0 +1,31 @@
+{"timestamp":"2025-07-08 09:44:22","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 10:48:32","level":"\u001b[32MINFO\u001b[39M","message":"Finance document updated: Loan Agreement","stack":null}
+{"timestamp":"2025-07-08 10:48:43","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68554a1f12d0c8279c3867fb - required ADMIN","stack":null}
+{"timestamp":"2025-07-08 10:49:56","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68554a1f12d0c8279c3867fb - required ADMIN,SALES_EXECUTIVE","stack":null}
+{"timestamp":"2025-07-08 12:01:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 12:03:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 14:31:08","level":"\u001b[33MWARN\u001b[39M","message":"Mongoose disconnected from DB","stack":null}
+{"timestamp":"2025-07-08 14:31:19","level":"\u001b[32MINFO\u001b[39M","message":"Mongoose connected to DB","stack":null}
+{"timestamp":"2025-07-08 16:15:18","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 16:37:15","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 17:11:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 17:17:51","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 17:18:57","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 17:29:30","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 17:41:42","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 17:55:33","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 17:55:35","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 18:02:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 18:05:25","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 18:13:12","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 18:22:19","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 18:23:57","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 18:46:53","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 18:51:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 18:54:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 19:10:12","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-08 19:25:13","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-08 19:34:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

@@ -1,0 +1,49 @@
+0 Dolycoris baccarum 
+1 Lycorma delicatula 01117
+2 Eurydema dominulus 06575
+3 Pieris rapae
+4 Halyomorpha halys
+5 Spilosoma obliqua
+6 Graphosoma rubrolineata
+7 Luperomorpha suturalis
+8 Leptocorisa acuta
+9 Sesamia inferens
+10 Cicadella viridis
+11 Callitettix versicolor
+12 Scotinophara lurida
+13 Cletus punctiger
+14 Nezara viridula
+15 Dicladispa armigera
+16 Riptortus pedestris
+17 Maruca testulalis
+18 Chauliops fallax
+19 Chilo supperssalis
+20 Stollia ventralis
+21 Nilaparvata lugens
+22 Diostrombus politus
+23 Phyllotreta striolata
+24 Aulacophora indica
+25 Laodelphax striatellus
+26 Ceroplastes ceriferus
+27 Corythucha marmorata
+28 Dryocosmus kuriphilus
+29 Porthesia taiwana
+30 Chromatomyia horticola
+31 Iscadia inexacta
+32 Plutella xylostella
+33 Empoasca flavescens
+34 Dolerus tritici
+35 Spodoptera litura
+36 Corythucha ciliata
+37 Bemisia tabaci
+38 Ceutorhynchus asper
+39 Strongyllodes variegatus
+
+
+
+
+
+
+
+
+

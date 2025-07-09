@@ -501,4 +501,80 @@ router.delete('/rates/:id',
  */
 router.get('/branches/:branchId/rates', financeController.getBranchRates);
 
+/**
+ * @swagger
+ * /api/v1/financers/rates:
+ *   get:
+ *     summary: Get all finance rates
+ *     tags: [Finance Rates]
+ *     parameters:
+ *       - in: query
+ *         name: active
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: Filter by active status
+ *       - in: query
+ *         name: branchId
+ *         schema:
+ *           type: string
+ *         description: Filter by branch ID
+ *       - in: query
+ *         name: providerId
+ *         schema:
+ *           type: string
+ *         description: Filter by finance provider ID
+ *     responses:
+ *       200:
+ *         description: List of all finance rates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/FinanceRate'
+ *       500:
+ *         description: Server error
+ */
+router.get('/rates', financeController.getAllRates);
+
+/**
+ * @swagger
+ * /api/v1/financers/providers/{id}/rates:
+ *   get:
+ *     summary: Get finance provider details with all associated GC rates
+ *     tags: [Finance Providers]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Finance provider ID
+ *     responses:
+ *       200:
+ *         description: Provider details with associated rates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     provider:
+ *                       $ref: '#/components/schemas/FinanceProvider'
+ *                     rates:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/FinanceRate'
+ *       404:
+ *         description: Provider not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/providers/:id/rates', financeController.getProviderWithRates);
+
 module.exports = router;

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Booking Form - {{bookingNumber}}</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 20px;
+            line-height: 1.5;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+        .header-table {
+            border: none;
+        }
+        .header-table td {
+            border: none;
+            padding: 2px 8px;
+        }
+        .item-table {
+            font-size: 13px;
+        }
+        .item-table td {
+            padding: 3px 5px;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-bold {
+            font-weight: bold;
+        }
+        .section-title {
+            font-weight: bold;
+            margin: 15px 0 5px 0;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3px;
+        }
+        .signature-table {
+            margin-top: 50px;
+        }
+        .signature-table td {
+            border: none;
+            padding-top: 50px;
+            width: 25%;
+        }
+        .declaration {
+            font-size: 10px;
+            text-align: justify;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Section -->
+    <table class="header-table">
+        <tr>
+            <td width="40%"><font size="5"><b>Gandhi TVS</b></font></td>
+            <td width="40%" class="text-center"><b><u>Booking Form / Order Form</u></b></td>
+            <td width="20%" class="text-right"><img src="tvs.jpg" alt="tvs" width="150" height="30"></td>
+        </tr>
+        <tr>
+            <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
+            <td class="text-right">Date: {{formatDate createdAt}}</td>
+        </tr>
+        <tr>
+            <td colspan="3">{{branchDetails.name}}</td>
+        </tr>
+    </table>
+
+    <!-- Customer Details -->
+    <div class="section-title">Customer & Vehicle Details</div>
+    <table class="header-table">
+        <tr>
+            <td width="20%"><b>Booking No.:</b></td>
+            <td width="30%">{{bookingNumber}}</td>
+            <td width="20%"><b>GSTIN:</b></td>
+            <td width="30%">{{#if gstin}}{{gstin}}{{else}}N/A{{/if}}</td>
+        </tr>
+        <tr>
+            <td><b>Customer Name:</b></td>
+            <td>{{customerDetails.salutation}} {{customerDetails.name}}</td>
+            <td><b>RTO Type:</b></td>
+            <td>{{rto}}</td>
+        </tr>
+        <tr>
+            <td><b>Address:</b></td>
+            <td colspan="3">{{customerDetails.address}}</td>
+        </tr>
+        <tr>
+            <td><b>Taluka:</b></td>
+            <td>{{customerDetails.taluka}}</td>
+            <td><b>District:</b></td>
+            <td>{{customerDetails.district}}</td>
+        </tr>
+        <tr>
+            <td><b>Pincode:</b></td>
+            <td>{{customerDetails.pincode}}</td>
+            <td><b>Mobile No.:</b></td>
+            <td>{{customerDetails.mobile1}}</td>
+        </tr>
+        <tr>
+            <td><b>D.O.B.:</b></td>
+            <td>{{formatDate customerDetails.dob}}</td>
+            <td><b>Aadhar No.:</b></td>
+            <td>{{#if customerDetails.aadharNumber}}{{customerDetails.aadharNumber}}{{else}}N/A{{/if}}</td>
+        </tr>
+        <tr>
+            <td><b>Exchange Mode:</b></td>
+            <td>{{#if exchange}}YES{{#if exchangeDetails.vehicleNumber}} ({{exchangeDetails.vehicleNumber}}){{/if}}{{else}}NO{{/if}}</td>
+            <td><b>Payment Mode:</b></td>
+            <td>{{payment.type}}{{#if (eq payment.type 'FINANCE')}} ({{payment.financer.name}}){{/if}}</td>
+        </tr>
+        <tr>
+            <td><b>Model:</b></td>
+            <td>{{modelDetails.model_name}}</td>
+            <td><b>Color:</b></td>
+            <td>{{colorDetails.name}}</td>
+        </tr>
+        <tr>
+            <td><b>Sales Rep:</b></td>
+            <td>{{salesExecutiveDetails.name}}</td>
+            <td><b>HPA:</b></td>
+            <td>{{#if hpa}}YES{{else}}NO{{/if}}</td>
+        </tr>
+    </table>
+
+    <!-- Price Components -->
+    <div class="section-title">Price Breakdown</div>
+     <!-- Price Components -->
+<table class="item-table">
+    <thead>
+        <tr>
+            <th width="30%">Particulars</th>
+            <th width="10%">HSN Code</th>
+            <th width="10%">Unit Cost</th>
+            <th width="10%">Taxable Value</th>
+            <th width="10%">CGST%</th>
+            <th width="10%">CGST Amt</th>
+            <th width="10%">SGST%</th>
+            <th width="10%">SGST Amt</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Vehicle Price Section -->
+        <tr>
+            <td colspan="8" class="text-bold">VEHICLE PRICE COMPONENTS</td>
+        </tr>
+        {{#each priceComponents}}
+        {{#if (eq header.category_key "vehicle_price")}}
+        <tr>
+            <td>{{header.header_key}}</td>
+            <td class="text-right">{{#if header.metadata.hsn_code}}{{header.metadata.hsn_code}}{{else}}-{{/if}}</td>
+            <td class="text-right">{{formatCurrency originalValue}}</td>
+            <td class="text-right">{{formatCurrency discountedValue}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}</td>
+        </tr>
+        {{/if}}
+        {{/each}}
+        
+        <!-- Add-on Services Section -->
+        <tr>
+            <td colspan="8" class="text-bold">ADD-ON SERVICES</td>
+        </tr>
+        {{#each priceComponents}}
+        {{#if (eq header.category_key "AddONservices")}}
+        <tr>
+            <td>{{header.header_key}}</td>
+            <td class="text-right">{{#if header.metadata.hsn_code}}{{header.metadata.hsn_code}}{{else}}-{{/if}}</td>
+            <td class="text-right">{{formatCurrency originalValue}}</td>
+            <td class="text-right">{{formatCurrency discountedValue}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}</td>
+        </tr>
+        {{/if}}
+        {{/each}}
+        
+        <!-- Accessories Section -->
+        <tr>
+            <td colspan="8" class="text-bold">ACCESSORIES</td>
+        </tr>
+        {{#each priceComponents}}
+        {{#if (eq header.category_key "Accesories")}}
+        <tr>
+            <td>{{header.header_key}}</td>
+            <td class="text-right">{{#if header.metadata.hsn_code}}{{header.metadata.hsn_code}}{{else}}-{{/if}}</td>
+            <td class="text-right">{{formatCurrency originalValue}}</td>
+            <td class="text-right">{{formatCurrency discountedValue}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}</td>
+        </tr>
+        {{/if}}
+        {{/each}}
+    </tbody>
+</table>
+
+    <!-- Totals Section -->
+    <table class="header-table">
+        <tr>
+            <td width="70%"><b>Vehicle Price Total (A)</b></td>
+            <td width="30%" class="text-right">{{formatCurrency totalAmount}}</td>
+        </tr>
+        {{#if (gt rtoAmount 0)}}
+        <tr>
+            <td><b>RTO Tax & Registration Charges</b></td>
+            <td class="text-right">{{formatCurrency rtoAmount}}</td>
+        </tr>
+        {{/if}}
+        {{#if (gt hypothecationCharges 0)}}
+        <tr>
+            <td><b>Hypothecation Charges</b></td>
+            <td class="text-right">{{formatCurrency hypothecationCharges}}</td>
+        </tr>
+        {{/if}}
+        {{#if (gt accessoriesTotal 0)}}
+        <tr>
+            <td><b>Accessories Total</b></td>
+            <td class="text-right">{{formatCurrency accessoriesTotal}}</td>
+        </tr>
+        {{/if}}
+        <tr>
+            <td><b>Other Charges Total (B)</b></td>
+            <td class="text-right">{{formatCurrency (add rtoAmount hypothecationCharges accessoriesTotal)}}</td>
+        </tr>
+        <tr>
+            <td><b>Sub Total (A + B)</b></td>
+            <td class="text-right">{{formatCurrency (add totalAmount rtoAmount hypothecationCharges accessoriesTotal)}}</td>
+        </tr>
+        {{#each discounts}}
+        <tr>
+            <td><b>Discount Applied ({{type}})</b></td>
+            <td class="text-right">-{{formatCurrency amount}}</td>
+        </tr>
+        {{/each}}
+        <tr>
+            <td><b>GRAND TOTAL</b></td>
+            <td class="text-right"><b>{{formatCurrency discountedAmount}}</b></td>
+        </tr>
+    </table>
+
+    {{#if exchange}}
+    <!-- Exchange Details -->
+    <div class="section-title">Exchange Details</div>
+    <table class="header-table">
+        <tr>
+            <td width="20%"><b>Broker Name:</b></td>
+            <td width="30%">{{exchangeDetails.broker.name}}</td>
+            <td width="20%"><b>Vehicle No.:</b></td>
+            <td width="30%">{{exchangeDetails.vehicleNumber}}</td>
+        </tr>
+        <tr>
+            <td><b>Chassis No.:</b></td>
+            <td>{{exchangeDetails.chassisNumber}}</td>
+            <td><b>Exchange Value:</b></td>
+            <td>{{formatCurrency exchangeDetails.price}}</td>
+        </tr>
+    </table>
+    {{/if}}
+
+    {{#if (eq payment.type 'FINANCE')}}
+    <!-- Finance Details -->
+    <div class="section-title">Finance Details</div>
+    <table class="header-table">
+        <tr>
+            <td width="20%"><b>Financer:</b></td>
+            <td width="30%">{{payment.financer.name}}</td>
+            <td width="20%"><b>Scheme:</b></td>
+            <td width="30%">{{payment.scheme}}</td>
+        </tr>
+        <tr>
+            <td><b>EMI Plan:</b></td>
+            <td>{{payment.emiPlan}}</td>
+            <td><b>GC Applicable:</b></td>
+            <td>{{#if payment.gcApplicable}}YES{{else}}NO{{/if}}</td>
+        </tr>
+    </table>
+    {{/if}}
+
+    <!-- Declaration -->
+    <div class="declaration">
+        <b>Declaration:</b> I/We Authorize the Dealer to register the vehicle at RTO in my/our name. 2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss. 3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration. 4) Registration Number allotted by RTO will be acceptable to me else I will pre book for choice number at RTO at my own. Dealership has no role in RTO Number allocation 5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same 6) I/We agree that the price at the time of delivery will be applicable. 7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle 9)I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking. 8) Subject to sangamner Jurisdication. I accept that vehicle once sold by dealer shall not be taken back /replaced for any reason.
+    </div>
+
+    <!-- Signatures -->
+    <table class="signature-table">
+        <tr>
+            <td class="text-center">Customer's Signature</td>
+            <td class="text-center">Sales Executive</td>
+            <td class="text-center">Manager</td>
+            <td class="text-center">Accountant</td>
+        </tr>
+    </table>
+</body>
+</html>
