@@ -7,6 +7,8 @@ const helmet = require('helmet');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const { setupSwagger, getLocalIp } = require('./config/swagger');
+const path = require('path');
+
 
 // Uncaught exception handler
 process.on('uncaughtException', (err) => {
@@ -31,6 +33,7 @@ connectDB().catch(err => {
   console.error('Failed to connect to MongoDB:', err);
   process.exit(1);
 });
+
 
 // Import all route files
 const authRoutes = require('./routes/authRoutes');
@@ -63,7 +66,7 @@ const FinanceLetterRoutes = require('./routes/financeLetterRoutes');
 
 // Create Express application
 const app = express();
-
+app.use('/api/v1/uploads', express.static(path.join(__dirname, 'uploads')));
 // Middleware to parse JSON bodies
 app.use(express.json());
 

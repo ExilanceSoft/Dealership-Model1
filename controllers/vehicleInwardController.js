@@ -22,30 +22,38 @@ const validateVehicleFields = (type, body) => {
   return errors;
 };
 
-// Standard population options
+// Enhanced population options with error handling
 const populateOptions = [
   {
-    path: 'modelDetails',
-    select: 'model_name type status prices colors createdAt'
+    path: 'model',
+    model: 'Model',
+    select: 'model_name type status prices colors createdAt',
+    match: { _id: { $exists: true } } // Only populate if model exists
   },
   {
-    path: 'locationDetails',
-    select: 'name address city state'
+    path: 'unloadLocation',
+    model: 'Branch',
+    select: 'name address city state pincode phone email gst_number is_active',
+    match: { _id: { $exists: true } } // Only populate if branch exists
   },
   {
-    path: 'colorDetails',
-    select: 'name hex_code status models createdAt'
+    path: 'colors',
+    model: 'Color',
+    select: 'name hex_code status models createdAt',
+    match: { _id: { $exists: true } } // Only populate if color exists
   },
   {
-    path: 'addedByDetails',
-    select: 'name email'
+    path: 'addedBy',
+    model: 'User',
+    select: 'name email',
+    match: { _id: { $exists: true } } // Only populate if user exists
   }
 ];
 
 // Create a new vehicle
 exports.createVehicle = async (req, res, next) => {
   try {
-    const { model, unloadLocation, type, colors, chassisNumber, hasDamage, damages } = req.body;
+    const { model, unloadLocation, type, colors, chassisNumber } = req.body;
     
     // Basic validation
     if (!model || !unloadLocation || !type || !colors || !chassisNumber) {
@@ -57,6 +65,22 @@ exports.createVehicle = async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(unloadLocation) ||
         colors.some(color => !mongoose.Types.ObjectId.isValid(color))) {
       return next(new AppError('Invalid ID format', 400));
+    }
+
+    // Validate referenced documents exist
+    const modelExists = await Model.exists({ _id: model });
+    if (!modelExists) {
+      return next(new AppError('Referenced model does not exist', 400));
+    }
+
+    const branchExists = await Branch.exists({ _id: unloadLocation });
+    if (!branchExists) {
+      return next(new AppError('Referenced branch does not exist', 400));
+    }
+
+    const colorsExist = await Color.countDocuments({ _id: { $in: colors } });
+    if (colorsExist !== colors.length) {
+      return next(new AppError('One or more referenced colors do not exist', 400));
     }
     
     // Validate vehicle type specific fields
@@ -72,11 +96,13 @@ exports.createVehicle = async (req, res, next) => {
     });
     
     // Generate QR code data URL
+    const vehicleWithRefs = await Vehicle.findById(newVehicle._id).populate(populateOptions);
+    
     const qrCodeData = {
-      model: newVehicle.modelDetails?.model_name || 'Unknown Model',
+      model: vehicleWithRefs.model?.model_name || 'Unknown Model',
       chassisNumber: newVehicle.chassisNumber,
-      colors: newVehicle.colors,
-      location: newVehicle.locationDetails?.name || 'Unknown Location',
+      colors: vehicleWithRefs.colors?.map(c => c.name) || [],
+      location: vehicleWithRefs.unloadLocation?.name || 'Unknown Location',
       status: newVehicle.status,
       qrCode: newVehicle.qrCode
     };
@@ -98,7 +124,7 @@ exports.createVehicle = async (req, res, next) => {
     });
   } catch (err) {
     logger.error(`Error creating vehicle: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };
 
@@ -136,21 +162,62 @@ exports.getAllVehicles = async (req, res, next) => {
       query = query.where('hasDamage').equals(false);
     }
     
-    // Apply consistent population
+    // Apply population with error handling
     query = query.populate(populateOptions);
     
     const vehicles = await query;
     
+    // Transform the response to handle null references
+    const transformedVehicles = vehicles.map(vehicle => {
+      const vehicleObj = vehicle.toObject();
+      
+      // Handle missing model
+      if (!vehicleObj.model) {
+        vehicleObj.model = {
+          _id: vehicle.model, // Original ID
+          model_name: 'Unknown Model',
+          type: 'Unknown'
+        };
+      }
+      
+      // Handle missing location
+      if (!vehicleObj.unloadLocation) {
+        vehicleObj.unloadLocation = {
+          _id: vehicle.unloadLocation, // Original ID
+          name: 'Unknown Location'
+        };
+      }
+      
+      // Handle missing colors
+      vehicleObj.colors = vehicleObj.colors.map(color => {
+        return color || {
+          _id: color, // Original ID
+          name: 'Unknown Color',
+          hex_code: '#CCCCCC'
+        };
+      });
+      
+      // Handle missing addedBy
+      if (!vehicleObj.addedBy) {
+        vehicleObj.addedBy = {
+          _id: vehicle.addedBy, // Original ID
+          name: 'Unknown User'
+        };
+      }
+      
+      return vehicleObj;
+    });
+    
     res.status(200).json({
       status: 'success',
-      results: vehicles.length,
+      results: transformedVehicles.length,
       data: {
-        vehicles
+        vehicles: transformedVehicles
       }
     });
   } catch (err) {
     logger.error(`Error getting vehicles: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };
 
@@ -167,16 +234,49 @@ exports.getVehicleById = async (req, res, next) => {
     if (!vehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
     }
+
+    // Transform the response to handle null references
+    const vehicleObj = vehicle.toObject();
+    
+    if (!vehicleObj.model) {
+      vehicleObj.model = {
+        _id: vehicle.model,
+        model_name: 'Unknown Model',
+        type: 'Unknown'
+      };
+    }
+    
+    if (!vehicleObj.unloadLocation) {
+      vehicleObj.unloadLocation = {
+        _id: vehicle.unloadLocation,
+        name: 'Unknown Location'
+      };
+    }
+    
+    vehicleObj.colors = vehicleObj.colors.map(color => {
+      return color || {
+        _id: color,
+        name: 'Unknown Color',
+        hex_code: '#CCCCCC'
+      };
+    });
+    
+    if (!vehicleObj.addedBy) {
+      vehicleObj.addedBy = {
+        _id: vehicle.addedBy,
+        name: 'Unknown User'
+      };
+    }
     
     res.status(200).json({
       status: 'success',
       data: {
-        vehicle
+        vehicle: vehicleObj
       }
     });
   } catch (err) {
     logger.error(`Error getting vehicle by ID: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };
 
@@ -191,16 +291,49 @@ exports.getVehicleByQrCode = async (req, res, next) => {
     if (!vehicle) {
       return next(new AppError('No vehicle found with that QR code', 404));
     }
+
+    // Transform the response to handle null references
+    const vehicleObj = vehicle.toObject();
+    
+    if (!vehicleObj.model) {
+      vehicleObj.model = {
+        _id: vehicle.model,
+        model_name: 'Unknown Model',
+        type: 'Unknown'
+      };
+    }
+    
+    if (!vehicleObj.unloadLocation) {
+      vehicleObj.unloadLocation = {
+        _id: vehicle.unloadLocation,
+        name: 'Unknown Location'
+      };
+    }
+    
+    vehicleObj.colors = vehicleObj.colors.map(color => {
+      return color || {
+        _id: color,
+        name: 'Unknown Color',
+        hex_code: '#CCCCCC'
+      };
+    });
+    
+    if (!vehicleObj.addedBy) {
+      vehicleObj.addedBy = {
+        _id: vehicle.addedBy,
+        name: 'Unknown User'
+      };
+    }
     
     res.status(200).json({
       status: 'success',
       data: {
-        vehicle
+        vehicle: vehicleObj
       }
     });
   } catch (err) {
     logger.error(`Error getting vehicle by QR code: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };
 
@@ -227,16 +360,49 @@ exports.updateVehicleStatus = async (req, res, next) => {
     if (!updatedVehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
     }
+
+    // Transform the response to handle null references
+    const vehicleObj = updatedVehicle.toObject();
+    
+    if (!vehicleObj.model) {
+      vehicleObj.model = {
+        _id: updatedVehicle.model,
+        model_name: 'Unknown Model',
+        type: 'Unknown'
+      };
+    }
+    
+    if (!vehicleObj.unloadLocation) {
+      vehicleObj.unloadLocation = {
+        _id: updatedVehicle.unloadLocation,
+        name: 'Unknown Location'
+      };
+    }
+    
+    vehicleObj.colors = vehicleObj.colors.map(color => {
+      return color || {
+        _id: color,
+        name: 'Unknown Color',
+        hex_code: '#CCCCCC'
+      };
+    });
+    
+    if (!vehicleObj.addedBy) {
+      vehicleObj.addedBy = {
+        _id: updatedVehicle.addedBy,
+        name: 'Unknown User'
+      };
+    }
     
     res.status(200).json({
       status: 'success',
       data: {
-        vehicle: updatedVehicle
+        vehicle: vehicleObj
       }
     });
   } catch (err) {
     logger.error(`Error updating vehicle status: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };
 
@@ -266,16 +432,49 @@ exports.addDamage = async (req, res, next) => {
     if (!updatedVehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
     }
+
+    // Transform the response to handle null references
+    const vehicleObj = updatedVehicle.toObject();
+    
+    if (!vehicleObj.model) {
+      vehicleObj.model = {
+        _id: updatedVehicle.model,
+        model_name: 'Unknown Model',
+        type: 'Unknown'
+      };
+    }
+    
+    if (!vehicleObj.unloadLocation) {
+      vehicleObj.unloadLocation = {
+        _id: updatedVehicle.unloadLocation,
+        name: 'Unknown Location'
+      };
+    }
+    
+    vehicleObj.colors = vehicleObj.colors.map(color => {
+      return color || {
+        _id: color,
+        name: 'Unknown Color',
+        hex_code: '#CCCCCC'
+      };
+    });
+    
+    if (!vehicleObj.addedBy) {
+      vehicleObj.addedBy = {
+        _id: updatedVehicle.addedBy,
+        name: 'Unknown User'
+      };
+    }
     
     res.status(200).json({
       status: 'success',
       data: {
-        vehicle: updatedVehicle
+        vehicle: vehicleObj
       }
     });
   } catch (err) {
     logger.error(`Error adding damage to vehicle: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };
 
@@ -294,13 +493,46 @@ exports.generateQrCode = async (req, res, next) => {
     if (!vehicle) {
       return next(new AppError('No vehicle found with that ID', 404));
     }
+
+    // Transform the response to handle null references
+    const vehicleObj = vehicle.toObject();
+    
+    if (!vehicleObj.model) {
+      vehicleObj.model = {
+        _id: vehicle.model,
+        model_name: 'Unknown Model',
+        type: 'Unknown'
+      };
+    }
+    
+    if (!vehicleObj.unloadLocation) {
+      vehicleObj.unloadLocation = {
+        _id: vehicle.unloadLocation,
+        name: 'Unknown Location'
+      };
+    }
+    
+    vehicleObj.colors = vehicleObj.colors.map(color => {
+      return color || {
+        _id: color,
+        name: 'Unknown Color',
+        hex_code: '#CCCCCC'
+      };
+    });
+    
+    if (!vehicleObj.addedBy) {
+      vehicleObj.addedBy = {
+        _id: vehicle.addedBy,
+        name: 'Unknown User'
+      };
+    }
     
     // Generate QR code data URL
     const qrCodeData = {
-      model: vehicle.modelDetails?.model_name || 'Unknown Model',
+      model: vehicleObj.model.model_name,
       chassisNumber: vehicle.chassisNumber,
-      colors: vehicle.colors,
-      location: vehicle.locationDetails?.name || 'Unknown Location',
+      colors: vehicleObj.colors.map(c => c.name),
+      location: vehicleObj.unloadLocation.name,
       status: vehicle.status,
       qrCode: vehicle.qrCode
     };
@@ -323,7 +555,7 @@ exports.generateQrCode = async (req, res, next) => {
     });
   } catch (err) {
     logger.error(`Error generating QR code: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };
 
@@ -341,15 +573,52 @@ exports.getVehiclesByBranch = async (req, res, next) => {
     const vehicles = await Vehicle.find({ unloadLocation: branchId })
       .populate(populateOptions);
 
+    // Transform the response to handle null references
+    const transformedVehicles = vehicles.map(vehicle => {
+      const vehicleObj = vehicle.toObject();
+      
+      if (!vehicleObj.model) {
+        vehicleObj.model = {
+          _id: vehicle.model,
+          model_name: 'Unknown Model',
+          type: 'Unknown'
+        };
+      }
+      
+      if (!vehicleObj.unloadLocation) {
+        vehicleObj.unloadLocation = {
+          _id: vehicle.unloadLocation,
+          name: 'Unknown Location'
+        };
+      }
+      
+      vehicleObj.colors = vehicleObj.colors.map(color => {
+        return color || {
+          _id: color,
+          name: 'Unknown Color',
+          hex_code: '#CCCCCC'
+        };
+      });
+      
+      if (!vehicleObj.addedBy) {
+        vehicleObj.addedBy = {
+          _id: vehicle.addedBy,
+          name: 'Unknown User'
+        };
+      }
+      
+      return vehicleObj;
+    });
+
     res.status(200).json({
       status: 'success',
-      results: vehicles.length,
+      results: transformedVehicles.length,
       data: {
-        vehicles
+        vehicles: transformedVehicles
       }
     });
   } catch (err) {
     logger.error(`Error getting vehicles by branch: ${err.message}`);
-    next(err);
+    next(new AppError('Server Error', 500));
   }
 };

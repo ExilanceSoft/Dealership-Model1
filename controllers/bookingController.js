@@ -604,7 +604,7 @@ const bookingFormTemplate = Handlebars.compile(templateHtml);
 // Helper function to generate booking form PDF
 const generateBookingFormPDF = async (booking) => {
     try {
-        // Format data for the form
+        // 1. Prepare data for the template
         const formData = {
             ...booking.toObject(),
             branchDetails: booking.branchDetails,
@@ -615,35 +615,40 @@ const generateBookingFormPDF = async (booking) => {
             bookingNumber: booking.bookingNumber
         };
 
-        // Generate HTML from template
+        // 2. Generate HTML content
         const html = bookingFormTemplate(formData);
 
-        // Generate PDF
+        // 3. Convert HTML to PDF buffer
         const pdfBuffer = await generatePDFFromHtml(html);
 
-        // Define the path where the PDF will be saved
-        const uploadDir = path.join(__dirname, '../uploads/booking-forms');
+        // 4. Define upload directory path - use absolute path from project root
+        const uploadDir = path.join(process.cwd(), 'uploads', 'booking-forms');
+        
+        // 5. Create directory if it doesn't exist
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
 
+        // 6. Generate unique filename
         const fileName = `booking-form-${booking.bookingNumber}-${Date.now()}.pdf`;
+        
+        // 7. Create full file path
         const filePath = path.join(uploadDir, fileName);
 
-        // Save the PDF to the server
+        // 8. Write PDF file
         fs.writeFileSync(filePath, pdfBuffer);
 
+        // 9. Return file information
         return {
             path: filePath,
             fileName: fileName,
-            url: `/uploads/booking-forms/${fileName}`
+            url: `/uploads/booking-forms/${fileName}` // This matches your express static path
         };
     } catch (error) {
         console.error('Error generating booking form PDF:', error);
         throw error;
     }
 };
-
 // Helper function to populate and save booking form
 const generateAndSaveBookingForm = async (booking) => {
     try {
@@ -1304,7 +1309,9 @@ exports.getAllBookings = async (req, res) => {
       fromDate, 
       toDate,
       customerType,
-      model
+      model,
+      kycStatus,
+      financeLetterStatus
     } = req.query;
     
     // Build filter object
@@ -1339,6 +1346,15 @@ exports.getAllBookings = async (req, res) => {
     } else if (branch) {
       filter.branch = branch;
     }
+
+    // Add KYC and Finance Letter status filters if provided
+    const docFilters = {};
+    if (kycStatus) {
+      docFilters['documentStatus.kyc.status'] = kycStatus;
+    }
+    if (financeLetterStatus) {
+      docFilters['documentStatus.financeLetter.status'] = financeLetterStatus;
+    }
     
     const options = {
       page: parseInt(page),
@@ -1368,15 +1384,84 @@ exports.getAllBookings = async (req, res) => {
       lean: true
     };
     
-    const bookings = await Booking.paginate(filter, options);
+    // First get the paginated bookings
+    let bookings = await Booking.paginate(filter, options);
+    
+    // Get KYC and Finance Letter details for each booking
+    const bookingsWithDocStatus = await Promise.all(
+      bookings.docs.map(async (booking) => {
+        const [kyc, financeLetter] = await Promise.all([
+          mongoose.model('KYC').findOne({ booking: booking._id })
+            .select('status verifiedBy verificationNote updatedAt')
+            .populate('verifiedBy', 'name')
+            .lean(),
+          mongoose.model('FinanceLetter').findOne({ booking: booking._id })
+            .select('status verifiedBy verificationNote updatedAt')
+            .populate('verifiedBy', 'name')
+            .lean()
+        ]);
+        
+        // Create simplified status objects
+        const kycStatus = kyc ? {
+          status: kyc.status,
+          verifiedBy: kyc.verifiedBy?.name || null,
+          verificationNote: kyc.verificationNote || null,
+          updatedAt: kyc.updatedAt
+        } : {
+          status: 'NOT_UPLOADED',
+          verifiedBy: null,
+          verificationNote: null,
+          updatedAt: null
+        };
+
+        const financeLetterStatus = financeLetter ? {
+          status: financeLetter.status,
+          verifiedBy: financeLetter.verifiedBy?.name || null,
+          verificationNote: financeLetter.verificationNote || null,
+          updatedAt: financeLetter.updatedAt
+        } : {
+          status: 'NOT_UPLOADED',
+          verifiedBy: null,
+          verificationNote: null,
+          updatedAt: null
+        };
+
+        // Apply additional filtering if KYC or Finance Letter status filters were provided
+        let includeBooking = true;
+        if (kycStatus && docFilters['documentStatus.kyc.status'] && kycStatus.status !== docFilters['documentStatus.kyc.status']) {
+          includeBooking = false;
+        }
+        if (financeLetterStatus && docFilters['documentStatus.financeLetter.status'] && financeLetterStatus.status !== docFilters['documentStatus.financeLetter.status']) {
+          includeBooking = false;
+        }
+
+        return includeBooking ? {
+          ...booking,
+          documentStatus: {
+            kyc: kycStatus,
+            financeLetter: financeLetterStatus
+          }
+        } : null;
+      })
+    );
+
+    // Filter out null bookings (excluded by document status filters)
+    const filteredBookings = bookingsWithDocStatus.filter(booking => booking !== null);
+    
+    // Adjust pagination counts
+    const adjustedTotal = filteredBookings.length === bookings.docs.length ? 
+      bookings.totalDocs : 
+      await Booking.countDocuments({ ...filter, ...docFilters });
+    
+    const adjustedPages = Math.ceil(adjustedTotal / parseInt(limit));
     
     res.status(200).json({
       success: true,
       data: {
-        bookings: bookings.docs,
-        total: bookings.totalDocs,
-        pages: bookings.totalPages,
-        currentPage: bookings.page
+        bookings: filteredBookings,
+        total: adjustedTotal,
+        pages: adjustedPages,
+        currentPage: parseInt(page)
       }
     });
     

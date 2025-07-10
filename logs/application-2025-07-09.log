@@ -21,3 +21,38 @@
 {"timestamp":"2025-07-09 15:50:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-09 15:54:42","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
 {"timestamp":"2025-07-09 15:59:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 16:03:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 16:14:12","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-09 16:14:21","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-09 16:15:18","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-09 17:05:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 17:43:00","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 17:44:31","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:52:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 17:57:46","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:20","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:22","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:32","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:33","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:41","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:42","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:43","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:48","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:48","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:51","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 17:58:51","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 18:00:28","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 18:00:28","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 18:00:32","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 18:04:22","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 18:16:20","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 18:20:50","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 18:26:29","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-09 18:30:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 18:30:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 18:32:49","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 18:37:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 18:47:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 19:01:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-09 19:01:38","level":"\u001b[31MERROR\u001b[39M","message":"Error creating vehicle: Referenced Model does not exist","stack":null}
+{"timestamp":"2025-07-09 19:13:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
