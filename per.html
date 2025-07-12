@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permission Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .permission-card {
+            transition: all 0.3s;
+        }
+        .permission-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .nav-tabs .nav-link.active {
+            font-weight: bold;
+            border-bottom: 3px solid #0d6efd;
+        }
+        .module-badge {
+            font-size: 0.8rem;
+            background-color: #e9ecef;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-4">Permission Management System</h1>
+                <p class="lead">Manage roles, permissions, and user access</p>
+            </div>
+        </div>
+
+        <!-- Main Tabs -->
+        <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="permissions-tab" data-bs-toggle="tab" data-bs-target="#permissions" type="button" role="tab">Permissions</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="roles-tab" data-bs-toggle="tab" data-bs-target="#roles" type="button" role="tab">Roles</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">User Access</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="mainTabsContent">
+            <!-- Permissions Tab -->
+            <div class="tab-pane fade show active" id="permissions" role="tabpanel">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPermissionModal">
+                            <i class="bi bi-plus-circle"></i> Create Permission
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="permissionSearch" placeholder="Search permissions...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchPermissionsBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row" id="permissionsContainer">
+                    <!-- Permissions will be loaded here -->
+                    <div class="col-12 text-center my-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roles Tab -->
+            <div class="tab-pane fade" id="roles" role="tabpanel">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoleModal">
+                            <i class="bi bi-plus-circle"></i> Create Role
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row" id="rolesContainer">
+                    <!-- Roles will be loaded here -->
+                    <div class="col-12 text-center my-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div class="tab-pane fade" id="users" role="tabpanel">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="userSearch" placeholder="Search users...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchUsersBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Roles</th>
+                                <th>Direct Permissions</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Users will be loaded here -->
+                            <tr>
+                                <td colspan="5" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Permission Modal -->
+    <div class="modal fade" id="createPermissionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Permission</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createPermissionForm">
+                        <div class="mb-3">
+                            <label for="permissionName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="permissionName" required>
+                            <small class="text-muted">Format: MODULE_ACTION (e.g., USERS_CREATE)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="permissionDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="permissionDescription" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="permissionModule" class="form-label">Module</label>
+                            <input type="text" class="form-control" id="permissionModule" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="permissionAction" class="form-label">Action</label>
+                            <select class="form-select" id="permissionAction" required>
+                                <option value="">Select action</option>
+                                <option value="CREATE">CREATE</option>
+                                <option value="READ">READ</option>
+                                <option value="UPDATE">UPDATE</option>
+                                <option value="DELETE">DELETE</option>
+                                <option value="MANAGE">MANAGE</option>
+                                <option value="ALL">ALL</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="savePermissionBtn">Save Permission</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Role Modal -->
+    <div class="modal fade" id="createRoleModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Role</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createRoleForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="roleName" class="form-label">Role Name</label>
+                                <input type="text" class="form-control" id="roleName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="roleDescription" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="roleDescription">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Select Permissions</label>
+                            <div class="row" id="permissionsSelection">
+                                <!-- Permissions checkboxes will be loaded here -->
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveRoleBtn">Save Role</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Role Modal -->
+    <div class="modal fade" id="assignRoleModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assign Role to User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="assignRoleForm">
+                        <input type="hidden" id="assignRoleUserId">
+                        <div class="mb-3">
+                            <label for="selectRole" class="form-label">Select Role</label>
+                            <select class="form-select" id="selectRole" required>
+                                <!-- Roles will be loaded here -->
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="assignRoleBtn">Assign Role</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Permissions Modal -->
+    <div class="modal fade" id="userPermissionsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="userPermissionsTitle">User Permissions</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Roles</h6>
+                            <ul class="list-group mb-3" id="userRolesList">
+                                <!-- User's roles will be shown here -->
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Direct Permissions</h6>
+                            <div class="mb-3">
+                                <button class="btn btn-sm btn-primary" id="addDirectPermissionBtn">Add Permission</button>
+                            </div>
+                            <ul class="list-group" id="userPermissionsList">
+                                <!-- User's direct permissions will be shown here -->
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h6>Effective Permissions</h6>
+                        <div class="row" id="effectivePermissions">
+                            <!-- Effective permissions will be shown here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Base API URL
+        const API_BASE_URL = 'http://localhost:5002/api/v1';
+        
+        // DOM Elements
+        const permissionsContainer = document.getElementById('permissionsContainer');
+        const rolesContainer = document.getElementById('rolesContainer');
+        const usersTableBody = document.getElementById('usersTableBody');
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPermissions();
+            loadRoles();
+            loadUsers();
+            
+            // Set up event listeners
+            document.getElementById('savePermissionBtn').addEventListener('click', createPermission);
+            document.getElementById('saveRoleBtn').addEventListener('click', createRole);
+            document.getElementById('assignRoleBtn').addEventListener('click', assignRole);
+            document.getElementById('searchPermissionsBtn').addEventListener('click', searchPermissions);
+            document.getElementById('searchUsersBtn').addEventListener('click', searchUsers);
+        });
+        
+        // Load all permissions
+        async function loadPermissions() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/permissions`);
+                const { data: permissions } = await response.json();
+                
+                permissionsContainer.innerHTML = '';
+                
+                if (permissions.length === 0) {
+                    permissionsContainer.innerHTML = '<div class="col-12 text-center py-5">No permissions found</div>';
+                    return;
+                }
+                
+                permissions.forEach(permission => {
+                    const card = document.createElement('div');
+                    card.className = 'col-md-4 mb-4';
+                    card.innerHTML = `
+                        <div class="card permission-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">${permission.name}</h5>
+                                <span class="badge module-badge mb-2">${permission.module}</span>
+                                <p class="card-text">${permission.description || 'No description provided'}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">Action: ${permission.action}</small>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deletePermission('${permission._id}')">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    permissionsContainer.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading permissions:', error);
+                permissionsContainer.innerHTML = '<div class="col-12 text-center py-5 text-danger">Error loading permissions</div>';
+            }
+        }
+        
+        // Load all roles
+        async function loadRoles() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/roles`);
+                const { data: roles } = await response.json();
+                
+                rolesContainer.innerHTML = '';
+                
+                if (roles.length === 0) {
+                    rolesContainer.innerHTML = '<div class="col-12 text-center py-5">No roles found</div>';
+                    return;
+                }
+                
+                roles.forEach(role => {
+                    const card = document.createElement('div');
+                    card.className = 'col-md-6 mb-4';
+                    card.innerHTML = `
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">${role.name}</h5>
+                                    ${role.isSuperAdmin ? '<span class="badge bg-danger">SuperAdmin</span>' : ''}
+                                </div>
+                                <p class="card-text">${role.description || 'No description provided'}</p>
+                                <div class="mb-2">
+                                    <small class="text-muted">Permissions: ${role.permissions ? role.permissions.length : 0}</small>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="viewRoleDetails('${role._id}')">Details</button>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="editRole('${role._id}')">Edit</button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteRole('${role._id}')">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    rolesContainer.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading roles:', error);
+                rolesContainer.innerHTML = '<div class="col-12 text-center py-5 text-danger">Error loading roles</div>';
+            }
+        }
+        
+        // Load all users
+        async function loadUsers(searchTerm = '') {
+            try {
+                let url = `${API_BASE_URL}/users`;
+                if (searchTerm) {
+                    url += `?search=${encodeURIComponent(searchTerm)}`;
+                }
+                
+                const response = await fetch(url);
+                const { data: users } = await response.json();
+                
+                usersTableBody.innerHTML = '';
+                
+                if (users.length === 0) {
+                    usersTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-5">No users found</td></tr>';
+                    return;
+                }
+                
+                users.forEach(user => {
+                    const row = document.createElement('tr');
+                    
+                    // Get role names (first 2 for display)
+                    const roleNames = user.roles && user.roles.length > 0 
+                        ? user.roles.slice(0, 2).map(r => r.name).join(', ') 
+                        : 'No roles';
+                    const moreRoles = user.roles && user.roles.length > 2 
+                        ? ` +${user.roles.length - 2} more` 
+                        : '';
+                    
+                    // Get direct permission count
+                    const directPermissions = user.permissions ? user.permissions.length : 0;
+                    
+                    row.innerHTML = `
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td>${roleNames}${moreRoles}</td>
+                        <td>${directPermissions} direct permission${directPermissions !== 1 ? 's' : ''}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="viewUserPermissions('${user._id}', '${user.name}')">
+                                Permissions
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="showAssignRoleModal('${user._id}')">
+                                Assign Role
+                            </button>
+                        </td>
+                    `;
+                    usersTableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading users:', error);
+                usersTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-danger">Error loading users</td></tr>';
+            }
+        }
+        
+        // Create a new permission
+        async function createPermission() {
+            const name = document.getElementById('permissionName').value;
+            const description = document.getElementById('permissionDescription').value;
+            const module = document.getElementById('permissionModule').value;
+            const action = document.getElementById('permissionAction').value;
+            
+            if (!name || !module || !action) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/permissions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        module,
+                        action
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Close modal and refresh permissions
+                    bootstrap.Modal.getInstance(document.getElementById('createPermissionModal')).hide();
+                    loadPermissions();
+                } else {
+                    alert(result.message || 'Error creating permission');
+                }
+            } catch (error) {
+                console.error('Error creating permission:', error);
+                alert('Error creating permission');
+            }
+        }
+        
+        // Create a new role
+        async function createRole() {
+            const name = document.getElementById('roleName').value;
+            const description = document.getElementById('roleDescription').value;
+            
+            // Get selected permission IDs
+            const selectedPermissions = [];
+            document.querySelectorAll('#permissionsSelection input[type="checkbox"]:checked').forEach(checkbox => {
+                selectedPermissions.push(checkbox.value);
+            });
+            
+            if (!name) {
+                alert('Role name is required');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/roles`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        permissions: selectedPermissions
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Close modal and refresh roles
+                    bootstrap.Modal.getInstance(document.getElementById('createRoleModal')).hide();
+                    loadRoles();
+                } else {
+                    alert(result.message || 'Error creating role');
+                }
+            } catch (error) {
+                console.error('Error creating role:', error);
+                alert('Error creating role');
+            }
+        }
+        
+        // Assign role to user
+        async function assignRole() {
+            const userId = document.getElementById('assignRoleUserId').value;
+            const roleId = document.getElementById('selectRole').value;
+            
+            if (!userId || !roleId) {
+                alert('User and role selection required');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/roles/assign`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        userId,
+                        roleId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Close modal and refresh users
+                    bootstrap.Modal.getInstance(document.getElementById('assignRoleModal')).hide();
+                    loadUsers();
+                } else {
+                    alert(result.message || 'Error assigning role');
+                }
+            } catch (error) {
+                console.error('Error assigning role:', error);
+                alert('Error assigning role');
+            }
+        }
+        
+        // View user permissions
+        async function viewUserPermissions(userId, userName) {
+            try {
+                // Load user permissions
+                const response = await fetch(`${API_BASE_URL}/users/${userId}/permissions`);
+                const { data } = await response.json();
+                
+                // Set modal title
+                document.getElementById('userPermissionsTitle').textContent = `Permissions for ${userName}`;
+                
+                // Display roles
+                const rolesList = document.getElementById('userRolesList');
+                rolesList.innerHTML = '';
+                
+                if (data.user.roles && data.user.roles.length > 0) {
+                    data.user.roles.forEach(role => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+                            ${role.name}
+                            <span class="badge bg-primary rounded-pill">${role.permissions ? role.permissions.length : 0} permissions</span>
+                        `;
+                        rolesList.appendChild(li);
+                    });
+                } else {
+                    rolesList.innerHTML = '<li class="list-group-item text-muted">No roles assigned</li>';
+                }
+                
+                // Display direct permissions
+                const permissionsList = document.getElementById('userPermissionsList');
+                permissionsList.innerHTML = '';
+                
+                if (data.user.permissions && data.user.permissions.length > 0) {
+                    data.user.permissions.forEach(perm => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+                            ${perm.name}
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeUserPermission('${userId}', '${perm._id}')">
+                                Remove
+                            </button>
+                        `;
+                        permissionsList.appendChild(li);
+                    });
+                } else {
+                    permissionsList.innerHTML = '<li class="list-group-item text-muted">No direct permissions</li>';
+                }
+                
+                // Display effective permissions
+                const effectivePerms = document.getElementById('effectivePermissions');
+                effectivePerms.innerHTML = '';
+                
+                if (data.permissions && data.permissions.length > 0) {
+                    // Group by module
+                    const grouped = {};
+                    data.permissions.forEach(perm => {
+                        if (!grouped[perm.module]) {
+                            grouped[perm.module] = [];
+                        }
+                        grouped[perm.module].push(perm);
+                    });
+                    
+                    // Create cards for each module
+                    for (const module in grouped) {
+                        const card = document.createElement('div');
+                        card.className = 'col-md-4 mb-3';
+                        card.innerHTML = `
+                            <div class="card">
+                                <div class="card-header">${module}</div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled">
+                                        ${grouped[module].map(p => `<li>${p.action}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                        effectivePerms.appendChild(card);
+                    }
+                } else {
+                    effectivePerms.innerHTML = '<div class="col-12 text-muted">No effective permissions</div>';
+                }
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('userPermissionsModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error loading user permissions:', error);
+                alert('Error loading user permissions');
+            }
+        }
+        
+        // Show assign role modal
+        async function showAssignRoleModal(userId) {
+            try {
+                // Load available roles
+                const response = await fetch(`${API_BASE_URL}/roles`);
+                const { data: roles } = await response.json();
+                
+                const selectRole = document.getElementById('selectRole');
+                selectRole.innerHTML = '<option value="">Select a role</option>';
+                
+                roles.forEach(role => {
+                    const option = document.createElement('option');
+                    option.value = role._id;
+                    option.textContent = role.name;
+                    selectRole.appendChild(option);
+                });
+                
+                // Set user ID
+                document.getElementById('assignRoleUserId').value = userId;
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('assignRoleModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error loading roles:', error);
+                alert('Error loading roles');
+            }
+        }
+        
+        // Search permissions
+        function searchPermissions() {
+            const searchTerm = document.getElementById('permissionSearch').value;
+            // In a real app, you would filter or make an API call with the search term
+            alert('Search functionality would filter permissions by: ' + searchTerm);
+        }
+        
+        // Search users
+        function searchUsers() {
+            const searchTerm = document.getElementById('userSearch').value;
+            loadUsers(searchTerm);
+        }
+        
+        // Helper functions to make available in global scope
+        window.deletePermission = async function(permissionId) {
+            if (confirm('Are you sure you want to delete this permission?')) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/permissions/${permissionId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        loadPermissions();
+                    } else {
+                        alert('Error deleting permission');
+                    }
+                } catch (error) {
+                    console.error('Error deleting permission:', error);
+                    alert('Error deleting permission');
+                }
+            }
+        };
+        
+        window.viewRoleDetails = function(roleId) {
+            // In a real app, you would show role details in a modal
+            alert('View details for role ID: ' + roleId);
+        };
+        
+        window.editRole = function(roleId) {
+            // In a real app, you would show an edit form
+            alert('Edit role ID: ' + roleId);
+        };
+        
+        window.deleteRole = async function(roleId) {
+            if (confirm('Are you sure you want to delete this role?')) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/roles/${roleId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        loadRoles();
+                    } else {
+                        alert('Error deleting role');
+                    }
+                } catch (error) {
+                    console.error('Error deleting role:', error);
+                    alert('Error deleting role');
+                }
+            }
+        };
+        
+        window.removeUserPermission = async function(userId, permissionId) {
+            if (confirm('Remove this permission from the user?')) {
+                try {
+                    // This would call your API to remove the permission
+                    // For now we'll just show an alert
+                    alert(`Would remove permission ${permissionId} from user ${userId}`);
+                    // In a real app, you would refresh the permissions view
+                } catch (error) {
+                    console.error('Error removing permission:', error);
+                    alert('Error removing permission');
+                }
+            }
+        };
+    </script>
+</body>
+</html>

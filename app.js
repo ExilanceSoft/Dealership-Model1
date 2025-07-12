@@ -63,6 +63,7 @@ const accessoryRoutes = require('./routes/accessoryRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const kycRoutes = require('./routes/kycRoutes')
 const FinanceLetterRoutes = require('./routes/financeLetterRoutes');
+const AccessoryCategoryRoutes = require('./routes/accessoryCategoryRoutes');
 
 // Create Express application
 const app = express();
@@ -75,7 +76,7 @@ app.use(cors({
   origin: [
     'http://localhost:5002',
     `http://${getLocalIp()}:5002`,
-    'http://localhost:3000',
+    'http://localhost:3001',
     'http://localhost:3000/tvs',
     'http://127.0.0.1:5500',  // Add this line
     // Add production domains here when needed
@@ -139,7 +140,8 @@ app.use('/api/v1/financers', financerRoutes);
 app.use('/api/v1/accessories', accessoryRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/kyc',kycRoutes);
-app.use('/api/v1/finance-letter',FinanceLetterRoutes)
+app.use('/api/v1/finance-letter',FinanceLetterRoutes);
+app.use('/api/v1/accessory-categories',AccessoryCategoryRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 

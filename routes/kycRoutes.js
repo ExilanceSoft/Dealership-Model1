@@ -1,4 +1,3 @@
-// routes/kycRoutes.js
 const express = require('express');
 const router = express.Router();
 const kycController = require('../controllers/kycController');
@@ -6,13 +5,22 @@ const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
 
-// Configure multer for file uploads
+// // Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit per file
-  }
-});
+    fileSize: 100 * 1024 * 1024 // 5MB limit per file
+  },
+})
+//   fileFilter: (req, file, cb) => {
+//     const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
+//     if (allowedMimes.includes(file.mimetype)) {
+//       cb(null, true);
+//     } else {
+//       cb(new Error('Invalid file type. Only JPEG, PNG, and PDF are allowed.'), false);
+//     }
+//   }
+// });
 
 /**
  * @swagger
@@ -25,7 +33,7 @@ const upload = multer({
  * @swagger
  * /api/v1/kyc/{bookingId}:
  *   get:
- *     summary: Get KYC details for a booking
+ *     summary: Get complete KYC details for a booking
  *     tags: [KYC]
  *     security:
  *       - bearerAuth: []
@@ -38,28 +46,11 @@ const upload = multer({
  *         description: Booking ID
  *     responses:
  *       200:
- *         description: KYC details
+ *         description: Complete KYC details
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     customerName:
- *                       type: string
- *                     address:
- *                       type: string
- *                     kycStatus:
- *                       type: string
- *                       enum: [NOT_SUBMITTED, PENDING, APPROVED, REJECTED]
- *                     verificationNote:
- *                       type: string
- *                     verifiedBy:
- *                       type: string
+ *               $ref: '#/components/schemas/KYCDetails'
  *       400:
  *         description: Invalid booking ID
  *       401:
@@ -71,6 +62,7 @@ const upload = multer({
  */
 router.get('/:bookingId', 
   protect, 
+  logAction('VIEW_KYC_DETAILS', 'KYC'),
   kycController.getKYCDetails
 );
 
@@ -78,7 +70,7 @@ router.get('/:bookingId',
  * @swagger
  * /api/v1/kyc/{bookingId}/submit:
  *   post:
- *     summary: Submit KYC documents for a booking
+ *     summary: Submit or resubmit KYC documents for a booking
  *     tags: [KYC]
  *     security:
  *       - bearerAuth: []
@@ -134,6 +126,11 @@ router.get('/:bookingId',
  *                       type: string
  *                     status:
  *                       type: string
+ *                     submissionDate:
+ *                       type: string
+ *                       format: date-time
+ *                     isResubmission:
+ *                       type: boolean
  *       400:
  *         description: Missing required documents or invalid booking ID
  *       401:
@@ -206,8 +203,13 @@ router.post('/:bookingId/submit',
  *                       type: string
  *                     verificationNote:
  *                       type: string
+ *                     verificationDate:
+ *                       type: string
+ *                       format: date-time
+ *                     bookingStatus:
+ *                       type: string
  *       400:
- *         description: Invalid status or KYC ID
+ *         description: Invalid status or KYC ID, or KYC already processed
  *       401:
  *         description: Unauthorized
  *       403:
@@ -228,7 +230,7 @@ router.post('/:kycId/verify',
  * @swagger
  * /api/v1/kyc/{bookingId}/documents:
  *   get:
- *     summary: Get KYC documents for a booking
+ *     summary: Get all KYC documents for a booking
  *     tags: [KYC]
  *     security:
  *       - bearerAuth: []
@@ -241,33 +243,11 @@ router.post('/:kycId/verify',
  *         description: Booking ID
  *     responses:
  *       200:
- *         description: KYC documents
+ *         description: All KYC documents
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     aadharFront:
- *                       type: string
- *                     aadharBack:
- *                       type: string
- *                     panCard:
- *                       type: string
- *                     vPhoto:
- *                       type: string
- *                     chasisNoPhoto:
- *                       type: string
- *                     addressProof1:
- *                       type: string
- *                     addressProof2:
- *                       type: string
- *                     status:
- *                       type: string
+ *               $ref: '#/components/schemas/KYCDocuments'
  *       400:
  *         description: Invalid booking ID
  *       401:
@@ -279,7 +259,53 @@ router.post('/:kycId/verify',
  */
 router.get('/:bookingId/documents',
   protect,
+  logAction('VIEW_KYC_DOCUMENTS', 'KYC'),
   kycController.getKYCDocuments
+);
+
+/**
+ * @swagger
+ * /api/v1/kyc/{kycId}:
+ *   delete:
+ *     summary: Delete KYC (Admin only)
+ *     tags: [KYC]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kycId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: KYC ID
+ *     responses:
+ *       200:
+ *         description: KYC deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid KYC ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not admin)
+ *       404:
+ *         description: KYC not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:kycId',
+  protect,
+  authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
+  logAction('DELETE_KYC', 'KYC'),
+  kycController.deleteKYC
 );
 
 module.exports = router;

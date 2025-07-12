@@ -7,24 +7,33 @@ const mongoose = require('mongoose');
 // modelController.js
 exports.createModel = async (req, res, next) => {
   try {
-    const { model_name, type, prices = [] } = req.body;
-    // Validate model name and type
+    const { model_name, type, prices = [], model_discount = 0 } = req.body;
+    
+    // Validate inputs
     if (!model_name || typeof model_name !== 'string') {
       return next(new AppError('Model name is required and must be a string', 400));
     }
-    if (!type || !['EV', 'ICE'].includes(type.toUpperCase())) {
-      return next(new AppError('Type is required and must be either EV or IC', 400));
+    if (!type || !['EV', 'ICE', 'CSD'].includes(type.toUpperCase())) {
+      return next(new AppError('Type is required and must be EV, ICE, or CSD', 400));
     }
-    // Check if model already exists
+    if (model_discount < 0) {
+      return next(new AppError('Model discount cannot be negative', 400));
+    }
+    
+    // Check for existing model
     const existingModel = await Model.findOne({ model_name });
     if (existingModel) {
       return next(new AppError('Model with this name already exists', 400));
     }
+    
+    // Create new model
     const newModel = await Model.create({
       model_name,
       type: type.toUpperCase(),
-      prices
+      prices,
+      model_discount
     });
+    
     res.status(201).json({
       status: 'success',
       data: {
@@ -32,6 +41,7 @@ exports.createModel = async (req, res, next) => {
           _id: newModel._id,
           model_name: newModel.model_name,
           type: newModel.type,
+          model_discount: newModel.model_discount,
           prices: newModel.prices,
           createdAt: newModel.createdAt
         }
@@ -116,37 +126,40 @@ exports.updateModelPrices = async (req, res, next) => {
     if (!Array.isArray(prices)) {
       return next(new AppError('Prices must be provided as an array', 400));
     }
-    // First get the current model
+    
     const model = await Model.findById(req.params.modelId);
     if (!model) {
       return next(new AppError('No model found with that ID', 404));
     }
-    // Create a composite key for existing prices (header_id + branch_id)
+    
+    // Create map of existing prices
     const existingPricesMap = new Map();
     model.prices.forEach(price => {
       const key = `${price.header_id.toString()}_${price.branch_id?.toString() || 'no-branch'}`;
       existingPricesMap.set(key, price);
     });
+    
     // Update or add new prices
     const updatedPrices = prices.map(newPrice => {
       const branchId = newPrice.branch_id || null;
       const key = `${newPrice.header_id}_${branchId || 'no-branch'}`;
       const existingPrice = existingPricesMap.get(key);
+      
       if (existingPrice) {
-        // Update existing price while preserving all fields
         return {
-          ...existingPrice.toObject(), // keep all existing fields
-          value: newPrice.value        // update only the value
+          ...existingPrice.toObject(),
+          value: newPrice.value
         };
       }
-      // Add new price if combination doesn't exist
+      
       return {
         value: newPrice.value,
         header_id: newPrice.header_id,
         branch_id: branchId
       };
     });
-    // Keep prices that weren't included in the update
+    
+    // Keep prices not included in update
     model.prices.forEach(price => {
       const branchId = price.branch_id || null;
       const key = `${price.header_id.toString()}_${branchId || 'no-branch'}`;
@@ -157,7 +170,8 @@ exports.updateModelPrices = async (req, res, next) => {
         updatedPrices.push(price);
       }
     });
-    // Update the model with merged prices
+    
+    // Save updated model
     const updatedModel = await Model.findByIdAndUpdate(
       req.params.modelId,
       { prices: updatedPrices },
@@ -166,6 +180,7 @@ exports.updateModelPrices = async (req, res, next) => {
         runValidators: true
       }
     ).populate('prices.header_id prices.branch_id');
+    
     res.status(200).json({
       status: 'success',
       data: {
@@ -179,6 +194,11 @@ exports.updateModelPrices = async (req, res, next) => {
 };
 exports.updateModel = async (req, res, next) => {
   try {
+    // Validate discount if provided
+    if (req.body.model_discount !== undefined && req.body.model_discount < 0) {
+      return next(new AppError('Model discount cannot be negative', 400));
+    }
+    
     const model = await Model.findByIdAndUpdate(
       req.params.modelId,
       req.body,
@@ -187,9 +207,11 @@ exports.updateModel = async (req, res, next) => {
         runValidators: true
       }
     );
+    
     if (!model) {
       return next(new AppError('No model found with that ID', 404));
     }
+    
     res.status(200).json({
       status: 'success',
       data: {
@@ -201,6 +223,7 @@ exports.updateModel = async (req, res, next) => {
     next(err);
   }
 };
+
 
 exports.deleteModel = async (req, res, next) => {
   try {
@@ -221,11 +244,23 @@ exports.deleteModel = async (req, res, next) => {
 //get active models
 exports.getAllModels = async (req, res, next) => {
   try {
-    // Build the base query
+    // Get customer type from query params (if provided)
+    const { customerType } = req.query;
+    
+    // Build the base query for active models
     let query = Model.find({ status: 'active' });
+
+    // Filter by customer type if provided
+    if (customerType) {
+      if (customerType === 'CSD') {
+        query = query.where('type').equals('CSD');
+      } else if (['B2B', 'B2C'].includes(customerType)) {
+        query = query.where('type').in(['EV', 'ICE']);
+      }
+    }
+
     // For non-admin users, filter by their branch
     if (req.user) {
-      // Check if user has any admin role
       const isAdmin = req.user.roles.some(role => 
         ['SUPERADMIN', 'ADMIN'].includes(role.name)
       );
@@ -233,13 +268,15 @@ exports.getAllModels = async (req, res, next) => {
         query = query.where('prices.branch_id').equals(req.user.branch);
       }
     }
+
     // Execute the query with population
     const models = await query
       .populate({
         path: 'prices.header_id prices.branch_id',
         select: 'header_key category_key priority metadata name city'
       });
-    // Transform the data to match your desired format
+
+    // Transform the data
     const transformedModels = models.map(model => ({
       _id: model._id,
       model_name: model.model_name,
@@ -393,7 +430,6 @@ exports.getModelWithPrices = async (req, res, next) => {
       return next(new AppError('Invalid model ID format', 400));
     }
 
-    // Validate branch_id if provided
     if (req.query.branch_id && !mongoose.Types.ObjectId.isValid(req.query.branch_id) && req.query.branch_id !== 'null') {
       return next(new AppError('Invalid branch ID format', 400));
     }
@@ -408,29 +444,31 @@ exports.getModelWithPrices = async (req, res, next) => {
       return next(new AppError('No model found with that ID', 404));
     }
 
-    // Filter prices based on branch_id (single branch only)
+    // Filter prices by branch if specified
     const filteredPrices = req.query.branch_id
       ? model.prices.filter(price => {
           const priceBranchId = price.branch_id?._id?.toString();
           return (
-            // Match exact branch_id OR include null prices if branch_id='null'
             (priceBranchId === req.query.branch_id) ||
             (req.query.branch_id === 'null' && !priceBranchId)
           );
         })
-      : model.prices; // Return all if no branch_id specified
+      : model.prices;
 
     const transformedData = {
       _id: model._id,
       model_name: model.model_name,
+      type: model.type,
+      status: model.status,
+      model_discount: model.model_discount,
       prices: filteredPrices.map(price => ({
         value: price.value,
         header_id: price.header_id?._id || null,
         header_key: price.header_id?.header_key || null,
         category_key: price.header_id?.category_key || null,
         priority: price.header_id?.priority || null,
-        is_mandatory:price.header_id?.is_mandatory||null,
-        is_discount:price.header_id?.is_discount || null,
+        is_mandatory: price.header_id?.is_mandatory || null,
+        is_discount: price.header_id?.is_discount || null,
         metadata: price.header_id?.metadata || {},
         branch_id: price.branch_id?._id || null,
         branch_name: price.branch_id?.name || null,
@@ -663,23 +701,21 @@ exports.updateModelStatus = async (req, res, next) => {
     const { modelId } = req.params;
     const { status } = req.body;
 
-    // Validate input
     if (!status || !['active', 'inactive'].includes(status.toLowerCase())) {
-      return next(new AppError('Status is required and must be either "active" or "inactive"', 400));
+      return next(new AppError('Status is required and must be "active" or "inactive"', 400));
     }
 
     if (!mongoose.Types.ObjectId.isValid(modelId)) {
       return next(new AppError('Invalid model ID format', 400));
     }
 
-    // Update the model status
     const updatedModel = await Model.findByIdAndUpdate(
       modelId,
       { status: status.toLowerCase() },
       {
         new: true,
         runValidators: true,
-        select: '_id model_name status' // Only return these fields
+        select: '_id model_name status model_discount'
       }
     );
 
@@ -695,6 +731,62 @@ exports.updateModelStatus = async (req, res, next) => {
     });
   } catch (err) {
     logger.error(`Error updating model status: ${err.message}`);
+    next(err);
+  }
+};
+
+
+// Add this to modelController.js
+exports.getAllCSDModels = async (req, res, next) => {
+  try {
+    // Build the base query for CSD models
+    let query = Model.find({ 
+      type: 'CSD',
+      status: 'active' // Optional: include if you want only active models
+    });
+
+    // For non-admin users, filter by their branch
+    if (req.user) {
+      const isAdmin = req.user.roles.some(role => 
+        ['SUPERADMIN', 'ADMIN'].includes(role.name)
+      );
+      if (!isAdmin && req.user.branch) {
+        query = query.where('prices.branch_id').equals(req.user.branch);
+      }
+    }
+
+    // Execute the query with population
+    const models = await query
+      .populate({
+        path: 'prices.header_id prices.branch_id',
+        select: 'header_key category_key priority metadata name city'
+      });
+
+    // Transform the data
+    const transformedModels = models.map(model => ({
+      _id: model._id,
+      model_name: model.model_name,
+      prices: model.prices.map(price => ({
+        value: price.value,
+        header_id: price.header_id?._id || null,
+        branch_id: price.branch_id?._id || null,
+        header_key: price.header_id?.header_key || null,
+        branch_name: price.branch_id?.name || null
+      })),
+      createdAt: model.createdAt,
+      type: model.type,
+      status: model.status
+    }));
+
+    res.status(200).json({
+      status: 'success',
+      results: transformedModels.length,
+      data: {
+        models: transformedModels
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting CSD models: ${err.message}`);
     next(err);
   }
 };

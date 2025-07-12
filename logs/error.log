@@ -89,3 +89,12 @@
 {"timestamp":"2025-07-10 18:09:33","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
 {"timestamp":"2025-07-10 18:09:36","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
 {"timestamp":"2025-07-10 18:09:36","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-10 21:36:03","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017","stack":null}
+{"timestamp":"2025-07-10 21:36:19","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017","stack":null}
+{"timestamp":"2025-07-10 21:36:49","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: Server selection timed out after 5000 ms","stack":null}
+{"timestamp":"2025-07-11 15:48:47","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-11 15:49:43","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-11 15:56:00","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-11 16:44:31","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-11 17:42:49","level":"\u001b[31MERROR\u001b[39M","message":"Error creating accessory: Accessory name must be unique","stack":null}
+{"timestamp":"2025-07-11 18:29:03","level":"\u001b[31MERROR\u001b[39M","message":"Error creating header: Header validation failed: type: `CQSD` is not a valid enum value for path `type`.","stack":null}

@@ -3,13 +3,14 @@ const mongoose = require('mongoose');
 const EmployeeSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: [true, 'Name is required'],
     trim: true,
-    maxlength: 100
+    maxlength: [100, 'Name cannot exceed 100 characters']
   },
   contact: {
     type: String,
-    required: true,
+    required: [true, 'Contact is required'],
+    unique: true,
     validate: {
       validator: function(v) {
         return /^[6-9]\d{9}$/.test(v);
@@ -19,7 +20,7 @@ const EmployeeSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
+    required: [true, 'Email is required'],
     unique: true,
     lowercase: true,
     validate: {
@@ -32,16 +33,17 @@ const EmployeeSchema = new mongoose.Schema({
   branch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
-    required: true
+    required: [true, 'Branch is required']
   },
   role: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role',
-    required: true
+    required: [true, 'Role is required']
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    required: true
   }
 }, {
   timestamps: true,
@@ -57,7 +59,7 @@ const EmployeeSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Virtuals for populated data
+// Virtuals
 EmployeeSchema.virtual('branchDetails', {
   ref: 'Branch',
   localField: 'branch',
@@ -78,7 +80,7 @@ EmployeeSchema.virtual('roleDetails', {
 EmployeeSchema.index({ name: 1 });
 EmployeeSchema.index({ branch: 1 });
 EmployeeSchema.index({ role: 1 });
-EmployeeSchema.index({ email: 1 });
-EmployeeSchema.index({ contact: 1 });
+EmployeeSchema.index({ email: 1 }, { unique: true });
+EmployeeSchema.index({ contact: 1 }, { unique: true });
 
 module.exports = mongoose.model('Employee', EmployeeSchema);

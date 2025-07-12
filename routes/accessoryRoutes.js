@@ -22,6 +22,7 @@ const { logAction } = require('../middlewares/audit');
  *         - price
  *         - applicable_models
  *         - part_number
+ *         - category
  *       properties:
  *         _id:
  *           type: string
@@ -35,6 +36,9 @@ const { logAction } = require('../middlewares/audit');
  *         price:
  *           type: number
  *           example: 500
+ *         category:
+ *           type: string
+ *           example: 507f1f77bcf86cd799439014
  *         applicable_models:
  *           type: array
  *           items:
@@ -78,6 +82,7 @@ const { logAction } = require('../middlewares/audit');
  *               - price
  *               - applicable_models
  *               - part_number
+ *               - category
  *             properties:
  *               name:
  *                 type: string
@@ -88,6 +93,9 @@ const { logAction } = require('../middlewares/audit');
  *               price:
  *                 type: number
  *                 example: 500
+ *               category:
+ *                 type: string
+ *                 example: 507f1f77bcf86cd799439014
  *               applicable_models:
  *                 type: array
  *                 items:
@@ -132,7 +140,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
+  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('CREATE', 'Accessory'),
   accessoryController.createAccessory
 );
@@ -163,6 +171,11 @@ router.post(
  *         schema:
  *           type: string
  *         description: Filter by applicable model ID
+ *       - in: query
+ *         name: category_id
+ *         schema:
+ *           type: string
+ *         description: Filter by category ID
  *       - in: query
  *         name: min_price
  *         schema:
@@ -276,6 +289,9 @@ router.get(
  *               price:
  *                 type: number
  *                 example: 550
+ *               category:
+ *                 type: string
+ *                 example: 507f1f77bcf86cd799439014
  *               applicable_models:
  *                 type: array
  *                 items:
@@ -322,7 +338,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
+  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('UPDATE', 'Accessory'),
   accessoryController.updateAccessory
 );
@@ -385,7 +401,7 @@ router.put(
 router.put(
   '/:id/status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
+  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('UPDATE_STATUS', 'Accessory'),
   accessoryController.updateAccessoryStatus
 );
@@ -448,7 +464,7 @@ router.put(
 router.put(
   '/:id/part-number-status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
+  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('UPDATE_PART_NUMBER_STATUS', 'Accessory'),
   accessoryController.updatePartNumberStatus
 );
@@ -483,7 +499,7 @@ router.put(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN','SALES_EXECUTIVE'),
+  authorize('SUPERADMIN'),
   logAction('DELETE', 'Accessory'),
   accessoryController.deleteAccessory
 );

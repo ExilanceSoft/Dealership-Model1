@@ -8,7 +8,7 @@ const { logAction } = require('../middlewares/audit');
  * @swagger
  * tags:
  *   name: Brokers
- *   description: Broker management with multi-branch support
+ *   description: Broker management endpoints with multi-branch support
  */
 
 /**
@@ -24,25 +24,37 @@ const { logAction } = require('../middlewares/audit');
  *       properties:
  *         branch:
  *           type: string
- *           description: Reference to Branch
+ *           format: objectId
+ *           description: Reference to Branch document
+ *           example: "507f1f77bcf86cd799439011"
  *         addedBy:
  *           type: string
+ *           format: objectId
  *           description: User who added this branch association
+ *           example: "507f1f77bcf86cd799439012"
  *         commissionType:
  *           type: string
  *           enum: [FIXED, VARIABLE]
+ *           description: Type of commission structure
+ *           example: "VARIABLE"
  *         fixedCommission:
  *           type: number
  *           minimum: 0
- *         minCommission:
- *           type: number
- *           minimum: 0
- *         maxCommission:
- *           type: number
- *           minimum: 0
+ *           description: Fixed commission amount (required for FIXED type)
+ *           example: 1000
+ *         commissionRange:
+ *           type: string
+ *           enum: [20k-40k, 40k-60k, 60k-80k, 80k-100k, 100k+]
+ *           description: Predefined commission range (required for VARIABLE type)
+ *           example: "40k-60k"
  *         isActive:
  *           type: boolean
  *           default: true
+ *           description: Whether the branch association is active
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Date when branch was added
  * 
  *     Broker:
  *       type: object
@@ -54,24 +66,41 @@ const { logAction } = require('../middlewares/audit');
  *       properties:
  *         id:
  *           type: string
+ *           description: Auto-generated unique identifier
  *         brokerId:
  *           type: string
+ *           description: Auto-generated broker ID (BRK0001 format)
+ *           example: "BRK0001"
  *         name:
  *           type: string
+ *           description: Full name of the broker
+ *           example: "John Doe"
  *         mobile:
  *           type: string
+ *           description: 10-digit mobile number
+ *           example: "9876543210"
  *         email:
  *           type: string
+ *           format: email
+ *           description: Valid email address
+ *           example: "john.doe@example.com"
  *         branches:
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/BrokerBranch'
+ *           description: List of branch associations
+ *         createdBy:
+ *           type: string
+ *           format: objectId
+ *           description: User who created the broker
  *         createdAt:
  *           type: string
  *           format: date-time
+ *           description: Date when broker was created
  *         updatedAt:
  *           type: string
  *           format: date-time
+ *           description: Date when broker was last updated
  * 
  *     BrokerInput:
  *       type: object
@@ -83,10 +112,17 @@ const { logAction } = require('../middlewares/audit');
  *       properties:
  *         name:
  *           type: string
+ *           minLength: 3
+ *           maxLength: 100
+ *           example: "John Doe"
  *         mobile:
  *           type: string
+ *           pattern: '^[6-9]\d{9}$'
+ *           example: "9876543210"
  *         email:
  *           type: string
+ *           format: email
+ *           example: "john.doe@example.com"
  *         branchData:
  *           type: object
  *           required:
@@ -95,24 +131,34 @@ const { logAction } = require('../middlewares/audit');
  *           properties:
  *             branch:
  *               type: string
+ *               format: objectId
+ *               example: "507f1f77bcf86cd799439011"
  *             commissionType:
  *               type: string
  *               enum: [FIXED, VARIABLE]
+ *               example: "VARIABLE"
  *             fixedCommission:
  *               type: number
- *             minCommission:
- *               type: number
- *             maxCommission:
- *               type: number
+ *               minimum: 0
+ *               example: 1000
+ *             commissionRange:
+ *               type: string
+ *               enum: [20k-40k, 40k-60k, 60k-80k, 80k-100k, 100k+]
+ *               example: "40k-60k"
  *             isActive:
  *               type: boolean
+ *               default: true
  */
 
 /**
  * @swagger
  * /api/v1/brokers:
  *   post:
- *     summary: Create new broker or add branch to existing broker (Branch Manager+)
+ *     summary: Create new broker or add branch to existing broker
+ *     description: |
+ *       - Creates new broker if doesn't exist
+ *       - Adds branch to existing broker if already exists
+ *       - Requires Branch Manager+ privileges
  *     tags: [Brokers]
  *     security:
  *       - bearerAuth: []
@@ -121,51 +167,30 @@ const { logAction } = require('../middlewares/audit');
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - name
- *               - mobile
- *               - email
- *               - branchData
- *             properties:
- *               name:
- *                 type: string
- *                 example: "John Doe"
- *               mobile:
- *                 type: string
- *                 example: "9876543210"
- *               email:
- *                 type: string
- *                 format: email
- *                 example: "john.doe@example.com"
- *               branchData:
- *                 type: object
- *                 required:
- *                   - branch
- *                   - commissionType
- *                 properties:
- *                   branch:
- *                     type: string
- *                     example: "5f8d8f9c8f9c8f9c8f9c8f9c"
- *                   commissionType:
- *                     type: string
- *                     enum: [FIXED, VARIABLE]
- *                     example: "FIXED"
- *                   fixedCommission:
- *                     type: number
- *                     example: 1000
- *                     description: Required if commissionType is FIXED
- *                   minCommission:
- *                     type: number
- *                     example: 500
- *                     description: Required if commissionType is VARIABLE
- *                   maxCommission:
- *                     type: number
- *                     example: 1500
- *                     description: Required if commissionType is VARIABLE
- *                   isActive:
- *                     type: boolean
- *                     default: true
+ *             $ref: '#/components/schemas/BrokerInput'
+ *           examples:
+ *             fixedCommissionExample:
+ *               summary: Example with FIXED commission
+ *               value:
+ *                 name: "John Doe"
+ *                 mobile: "9876543210"
+ *                 email: "john.doe@example.com"
+ *                 branchData:
+ *                   branch: "507f1f77bcf86cd799439011"
+ *                   commissionType: "FIXED"
+ *                   fixedCommission: 1000
+ *                   isActive: true
+ *             variableCommissionExample:
+ *               summary: Example with VARIABLE commission
+ *               value:
+ *                 name: "Jane Smith"
+ *                 mobile: "9876543211"
+ *                 email: "jane.smith@example.com"
+ *                 branchData:
+ *                   branch: "507f1f77bcf86cd799439011"
+ *                   commissionType: "VARIABLE"
+ *                   commissionRange: "40k-60k"
+ *                   isActive: true
  *     responses:
  *       201:
  *         description: Broker created or branch added successfully
@@ -186,17 +211,18 @@ const { logAction } = require('../middlewares/audit');
  *           - Invalid commission type configuration
  *           - Broker already associated with this branch
  *           - Branch not found
+ *           - Invalid commission range
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized (missing or invalid token)
  *       403:
- *         description: Forbidden (not Branch Manager+)
+ *         description: Forbidden (insufficient permissions)
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'),
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
   logAction('CREATE_OR_ADD_BROKER', 'Broker'),
   brokerController.createOrAddBroker
 );
@@ -205,7 +231,10 @@ router.post(
  * @swagger
  * /api/v1/brokers/branch/{branchId}:
  *   get:
- *     summary: Get all brokers for a specific branch (Branch Manager+)
+ *     summary: Get all brokers for a specific branch
+ *     description: |
+ *       - Returns all active brokers associated with the specified branch
+ *       - Requires Branch Manager+ privileges
  *     tags: [Brokers]
  *     security:
  *       - bearerAuth: []
@@ -215,27 +244,45 @@ router.post(
  *         required: true
  *         schema:
  *           type: string
+ *           format: objectId
+ *         example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
  *         description: List of brokers for the branch
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Broker'
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Branch Manager+)
+ *         description: Forbidden
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.get(
   '/branch/:branchId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'),
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
   brokerController.getBrokersByBranch
 );
+
 /**
  * @swagger
  * /api/v1/brokers/{brokerId}:
  *   put:
- *     summary: Update basic broker details (Admin+)
+ *     summary: Update basic broker details
+ *     description: |
+ *       - Updates broker name, mobile, or email
+ *       - Requires Admin+ privileges
  *     tags: [Brokers]
  *     security:
  *       - bearerAuth: []
@@ -245,7 +292,9 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
+ *           format: objectId
  *         description: ID of the broker to update
+ *         example: "507f1f77bcf86cd799439013"
  *     requestBody:
  *       required: true
  *       content:
@@ -255,38 +304,13 @@ router.get(
  *             properties:
  *               name:
  *                 type: string
- *                 example: "neha"
+ *                 example: "Updated Name"
  *               mobile:
  *                 type: string
- *                 example: "7989908767"
+ *                 example: "9876543210"
  *               email:
  *                 type: string
- *                 format: email
- *                 example: "nehaokk12@gmail.com"
- *               branches:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     branch:
- *                       type: string
- *                       example: "684d348c05326d3a467e431e"
- *                     commissionType:
- *                       type: string
- *                       enum: [FIXED, VARIABLE]
- *                       example: "VARIABLE"
- *                     fixedCommission:
- *                       type: number
- *                       example: 0
- *                     minCommission:
- *                       type: number
- *                       example: 900
- *                     maxCommission:
- *                       type: number
- *                       example: 1000
- *                     isActive:
- *                       type: boolean
- *                       example: true
+ *                 example: "updated.email@example.com"
  *     responses:
  *       200:
  *         description: Broker details updated successfully
@@ -299,70 +323,9 @@ router.get(
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       example: "684d4b805b62898835fdceb2"
- *                     name:
- *                       type: string
- *                       example: "neha"
- *                     mobile:
- *                       type: string
- *                       example: "7989908767"
- *                     email:
- *                       type: string
- *                       example: "nehaokk12@gmail.com"
- *                     brokerId:
- *                       type: string
- *                       example: "BRK0003"
- *                     branches:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           branch:
- *                             type: string
- *                             example: "684d348c05326d3a467e431e"
- *                           addedBy:
- *                             type: string
- *                             example: "68495ef550af1ed0494b8db2"
- *                           commissionType:
- *                             type: string
- *                             enum: [FIXED, VARIABLE]
- *                             example: "VARIABLE"
- *                           fixedCommission:
- *                             type: number
- *                             example: 0
- *                           minCommission:
- *                             type: number
- *                             example: 900
- *                           maxCommission:
- *                             type: number
- *                             example: 1000
- *                           isActive:
- *                             type: boolean
- *                             example: true
- *                           createdAt:
- *                             type: string
- *                             format: date-time
- *                             example: "2025-06-14T10:14:24.166Z"
- *                     createdBy:
- *                       type: string
- *                       example: "68495ef550af1ed0494b8db2"
- *                     createdAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-06-14T10:14:24.175Z"
- *                     updatedAt:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-06-14T10:14:24.175Z"
- *                     __v:
- *                       type: number
- *                       example: 0
+ *                   $ref: '#/components/schemas/Broker'
  *       400:
- *         description: Validation error
+ *         description: Invalid input data
  *       401:
  *         description: Unauthorized
  *       403:
@@ -370,21 +333,24 @@ router.get(
  *       404:
  *         description: Broker not found
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
-
 router.put(
   '/:brokerId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'),
-  logAction('UPDATE_BROKER', 'Broker'),  // Ensure this matches your enum
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  logAction('UPDATE_BROKER', 'Broker'),
   brokerController.updateBroker
 );
+
 /**
  * @swagger
  * /api/v1/brokers/{brokerId}/branch/{branchId}:
  *   delete:
- *     summary: Remove broker from branch (Admin+)
+ *     summary: Remove broker from branch
+ *     description: |
+ *       - Removes branch association from broker
+ *       - Requires Admin+ privileges
  *     tags: [Brokers]
  *     security:
  *       - bearerAuth: []
@@ -394,27 +360,41 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
+ *           format: objectId
+ *         example: "507f1f77bcf86cd799439013"
  *       - in: path
  *         name: branchId
  *         required: true
  *         schema:
  *           type: string
+ *           format: objectId
+ *         example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
- *         description: Broker removed from branch
+ *         description: Broker removed from branch successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Broker'
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden
  *       404:
- *         description: Broker-branch association not found
+ *         description: Broker or branch not found
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.delete(
   '/:brokerId/branch/:branchId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
   logAction('REMOVE_BROKER_BRANCH', 'Broker'),
   brokerController.removeBrokerBranch
 );
@@ -423,7 +403,11 @@ router.delete(
  * @swagger
  * /api/v1/brokers:
  *   get:
- *     summary: Get all brokers (SUPERADMIN sees all, others see only their branches)
+ *     summary: Get all brokers
+ *     description: |
+ *       - Returns all brokers in the system
+ *       - SUPERADMIN sees all brokers
+ *       - Others see only brokers from their accessible branches
  *     tags: [Brokers]
  *     security:
  *       - bearerAuth: []
@@ -432,7 +416,8 @@ router.delete(
  *         name: branch
  *         schema:
  *           type: string
- *         description: Filter by branch ID (must be accessible to user)
+ *           format: objectId
+ *         description: Filter by branch ID
  *       - in: query
  *         name: isActive
  *         schema:
@@ -448,8 +433,10 @@ router.delete(
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 count:
  *                   type: integer
+ *                   example: 5
  *                 data:
  *                   type: array
  *                   items:
@@ -457,14 +444,14 @@ router.delete(
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not authorized to access requested branch)
+ *         description: Forbidden
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.get(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER','SALES_EXECUTIVE'), // Optional but recommended
+  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
   brokerController.getAllBrokers
 );
 
@@ -472,7 +459,8 @@ router.get(
  * @swagger
  * /api/v1/brokers/{id}:
  *   get:
- *     summary: Get a single broker by ID
+ *     summary: Get broker by ID
+ *     description: Returns a single broker by ID
  *     tags: [Brokers]
  *     security:
  *       - bearerAuth: []
@@ -482,20 +470,28 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
+ *           format: objectId
  *         description: ID of the broker to retrieve
+ *         example: "507f1f77bcf86cd799439013"
  *     responses:
  *       200:
  *         description: Broker details
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Broker'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Broker'
  *       401:
  *         description: Unauthorized
  *       404:
  *         description: Broker not found
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.get(
   '/:id',
@@ -503,12 +499,15 @@ router.get(
   authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
   brokerController.getBrokerById
 );
-// In brokerRoutes.js - add this new route before module.exports
+
 /**
  * @swagger
  * /api/v1/brokers/{id}:
  *   delete:
- *     summary: Delete a broker (Admin+)
+ *     summary: Delete a broker
+ *     description: |
+ *       - Permanently deletes a broker and all associations
+ *       - Requires Admin+ privileges
  *     tags: [Brokers]
  *     security:
  *       - bearerAuth: []
@@ -518,20 +517,33 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
+ *           format: objectId
  *         description: ID of the broker to delete
+ *         example: "507f1f77bcf86cd799439013"
  *     responses:
  *       200:
  *         description: Broker deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   example: {}
  *       400:
  *         description: Invalid broker ID
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden
  *       404:
  *         description: Broker not found
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.delete(
   '/:id',

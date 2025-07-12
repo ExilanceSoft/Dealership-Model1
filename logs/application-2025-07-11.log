@@ -1,0 +1,26 @@
+{"timestamp":"2025-07-11 15:24:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 15:37:21","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 15:38:12","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 15:39:48","level":"\u001b[33MWARN\u001b[39M","message":"Mongoose disconnected from DB","stack":null}
+{"timestamp":"2025-07-11 15:45:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 15:48:47","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-11 15:49:43","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-11 15:51:28","level":"\u001b[33MWARN\u001b[39M","message":"Role access denied for user 68554a1f12d0c8279c3867fb - required ADMIN","stack":null}
+{"timestamp":"2025-07-11 15:56:00","level":"\u001b[31MERROR\u001b[39M","message":"JWT verification error: jwt expired","stack":null}
+{"timestamp":"2025-07-11 15:58:42","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 16:27:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 16:44:31","level":"\u001b[31MERROR\u001b[39M","message":"Failed to create employee: E11000 duplicate key error collection: vehicle-Dealership.employees index: employee_id_1 dup key: { employee_id: null }","stack":null}
+{"timestamp":"2025-07-11 17:00:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 17:31:49","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 17:34:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 17:40:11","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 17:41:09","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 17:42:49","level":"\u001b[31MERROR\u001b[39M","message":"Error creating accessory: Accessory name must be unique","stack":null}
+{"timestamp":"2025-07-11 17:46:27","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 17:51:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 18:00:03","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 18:27:20","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 18:29:03","level":"\u001b[31MERROR\u001b[39M","message":"Error creating header: Header validation failed: type: `CQSD` is not a valid enum value for path `type`.","stack":null}
+{"timestamp":"2025-07-11 18:57:15","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 18:59:14","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-11 19:12:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

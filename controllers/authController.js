@@ -20,13 +20,11 @@ const superAdminExists = async () => {
   }
 };
 
-// Unified registration endpoint
-// Unified registration endpoint
 exports.register = async (req, res) => {
   try {
-    const { name, email, mobile, roleId, branch } = req.body;
+    const { name, email, mobile, roleId, branch, discount } = req.body;
 
-    // Validation
+    // Basic validation
     if (!name || !email || !mobile) {
       return res.status(400).json({
         success: false,
@@ -151,16 +149,40 @@ exports.register = async (req, res) => {
           message: 'Only SuperAdmin can create another SuperAdmin'
         });
       }
+
+      // Validate discount assignment
+      if (discount !== undefined) {
+        if (typeof discount !== 'number' || discount < 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Discount must be a positive number'
+          });
+        }
+
+        if (discount > 0 && roleToAssign.name !== 'SALES_EXECUTIVE') {
+          return res.status(400).json({
+            success: false,
+            message: 'Discount can only be assigned to SALES_EXECUTIVE users'
+          });
+        }
+      }
     }
 
     // Create user
-    const user = await User.create({
+    const userData = {
       name,
       email,
       mobile,
       roles: [roleToAssign._id],
       branch: !roleToAssign.isSuperAdmin ? branch : undefined
-    });
+    };
+
+    // Only add discount if validation passed
+    if (discount !== undefined && discount > 0) {
+      userData.discount = discount;
+    }
+
+    const user = await User.create(userData);
 
     // Log the registration action if performed by an admin
     if (requestingUser) {
@@ -169,11 +191,12 @@ exports.register = async (req, res) => {
         entity: 'User',
         entityId: user._id,
         user: requestingUser._id,
-        ip: req.ip || req.connection.remoteAddress, // Add IP address here
+        ip: req.ip || req.connection.remoteAddress,
         details: {
           name: user.name,
           email: user.email,
-          role: roleToAssign.name
+          role: roleToAssign.name,
+          ...(discount && { discount })
         }
       });
     }
@@ -197,9 +220,11 @@ exports.register = async (req, res) => {
         name: user.name,
         email: user.email,
         mobile: user.mobile,
-        role: roleToAssign.name
+        role: roleToAssign.name,
+        ...(discount && { discount })
       }
     });
+
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({

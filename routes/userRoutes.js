@@ -24,6 +24,10 @@ const { logAction } = require('../middlewares/audit');
  *         mobile:
  *           type: string
  *           description: The user's mobile number
+ *         discount:
+ *           type: number
+ *           description: Discount amount for SALES_EXECUTIVE users
+ *           example: 100
  *         isActive:
  *           type: boolean
  *           description: Whether the user account is active
@@ -161,6 +165,10 @@ router.get('/:id',
  *               mobile:
  *                 type: string
  *                 example: "9876543210"
+ *               discount:
+ *                 type: number
+ *                 description: Discount amount (only for SALES_EXECUTIVE)
+ *                 example: 100
  *               isActive:
  *                 type: boolean
  *                 example: true
@@ -178,7 +186,7 @@ router.get('/:id',
  *                 data:
  *                   $ref: '#/components/schemas/User'
  *       400:
- *         description: Validation error (invalid email, mobile, etc.)
+ *         description: Validation error (invalid email, mobile, etc.) or trying to set discount for non-SALES_EXECUTIVE
  *       401:
  *         description: Unauthorized (missing or invalid token)
  *       403:
@@ -240,7 +248,7 @@ router.put('/:id',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
+  authorize('SUPERADMIN'), 
   logAction('DELETE', 'User'), 
   userController.deleteUser
 );
@@ -301,7 +309,7 @@ router.delete('/:id',
  */
 router.get('/:id/permissions', 
   protect, 
-  authorize('SUPERADMIN', 'SALES_EXECUTIVE'), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
   userController.getUserPermissions
 );
 
@@ -367,7 +375,7 @@ router.get('/:id/permissions',
  */
 router.post('/assign-permissions', 
   protect, 
-  authorize('SUPERADMIN', 'SALES_EXECUTIVE'), 
+  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
   logAction('ASSIGN_USER_PERMISSIONS', 'User'), 
   userController.assignUserPermissions
 );

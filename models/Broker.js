@@ -21,21 +21,10 @@ const BrokerBranchSchema = new mongoose.Schema({
     required: function() { return this.commissionType === 'FIXED'; },
     min: [0, 'Fixed commission cannot be negative']
   },
-  minCommission: {
-    type: Number,
-    required: function() { return this.commissionType === 'VARIABLE'; },
-    min: [0, 'Minimum commission cannot be negative']
-  },
-  maxCommission: {
-    type: Number,
-    required: function() { return this.commissionType === 'VARIABLE'; },
-    min: [0, 'Maximum commission cannot be negative'],
-    validate: {
-      validator: function(v) {
-        return v >= this.minCommission;
-      },
-      message: props => `Max commission (${props.value}) must be >= min commission (${this.minCommission})`
-    }
+  commissionRange: {
+    type: String,
+    enum: ['20k-40k', '40k-60k', '60k-80k', '80k-100k', '100k+'],
+    required: function() { return this.commissionType === 'VARIABLE'; }
   },
   isActive: {
     type: Boolean,
@@ -94,7 +83,6 @@ const BrokerSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Generate broker ID before saving
 BrokerSchema.pre('save', async function(next) {
   if (!this.brokerId) {
     const count = await this.constructor.countDocuments();
@@ -103,7 +91,6 @@ BrokerSchema.pre('save', async function(next) {
   next();
 });
 
-// Indexes for better query performance
 BrokerSchema.index({ name: 1 });
 BrokerSchema.index({ mobile: 1 });
 BrokerSchema.index({ email: 1 });

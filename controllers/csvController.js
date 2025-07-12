@@ -31,8 +31,8 @@ exports.exportCSVTemplate = async (req, res, next) => {
   try {
     // Validate request query parameters
     const { type, branch_id } = req.query;
-    if (!type || !['EV', 'ICE'].includes(type.toUpperCase())) {
-      return next(new AppError('Type is required and must be either EV or ICE', 400));
+    if (!type || !['EV', 'ICE', 'CSD'].includes(type.toUpperCase())) {
+      return next(new AppError('Type is required and must be either EV, ICE or CSD', 400));
     }
     if (!branch_id) {
       return next(new AppError('Branch ID is required', 400));
@@ -179,8 +179,8 @@ exports.importCSV = async (req, res, next) => {
     if (!req.body.branch_id) {
       return next(new AppError('Branch ID is required', 400));
     }
-    if (!req.body.type || !['EV', 'ICE'].includes(req.body.type.toUpperCase())) {
-      return next(new AppError('Type is required and must be EV or ICE', 400));
+    if (!req.body.type || !['EV', 'ICE', 'CSD'].includes(req.body.type.toUpperCase())) {
+      return next(new AppError('Type is required and must be EV, ICE or CSD', 400));
     }
 
     const type = req.body.type.toUpperCase();

@@ -36,8 +36,8 @@ const modelSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    required: [true, 'Type is required (EV/ICE)'],
-    enum: ['EV', 'ICE'],
+    required: [true, 'Type is required (EV/ICE/CSD)'],
+    enum: ['EV', 'ICE', 'CSD'],
     uppercase: true
   },
   status: {
@@ -46,6 +46,11 @@ const modelSchema = new mongoose.Schema({
     default: 'active',
     trim: true,
     lowercase: true
+  },
+  model_discount: {
+    type: Number,
+    default: 0,
+    min: 0
   },
   prices: {
     type: [priceDataSchema],
@@ -83,6 +88,7 @@ const modelSchema = new mongoose.Schema({
 modelSchema.index({ model_name: 1 });
 modelSchema.index({ type: 1 });
 modelSchema.index({ status: 1 });
+modelSchema.index({ model_discount: 1 });
 modelSchema.index({ 'prices.header_id': 1 });
 modelSchema.index({ 'prices.branch_id': 1 });
 modelSchema.index({ colors: 1 });

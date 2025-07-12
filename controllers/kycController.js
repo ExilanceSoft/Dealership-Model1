@@ -22,32 +22,74 @@ const handleFileUpload = (file, bookingId, docType) => {
   return `/uploads/kyc/${bookingId}/${filename}`;
 };
 
+// Helper function to delete old files
+const deleteOldFiles = async (kyc) => {
+  try {
+    const docs = [
+      kyc.aadharFront, kyc.aadharBack, kyc.panCard,
+      kyc.vPhoto, kyc.chasisNoPhoto, kyc.addressProof1, 
+      kyc.addressProof2
+    ];
+    
+    for (const doc of docs) {
+      if (doc) {
+        const filePath = path.join(__dirname, '..', doc);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error deleting old files:', err);
+  }
+};
+
+// Get complete KYC details
 exports.getKYCDetails = async (req, res) => {
   try {
     const { bookingId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-      return res.status(400).json({ success: false, message: 'Invalid booking ID' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid booking ID' 
+      });
     }
 
-    // Check if booking exists and get customer details
     const booking = await Booking.findById(bookingId)
-      .select('customerDetails.name customerDetails.address');
+      .select('customerDetails.name customerDetails.address customerDetails.salutation');
 
     if (!booking) {
-      return res.status(404).json({ success: false, message: 'Booking not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found' 
+      });
     }
 
-    // Check if KYC already exists
     const kyc = await KYC.findOne({ booking: bookingId })
-      .select('status verifiedBy verificationNote');
+      .populate('submittedBy', 'name')
+      .populate('verifiedBy', 'name')
+      .populate('updatedBy', 'name');
 
     const response = {
       customerName: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
       address: booking.customerDetails.address,
       kycStatus: kyc ? kyc.status : 'NOT_SUBMITTED',
       verificationNote: kyc ? kyc.verificationNote : null,
-      verifiedBy: kyc ? kyc.verifiedBy : null
+      verifiedBy: kyc && kyc.verifiedBy ? kyc.verifiedBy.name : null,
+      submittedBy: kyc ? kyc.submittedBy.name : null,
+      updatedBy: kyc && kyc.updatedBy ? kyc.updatedBy.name : null,
+      submissionDate: kyc ? kyc.createdAt : null,
+      verificationDate: kyc ? kyc.verificationDate : null,
+      documents: kyc ? {
+        aadharFront: kyc.aadharFront,
+        aadharBack: kyc.aadharBack,
+        panCard: kyc.panCard,
+        vPhoto: kyc.vPhoto,
+        chasisNoPhoto: kyc.chasisNoPhoto,
+        addressProof1: kyc.addressProof1,
+        addressProof2: kyc.addressProof2
+      } : null
     };
 
     res.status(200).json({ success: true, data: response });
@@ -61,6 +103,7 @@ exports.getKYCDetails = async (req, res) => {
   }
 };
 
+// Submit or resubmit KYC
 exports.submitKYC = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -68,25 +111,23 @@ exports.submitKYC = async (req, res) => {
     const files = req.files;
 
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-      return res.status(400).json({ success: false, message: 'Invalid booking ID' });
-    }
-
-    // Check if booking exists
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
-      return res.status(404).json({ success: false, message: 'Booking not found' });
-    }
-
-    // Check if KYC already exists
-    const existingKYC = await KYC.findOne({ booking: bookingId });
-    if (existingKYC) {
       return res.status(400).json({ 
         success: false, 
-        message: 'KYC already submitted for this booking' 
+        message: 'Invalid booking ID' 
       });
     }
 
-    // Validate required files
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found' 
+      });
+    }
+
+    const existingKYC = await KYC.findOne({ booking: bookingId });
+    const isResubmission = existingKYC && existingKYC.status === 'REJECTED';
+
     const requiredDocs = [
       'aadharFront', 'aadharBack', 'panCard', 
       'vPhoto', 'chasisNoPhoto', 'addressProof1'
@@ -100,31 +141,47 @@ exports.submitKYC = async (req, res) => {
       });
     }
 
-    // Process file uploads
+    // Delete old files if resubmitting
+    if (isResubmission) {
+      await deleteOldFiles(existingKYC);
+    }
+
     const kycData = {
       booking: bookingId,
       customerName: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
-      address: booking.customerDetails.address
+      address: booking.customerDetails.address,
+      submittedBy: userId,
+      status: 'PENDING',
+      verificationNote: '',
+      verifiedBy: null,
+      verificationDate: null
     };
 
-    // Handle all file uploads
     for (const [field, file] of Object.entries(files)) {
       if (file) {
         kycData[field] = handleFileUpload(file[0], bookingId, field);
       }
     }
 
-    // Create KYC record
-    const kyc = await KYC.create(kycData);
-    
-    // Update booking status if needed
-    if (booking.status === 'APPROVED') {
-      booking.status = 'KYC_PENDING';
-      await booking.save();
+    let kyc;
+    if (isResubmission) {
+      kyc = await KYC.findByIdAndUpdate(
+        existingKYC._id, 
+        kycData, 
+        { new: true }
+      );
+    } else {
+      if (existingKYC) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'KYC already submitted for this booking' 
+        });
+      }
+      kyc = await KYC.create(kycData);
     }
 
     await AuditLog.create({
-      action: 'SUBMIT_KYC',
+      action: isResubmission ? 'RESUBMIT_KYC' : 'SUBMIT_KYC',
       entity: 'KYC',
       entityId: kyc._id,
       user: userId,
@@ -137,10 +194,11 @@ exports.submitKYC = async (req, res) => {
       success: true, 
       data: { 
         kycId: kyc._id,
-        status: kyc.status 
+        status: kyc.status,
+        submissionDate: kyc.createdAt,
+        isResubmission
       }
     });
-
   } catch (err) {
     console.error('Error submitting KYC:', err);
     
@@ -161,6 +219,7 @@ exports.submitKYC = async (req, res) => {
   }
 };
 
+// Verify KYC (approve/reject)
 exports.verifyKYC = async (req, res) => {
   try {
     const { kycId } = req.params;
@@ -168,7 +227,10 @@ exports.verifyKYC = async (req, res) => {
     const userId = req.user.id;
 
     if (!mongoose.Types.ObjectId.isValid(kycId)) {
-      return res.status(400).json({ success: false, message: 'Invalid KYC ID' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid KYC ID' 
+      });
     }
 
     if (!['APPROVED', 'REJECTED'].includes(status)) {
@@ -178,48 +240,58 @@ exports.verifyKYC = async (req, res) => {
       });
     }
 
-    const kyc = await KYC.findByIdAndUpdate(
-      kycId,
-      {
-        status,
-        verifiedBy: userId,
-        verificationNote: verificationNote || '',
-        updatedAt: Date.now()
-      },
-      { new: true }
-    ).populate('booking', 'status');
-
+    const kyc = await KYC.findById(kycId);
     if (!kyc) {
-      return res.status(404).json({ success: false, message: 'KYC not found' });
-    }
-
-    // Update booking status if KYC is approved
-    if (status === 'APPROVED' && kyc.booking) {
-      await Booking.findByIdAndUpdate(kyc.booking._id, { 
-        status: 'KYC_VERIFIED',
-        updatedAt: Date.now()
+      return res.status(404).json({ 
+        success: false, 
+        message: 'KYC not found' 
       });
     }
+
+    if (kyc.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        message: 'KYC has already been processed'
+      });
+    }
+
+    const updateData = {
+      status,
+      verifiedBy: userId,
+      verificationNote: verificationNote || '',
+      verificationDate: Date.now(),
+      updatedBy: userId
+    };
+
+    const updatedKYC = await KYC.findByIdAndUpdate(
+      kycId,
+      updateData,
+      { new: true }
+    );
 
     await AuditLog.create({
       action: 'VERIFY_KYC',
       entity: 'KYC',
-      entityId: kyc._id,
+      entityId: updatedKYC._id,
       user: userId,
       ip: req.ip,
-      metadata: { status, verificationNote },
+      metadata: { 
+        status, 
+        verificationNote: verificationNote || '',
+        previousStatus: kyc.status 
+      },
       status: 'SUCCESS'
     });
 
     res.status(200).json({ 
       success: true, 
       data: { 
-        status: kyc.status,
+        status: updatedKYC.status,
         verifiedBy: userId,
-        verificationNote: kyc.verificationNote
+        verificationNote: updatedKYC.verificationNote,
+        verificationDate: updatedKYC.verificationDate
       }
     });
-
   } catch (err) {
     console.error('Error verifying KYC:', err);
     
@@ -241,19 +313,86 @@ exports.verifyKYC = async (req, res) => {
   }
 };
 
+// Delete KYC
+exports.deleteKYC = async (req, res) => {
+  try {
+    const { kycId } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(kycId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid KYC ID' 
+      });
+    }
+
+    const kyc = await KYC.findById(kycId);
+    if (!kyc) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'KYC not found' 
+      });
+    }
+
+    // Delete associated files
+    await deleteOldFiles(kyc);
+
+    await KYC.findByIdAndDelete(kycId);
+
+    await AuditLog.create({
+      action: 'DELETE_KYC',
+      entity: 'KYC',
+      entityId: kycId,
+      user: userId,
+      ip: req.ip,
+      status: 'SUCCESS'
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'KYC deleted successfully' 
+    });
+  } catch (err) {
+    console.error('Error deleting KYC:', err);
+    
+    await AuditLog.create({
+      action: 'DELETE_KYC',
+      entity: 'KYC',
+      entityId: req.params.kycId,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting KYC',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Get KYC documents
 exports.getKYCDocuments = async (req, res) => {
   try {
     const { bookingId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-      return res.status(400).json({ success: false, message: 'Invalid booking ID' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid booking ID' 
+      });
     }
 
     const kyc = await KYC.findOne({ booking: bookingId })
-      .select('aadharFront aadharBack panCard vPhoto chasisNoPhoto addressProof1 addressProof2 status');
+      .select('aadharFront aadharBack panCard vPhoto chasisNoPhoto addressProof1 addressProof2');
 
     if (!kyc) {
-      return res.status(404).json({ success: false, message: 'KYC not found for this booking' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'KYC not found' 
+      });
     }
 
     res.status(200).json({ success: true, data: kyc });

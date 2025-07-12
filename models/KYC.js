@@ -1,4 +1,3 @@
-// models/KYC.js
 const mongoose = require('mongoose');
 
 const KYCSchema = new mongoose.Schema({
@@ -17,7 +16,7 @@ const KYCSchema = new mongoose.Schema({
     required: true
   },
   aadharFront: {
-    type: String, // Path to the uploaded file
+    type: String,
     required: true
   },
   aadharBack: {
@@ -29,7 +28,7 @@ const KYCSchema = new mongoose.Schema({
     required: true
   },
   vPhoto: {
-    type: String, // Vehicle photo
+    type: String,
     required: true
   },
   chasisNoPhoto: {
@@ -42,7 +41,7 @@ const KYCSchema = new mongoose.Schema({
   },
   addressProof2: {
     type: String,
-    required: false // Optional
+    required: false
   },
   status: {
     type: String,
@@ -56,20 +55,33 @@ const KYCSchema = new mongoose.Schema({
   verificationNote: {
     type: String
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  submittedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  verificationDate: {
+    type: Date
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
 // Indexes
 KYCSchema.index({ booking: 1 });
 KYCSchema.index({ status: 1 });
+KYCSchema.index({ submittedBy: 1 });
+KYCSchema.index({ verifiedBy: 1 });
+
+// Virtual for submission date (using createdAt)
+KYCSchema.virtual('submissionDate').get(function() {
+  return this.createdAt;
+});
 
 module.exports = mongoose.model('KYC', KYCSchema);

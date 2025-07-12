@@ -17,7 +17,7 @@ const upload = require('../middlewares/upload');
  *   get:
  *     summary: Export CSV template for vehicle models
  *     description: |
- *       Exports a CSV template containing all active models of specified type (EV/ICE) for a branch.
+ *       Exports a CSV template containing all active models of specified type (EV/ICE/CSD) for a branch.
  *       Requires ADMIN or SUPERADMIN privileges.
  *     tags: [CSV]
  *     security:
@@ -27,10 +27,10 @@ const upload = require('../middlewares/upload');
  *         name: type
  *         schema:
  *           type: string
- *           enum: [EV, ICE]
+ *           enum: [EV, ICE, CSD]
  *           example: EV
  *         required: true
- *         description: Vehicle type (Electric Vehicle or Internal Combustion Engine)
+ *         description: Vehicle type (Electric Vehicle, Internal Combustion Engine, or Commercial Service Diesel)
  *       - in: query
  *         name: branch_id
  *         schema:
@@ -104,9 +104,9 @@ router.get('/export-template',
  *                 description: CSV file to import
  *               type:
  *                 type: string
- *                 enum: [EV, ICE]
+ *                 enum: [EV, ICE, CSD]
  *                 example: EV
- *                 description: Vehicle type (EV or ICE)
+ *                 description: Vehicle type (EV, ICE or CSD)
  *               branch_id:
  *                 type: string
  *                 format: ObjectId

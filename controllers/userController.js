@@ -103,6 +103,35 @@ exports.updateUser = async (req, res) => {
       }
     }
 
+    // Handle discount validation
+    if (updates.discount !== undefined) {
+      if (typeof updates.discount !== 'number' || updates.discount < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Discount must be a positive number'
+        });
+      }
+
+      const targetUser = await User.findById(id).populate('roles');
+      
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Check if user is SALES_EXECUTIVE
+      const isSalesExec = targetUser.roles.some(role => role.name === 'SALES_EXECUTIVE');
+      
+      if (!isSalesExec) {
+        return res.status(400).json({
+          success: false,
+          message: 'Discount can only be assigned to SALES_EXECUTIVE users'
+        });
+      }
+    }
+
     const user = await User.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true

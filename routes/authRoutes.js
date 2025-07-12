@@ -50,6 +50,14 @@ const { logAction } = require('../middlewares/audit');
  *                 type: string
  *                 description: Role ID (required for non-first registrations)
  *                 example: "507f1f77bcf86cd799439011"
+ *               branch:
+ *                 type: string
+ *                 description: Branch ID (required for non-SuperAdmin users)
+ *                 example: "507f1f77bcf86cd799439012"
+ *               discount:
+ *                 type: number
+ *                 description: Discount amount (only for SALES_EXECUTIVE role)
+ *                 example: 100
  *     responses:
  *       201:
  *         description: User registered successfully, OTP sent
@@ -77,8 +85,10 @@ const { logAction } = require('../middlewares/audit');
  *                       type: string
  *                     role:
  *                       type: string
+ *                     discount:
+ *                       type: number
  *       400:
- *         description: Validation error
+ *         description: Validation error or trying to set discount for non-SALES_EXECUTIVE
  *       401:
  *         description: Unauthorized (for non-first registrations)
  *       403:

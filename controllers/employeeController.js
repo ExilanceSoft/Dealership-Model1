@@ -27,6 +27,7 @@ exports.createEmployee = [
   // Controller logic
   async (req, res) => {
     try {
+      // Validate request
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({
@@ -36,26 +37,55 @@ exports.createEmployee = [
       }
 
       const { name, contact, email, branch, role } = req.body;
-      const isSuperAdmin = await req.user.isSuperAdmin();
       
-      const employeeData = {
+      // Check if employee with same email or contact already exists
+      const existingEmployee = await Employee.findOne({
+        $or: [{ email }, { contact }]
+      });
+      
+      if (existingEmployee) {
+        return res.status(400).json({
+          success: false,
+          message: 'Employee with this email or contact already exists'
+        });
+      }
+
+      // Set branch based on user role
+      const isSuperAdmin = await req.user.isSuperAdmin();
+      const employeeBranch = isSuperAdmin ? branch : req.user.branch;
+
+      // Create employee
+      const employee = await Employee.create({
         name,
         contact,
         email,
+        branch: employeeBranch,
         role,
-        branch: isSuperAdmin ? branch : req.user.branch,
         createdBy: req.user.id
-      };
-
-      const employee = await Employee.create(employeeData);
-
-      res.status(201).json({
-        success: true,
-        data: employee
       });
+
+      // Populate references
+      const populatedEmployee = await Employee.findById(employee._id)
+        .populate('branchDetails')
+        .populate('roleDetails');
+
+      return res.status(201).json({
+        success: true,
+        data: populatedEmployee
+      });
+
     } catch (err) {
+      // Handle duplicate key errors specifically
+      if (err.code === 11000) {
+        const field = Object.keys(err.keyPattern)[0];
+        return res.status(400).json({
+          success: false,
+          message: `${field} already exists`
+        });
+      }
+
       logger.error(`Failed to create employee: ${err.message}`);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Failed to create employee'
       });

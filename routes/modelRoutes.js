@@ -29,7 +29,7 @@ const { logAction } = require('../middlewares/audit');
  *           example: Model X
  *         type:
  *           type: string
- *           enum: [EV, ICE]
+ *           enum: [EV, ICE, CSD]
  *           example: EV
  *         status:
  *           type: string
@@ -64,7 +64,7 @@ const { logAction } = require('../middlewares/audit');
  *           example: Model X
  *         type:
  *           type: string
- *           enum: [EV, ICE]
+ *           enum: [EV, ICE,CSD]
  *           example: EV
  *         prices:
  *           type: array
@@ -89,7 +89,7 @@ const { logAction } = require('../middlewares/audit');
  *           example: Model X Updated
  *         type:
  *           type: string
- *           enum: [EV, ICE]
+ *           enum: [EV, ICE,CSD]
  *           example: ICE
  *         status:
  *           type: string
@@ -191,6 +191,70 @@ router.post(
   modelController.createModel
 );
 
+/**
+ * @swagger
+ * /api/v1/models/with-prices:
+ *   get:
+ *     summary: Get all models with prices
+ *     tags: [Models]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: branch_id
+ *         schema:
+ *           type: string
+ *         description: Filter by branch ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by status
+ *     responses:
+ *       200:
+ *         description: List of models with prices
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: number
+ *                   example: 5
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     models:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           model_name:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           prices:
+ *                             type: array
+ *                           createdAt:
+ *                             type: string
+ *       400:
+ *         description: Invalid branch ID
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/with-prices',
+  protect,
+  modelController.getAllModelsWithPrices
+);
 /**
  * @swagger
  * /api/v1/models/{modelId}:
@@ -358,10 +422,20 @@ router.delete(
  * @swagger
  * /api/v1/models:
  *   get:
- *     summary: Get all active models
+ *     summary: Get all active models (filterable by customer type)
  *     tags: [Models]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: customerType
+ *         schema:
+ *           type: string
+ *           enum: [B2B, B2C, CSD]
+ *         description: |
+ *           Filter models by customer type:
+ *           - B2B/B2C will return EV and ICE models
+ *           - CSD will return only CSD models
  *     responses:
  *       200:
  *         description: List of active models
@@ -446,70 +520,6 @@ router.get(
   modelController.getAllModelsStatus
 );
 
-/**
- * @swagger
- * /api/v1/models/with-prices:
- *   get:
- *     summary: Get all models with prices
- *     tags: [Models]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: branch_id
- *         schema:
- *           type: string
- *         description: Filter by branch ID
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [active, inactive]
- *         description: Filter by status
- *     responses:
- *       200:
- *         description: List of models with prices
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 results:
- *                   type: number
- *                   example: 5
- *                 data:
- *                   type: object
- *                   properties:
- *                     models:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           _id:
- *                             type: string
- *                           model_name:
- *                             type: string
- *                           type:
- *                             type: string
- *                           status:
- *                             type: string
- *                           prices:
- *                             type: array
- *                           createdAt:
- *                             type: string
- *       400:
- *         description: Invalid branch ID
- *       500:
- *         description: Server error
- */
-router.get(
-  '/with-prices',
-  protect,
-  modelController.getAllModelsWithPrices
-);
 
 /**
  * @swagger
@@ -818,4 +828,62 @@ router.put(
   modelController.updateModelStatus
 );
 
+// Add this to modelRoutes.js
+/**
+ * @swagger
+ * /api/v1/models/csd:
+ *   get:
+ *     summary: Get all active CSD models
+ *     description: Retrieve all active Commercial Service Diesel (CSD) models with their prices
+ *     tags: [Models]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: branch_id
+ *         schema:
+ *           type: string
+ *         description: Filter by branch ID
+ *     responses:
+ *       200:
+ *         description: List of CSD models
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     models:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           model_name:
+ *                             type: string
+ *                           prices:
+ *                             type: array
+ *                           createdAt:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/csd',
+  protect,
+  modelController.getAllCSDModels
+);
 module.exports = router;

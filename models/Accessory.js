@@ -18,6 +18,11 @@ const accessorySchema = new mongoose.Schema({
     required: [true, 'Price is required'],
     min: [0, 'Price cannot be negative']
   },
+  category: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AccessoryCategory',
+    required: [true, 'Category is required']
+  },
   applicable_models: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Model',
@@ -57,6 +62,7 @@ const accessorySchema = new mongoose.Schema({
 // Indexes
 accessorySchema.index({ name: 1 });
 accessorySchema.index({ status: 1 });
+accessorySchema.index({ category: 1 });
 accessorySchema.index({ 'applicable_models': 1 });
 accessorySchema.index({ price: 1 });
 accessorySchema.index({ part_number: 1 });
@@ -77,6 +83,15 @@ accessorySchema.virtual('applicableModelsDetails', {
   localField: 'applicable_models',
   foreignField: '_id',
   options: { select: 'model_name type' }
+});
+
+// Virtual for category details
+accessorySchema.virtual('categoryDetails', {
+  ref: 'AccessoryCategory',
+  localField: 'category',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name description status' }
 });
 
 // Handle duplicate key errors

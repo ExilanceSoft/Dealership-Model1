@@ -172,56 +172,23 @@ const { protect, authorize } = require('../middlewares/auth');
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Employee'
- *             example:
- *               success: true
- *               data:
- *                 id: 507f1f77bcf86cd799439011
- *                 name: John Doe
- *                 contact: "9876543210"
- *                 email: john.doe@example.com
- *                 branch: 507f1f77bcf86cd799439012
- *                 role: 507f1f77bcf86cd799439013
- *                 createdBy: 507f1f77bcf86cd799439014
- *                 createdAt: "2023-06-15T00:00:00.000Z"
- *                 updatedAt: "2023-06-15T00:00:00.000Z"
  *       400:
  *         description: Validation error
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ValidationError'
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: Not authorized to access this route
- *       403:
- *         description: Forbidden (insufficient permissions)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: Not authorized to create employees for this branch
  *       500:
  *         description: Internal server error
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: Failed to create employee
  */
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'HR','SALES_EXECUTIVE'),
+  authorize('SUPERADMIN', 'ADMIN', 'HR', 'SALES_EXECUTIVE'),
   employeeController.createEmployee
 );
 

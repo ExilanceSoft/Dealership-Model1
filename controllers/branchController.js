@@ -31,7 +31,7 @@ const validateBranchData = (data) => {
 const handleFileUpload = (file, branchId, logoNumber) => {
   if (!file) return null;
   
-  const uploadDir = path.join(__dirname, '../public/uploads/branches', branchId.toString());
+  const uploadDir = path.join(__dirname, '../uploads/branches', branchId.toString());
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }

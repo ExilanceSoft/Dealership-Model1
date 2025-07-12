@@ -1,32 +1,32 @@
 const Broker = require('../models/Broker');
 const Branch = require('../models/Branch');
 const AuditLog = require('../models/AuditLog');
-const roles = require('../models/Role')
 
-
-
-// Helper function to validate branch data
 const validateBranchData = (branchData) => {
   if (!branchData.branch) {
     throw new Error('Branch reference is required');
   }
 
   if (branchData.commissionType === 'FIXED') {
-    if (branchData.minCommission !== undefined || branchData.maxCommission !== undefined) {
-      throw new Error('Cannot set min/max commission for FIXED type');
+    if (branchData.commissionRange !== undefined) {
+      throw new Error('Cannot set commission range for FIXED type');
     }
     if (branchData.fixedCommission === undefined) {
       throw new Error('Fixed commission is required for FIXED type');
+    }
+    if (branchData.fixedCommission < 0) {
+      throw new Error('Fixed commission cannot be negative');
     }
   } else if (branchData.commissionType === 'VARIABLE') {
     if (branchData.fixedCommission !== undefined) {
       throw new Error('Cannot set fixed commission for VARIABLE type');
     }
-    if (branchData.minCommission === undefined || branchData.maxCommission === undefined) {
-      throw new Error('Both min and max commission are required for VARIABLE type');
+    if (!branchData.commissionRange) {
+      throw new Error('Commission range is required for VARIABLE type');
     }
-    if (branchData.maxCommission < branchData.minCommission) {
-      throw new Error(`Max commission (${branchData.maxCommission}) must be >= min commission (${branchData.minCommission})`);
+    const validRanges = ['20k-40k', '40k-60k', '60k-80k', '80k-100k', '100k+'];
+    if (!validRanges.includes(branchData.commissionRange)) {
+      throw new Error('Invalid commission range');
     }
   }
 };
@@ -36,10 +36,8 @@ exports.createOrAddBroker = async (req, res) => {
     const { name, mobile, email, branchData } = req.body;
     const userId = req.user.id;
 
-    // Validate branch data
     validateBranchData(branchData);
 
-    // Check if branch exists
     const branchExists = await Branch.exists({ _id: branchData.branch });
     if (!branchExists) {
       return res.status(400).json({
@@ -48,17 +46,14 @@ exports.createOrAddBroker = async (req, res) => {
       });
     }
 
-    // Prepare complete branch data
     const completeBranchData = {
       ...branchData,
       addedBy: userId
     };
 
-    // Check if broker already exists
     let broker = await Broker.findOne({ $or: [{ mobile }, { email }] });
 
     if (broker) {
-      // Check if already associated with this branch
       const existingBranch = broker.branches.find(b => 
         b.branch.toString() === branchData.branch
       );
@@ -70,11 +65,9 @@ exports.createOrAddBroker = async (req, res) => {
         });
       }
 
-      // Add new branch association
       broker.branches.push(completeBranchData);
       broker = await broker.save();
     } else {
-      // Create new broker
       broker = await Broker.create({
         name,
         mobile,
@@ -84,7 +77,6 @@ exports.createOrAddBroker = async (req, res) => {
       });
     }
 
-    // Log the action
     await AuditLog.create({
       action: broker.branches.length > 1 ? 'ADD_BRANCH' : 'CREATE',
       entity: 'Broker',
@@ -109,14 +101,9 @@ exports.createOrAddBroker = async (req, res) => {
     });
   }
 };
+
 exports.getAllBrokers = async (req, res) => {
   try {
-    // TEMPORARY DEBUG CODE
-    const allBrokers = await Broker.find({});
-    console.log('Total brokers in DB:', allBrokers.length);
-    console.log('Sample broker:', allBrokers[0]);
-    
-    // Original query with debug
     const brokers = await Broker.find({})
       .populate({
         path: 'branches.branch',
@@ -131,9 +118,7 @@ exports.getAllBrokers = async (req, res) => {
         select: 'name email'
       });
 
-    console.log('Filtered brokers:', brokers.length);
-    
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       count: brokers.length,
       data: brokers
@@ -146,6 +131,7 @@ exports.getAllBrokers = async (req, res) => {
     });
   }
 };
+
 exports.getBrokersByBranch = async (req, res) => {
   try {
     const { branchId } = req.params;
@@ -173,6 +159,7 @@ exports.getBrokersByBranch = async (req, res) => {
     });
   }
 };
+
 exports.getBrokerById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -217,13 +204,13 @@ exports.getBrokerById = async (req, res) => {
     });
   }
 };
+
 exports.updateBroker = async (req, res) => {
   try {
     const { brokerId } = req.params;
     const updates = req.body;
     const userId = req.user.id;
 
-    // Validate input data
     if (!brokerId) {
       return res.status(400).json({
         success: false,
@@ -231,13 +218,11 @@ exports.updateBroker = async (req, res) => {
       });
     }
 
-    // Prepare update object
     const updateObj = {};
     if (updates.name) updateObj.name = updates.name;
     if (updates.mobile) updateObj.mobile = updates.mobile;
     if (updates.email) updateObj.email = updates.email;
 
-    // Find and update the broker
     const broker = await Broker.findByIdAndUpdate(
       brokerId,
       { $set: updateObj },
@@ -263,10 +248,9 @@ exports.updateBroker = async (req, res) => {
       });
     }
 
-    // Log the update with correct action and entity
     await AuditLog.create({
-      action: 'UPDATE_BROKER',  // This must match your enum
-      entity: 'Broker',         // This must match your enum
+      action: 'UPDATE_BROKER',
+      entity: 'Broker',
       entityId: broker._id,
       user: userId,
       ip: req.ip,
@@ -312,7 +296,6 @@ exports.removeBrokerBranch = async (req, res) => {
       });
     }
 
-    // Log the removal
     await AuditLog.create({
       action: 'REMOVE_BRANCH',
       entity: 'Broker',
@@ -337,7 +320,6 @@ exports.removeBrokerBranch = async (req, res) => {
   }
 };
 
-// In brokerController.js - add this new method
 exports.deleteBroker = async (req, res) => {
   try {
     const { id } = req.params;
@@ -359,7 +341,6 @@ exports.deleteBroker = async (req, res) => {
       });
     }
 
-    // Log the deletion
     await AuditLog.create({
       action: 'DELETE_BROKER',
       entity: 'Broker',

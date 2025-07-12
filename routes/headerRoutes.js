@@ -79,7 +79,7 @@ router.post('/', protect, headerController.createHeader);
  *         name: type
  *         schema:
  *           type: string
- *           enum: [EV, ICE]
+ *           enum: [EV, ICE, CSD]
  *         description: Filter by header type
  *       - in: query
  *         name: sort
@@ -138,7 +138,7 @@ router.get('/', headerController.getAllHeaders);
  *               properties:
  *                 type:
  *                   type: string
- *                   enum: [EV, ICE]
+ *                   enum: [EV, ICE, CSD]
  *                 header_key:
  *                   type: string
  *                 priority:

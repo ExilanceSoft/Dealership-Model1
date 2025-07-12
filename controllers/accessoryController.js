@@ -4,11 +4,25 @@ const logger = require('../config/logger');
 
 exports.createAccessory = async (req, res, next) => {
   try {
-    const { name, description, price, applicable_models, part_number, part_number_status, status } = req.body;
+    const { 
+      name, 
+      description, 
+      price, 
+      category, 
+      applicable_models, 
+      part_number, 
+      part_number_status, 
+      status 
+    } = req.body;
 
     // Validate required fields
-    if (!name || !price || !applicable_models || !part_number) {
-      return next(new AppError('Name, price, applicable models and part number are required', 400));
+    if (!name || !price || !applicable_models || !part_number || !category) {
+      return next(new AppError('Name, price, applicable models, part number and category are required', 400));
+    }
+
+    // Validate applicable_models is an array with at least one item
+    if (!Array.isArray(applicable_models) || applicable_models.length === 0) {
+      return next(new AppError('At least one applicable model is required', 400));
     }
 
     // Create accessory
@@ -16,6 +30,7 @@ exports.createAccessory = async (req, res, next) => {
       name,
       description: description || '',
       price,
+      category,
       applicable_models,
       part_number,
       part_number_status: part_number_status || 'active',
@@ -55,6 +70,11 @@ exports.getAllAccessories = async (req, res, next) => {
       filter.applicable_models = req.query.model_id;
     }
 
+    // Filter by category if provided
+    if (req.query.category_id) {
+      filter.category = req.query.category_id;
+    }
+
     // Filter by price range if provided
     if (req.query.min_price) {
       filter.price = { $gte: Number(req.query.min_price) };
@@ -71,6 +91,7 @@ exports.getAllAccessories = async (req, res, next) => {
         select: 'model_name type status',
         match: { status: 'active' } // Only include active models
       })
+      .populate('categoryDetails', 'name description status')
       .populate('createdByDetails', 'name email');
 
     res.status(200).json({
@@ -90,6 +111,7 @@ exports.getAccessoryById = async (req, res, next) => {
   try {
     const accessory = await Accessory.findById(req.params.id)
       .populate('applicableModelsDetails', 'model_name type')
+      .populate('categoryDetails', 'name description')
       .populate('createdByDetails', 'name email');
 
     if (!accessory) {
@@ -110,7 +132,16 @@ exports.getAccessoryById = async (req, res, next) => {
 
 exports.updateAccessory = async (req, res, next) => {
   try {
-    const { name, description, price, applicable_models, part_number, part_number_status, status } = req.body;
+    const { 
+      name, 
+      description, 
+      price, 
+      category, 
+      applicable_models, 
+      part_number, 
+      part_number_status, 
+      status 
+    } = req.body;
 
     const updatedAccessory = await Accessory.findByIdAndUpdate(
       req.params.id,
@@ -118,6 +149,7 @@ exports.updateAccessory = async (req, res, next) => {
         name,
         description,
         price,
+        category,
         applicable_models,
         part_number,
         part_number_status,
@@ -127,7 +159,9 @@ exports.updateAccessory = async (req, res, next) => {
         new: true,
         runValidators: true
       }
-    ).populate('applicableModelsDetails', 'model_name type');
+    )
+    .populate('applicableModelsDetails', 'model_name type')
+    .populate('categoryDetails', 'name description');
 
     if (!updatedAccessory) {
       return next(new AppError('No accessory found with that ID', 404));
@@ -239,7 +273,9 @@ exports.getAccessoriesByModel = async (req, res, next) => {
       applicable_models: req.params.modelId,
       status: 'active',
       part_number_status: 'active'
-    }).populate('applicableModelsDetails', 'model_name type');
+    })
+    .populate('applicableModelsDetails', 'model_name type')
+    .populate('categoryDetails', 'name description');
 
     res.status(200).json({
       status: 'success',
@@ -253,4 +289,3 @@ exports.getAccessoriesByModel = async (req, res, next) => {
     next(err);
   }
 };
-

@@ -239,8 +239,8 @@ exports.getHeadersByType = async (req, res, next) => {
     const { type } = req.params;
     const { category_key, grouped } = req.query;
 
-    if (!['EV', 'IC'].includes(type.toUpperCase())) {
-      return next(new AppError('Type must be either EV or IC', 400));
+    if (!['EV', 'IC','CSD'].includes(type.toUpperCase())) {
+      return next(new AppError('Type must be  EV , IC, or CSD', 400));
     }
 
     let query = Header.find({ type: type.toUpperCase() }).select('-__v');

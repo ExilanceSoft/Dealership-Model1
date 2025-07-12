@@ -58,6 +58,27 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch'
   },
+   discount: {
+    type: Number,
+    default: 0,
+    min: 0,
+    validate: {
+      validator: async function(v) {
+        // Skip validation if no discount is set
+        if (v === 0 || !this.roles || this.roles.length === 0) return true;
+        
+        try {
+          // Get the first role (assuming single role assignment)
+          const role = await mongoose.model('Role').findById(this.roles[0]).lean();
+          return role?.name === 'SALES_EXECUTIVE';
+        } catch (err) {
+          console.error('Error validating discount:', err);
+          return false;
+        }
+      },
+      message: 'Discount can only be assigned to SALES_EXECUTIVE users'
+    }
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -75,6 +96,7 @@ UserSchema.index({ email: 1 });
 UserSchema.index({ mobile: 1 });
 UserSchema.index({ branch: 1 });
 UserSchema.index({ isActive: 1 });
+UserSchema.index({ discount: 1 });
 
 // Virtual for branch details
 UserSchema.virtual('branchDetails', {
@@ -89,6 +111,12 @@ UserSchema.virtual('branchDetails', {
 UserSchema.methods.isSuperAdmin = async function() {
   await this.populate('roles');
   return this.roles.some(role => role.isSuperAdmin);
+};
+
+// Check if user is Sales Executive
+UserSchema.methods.isSalesExecutive = async function() {
+  await this.populate('roles');
+  return this.roles.some(role => role.name === 'SALES_EXECUTIVE');
 };
 
 // Get all permissions including role and assigned permissions
@@ -172,7 +200,13 @@ UserSchema.methods.delegatePermissions = async function(userId, permissionIds, e
   await this.save();
 };
 
-// Validate branch requirement for non-SuperAdmin users
+// Get discount amount (only for SALES_EXECUTIVE)
+UserSchema.methods.getDiscountAmount = async function() {
+  const isSalesExec = await this.isSalesExecutive();
+  return isSalesExec ? this.discount : 0;
+};
+
+// Validate branch requirement for non-SuperAdmin users and discount assignment
 UserSchema.pre('save', async function(next) {
   try {
     if (this.isModified('roles') || !this.roles) {
@@ -183,6 +217,15 @@ UserSchema.pre('save', async function(next) {
     if (!isSuperAdmin && !this.branch) {
       throw new Error('Branch is required for non-SuperAdmin users');
     }
+
+    // Validate discount assignment
+    if (this.isModified('discount') && this.discount > 0) {
+      const isSalesExec = this.roles.some(role => role.name === 'SALES_EXECUTIVE');
+      if (!isSalesExec) {
+        throw new Error('Discount can only be assigned to SALES_EXECUTIVE users');
+      }
+    }
+    
     next();
   } catch (err) {
     next(err);
