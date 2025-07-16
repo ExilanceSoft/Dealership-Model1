@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Update Form</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1 { color: #333; text-align: center; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    button { background: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #45a049; }
+    .booking-info { background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Booking Update Request</h1>
+  
+  <div class="booking-info">
+    <h2>Current Booking Details</h2>
+    <p><strong>Booking Number:</strong> {{booking.bookingNumber}}</p>
+    <p><strong>Customer:</strong> {{booking.customerDetails.salutation}} {{booking.customerDetails.name}}</p>
+    <p><strong>Model:</strong> {{booking.modelDetails.name}}</p>
+    <p><strong>Color:</strong> {{booking.colorDetails.name}}</p>
+  </div>
+
+  <form id="updateForm">
+    <div class="form-group">
+      <label for="name">Customer Name</label>
+      <input type="text" id="name" name="customerDetails.name" value="{{booking.customerDetails.name}}" required>
+    </div>
+
+    <div class="form-group">
+      <label for="mobile1">Primary Mobile</label>
+      <input type="tel" id="mobile1" name="customerDetails.mobile1" value="{{booking.customerDetails.mobile1}}" required>
+    </div>
+
+    <div class="form-group">
+      <label for="mobile2">Secondary Mobile (Optional)</label>
+      <input type="tel" id="mobile2" name="customerDetails.mobile2" value="{{booking.customerDetails.mobile2}}">
+    </div>
+
+    <div class="form-group">
+      <label for="address">Address</label>
+      <input type="text" id="address" name="customerDetails.address" value="{{booking.customerDetails.address}}" required>
+    </div>
+
+    <div class="form-group">
+      <label for="pincode">Pincode</label>
+      <input type="text" id="pincode" name="customerDetails.pincode" value="{{booking.customerDetails.pincode}}" required>
+    </div>
+
+    <div class="form-group">
+      <label for="color">Vehicle Color</label>
+      <select id="color" name="color">
+        {{#each modelDetails.colors}}
+        <option value="{{this._id}}" {{#if (eq this._id ../booking.color)}}selected{{/if}}>{{this.name}}</option>
+        {{/each}}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="paymentType">Payment Type</label>
+      <select id="paymentType" name="payment.type">
+        <option value="CASH" {{#if (eq booking.payment.type 'CASH')}}selected{{/if}}>Cash</option>
+        <option value="FINANCE" {{#if (eq booking.payment.type 'FINANCE')}}selected{{/if}}>Finance</option>
+      </select>
+    </div>
+
+    <button type="submit">Submit Update Request</button>
+  </form>
+
+  <script>
+    document.getElementById('updateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const updates = {};
+      
+      formData.forEach((value, key) => {
+        // Handle nested objects
+        if (key.includes('.')) {
+          const parts = key.split('.');
+          if (!updates[parts[0]]) updates[parts[0]] = {};
+          updates[parts[0]][parts[1]] = value;
+        } else {
+          updates[key] = value;
+        }
+      });
+
+      try {
+        const response = await fetch(`/api/v1/bookings/${'{{booking._id}}'}/submit-update`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ updates })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          alert('Update request submitted successfully! It will be reviewed by management.');
+        } else {
+          alert(`Error: ${result.message}`);
+        }
+      } catch (error) {
+        alert('Failed to submit update request. Please try again.');
+        console.error(error);
+      }
+    });
+  </script>
+</body>
+</html>

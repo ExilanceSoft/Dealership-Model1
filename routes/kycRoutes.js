@@ -5,22 +5,21 @@ const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
 
-// // Configure multer for file uploads
+// Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 100 * 1024 * 1024 // 5MB limit per file
+    fileSize: 100 * 1024 * 1024 // 100MB limit per file
   },
-})
-//   fileFilter: (req, file, cb) => {
-//     const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
-//     if (allowedMimes.includes(file.mimetype)) {
-//       cb(null, true);
-//     } else {
-//       cb(new Error('Invalid file type. Only JPEG, PNG, and PDF are allowed.'), false);
-//     }
-//   }
-// });
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPEG, PNG, and PDF are allowed.'), false);
+    }
+  }
+});
 
 /**
  * @swagger
@@ -154,22 +153,21 @@ router.post('/:bookingId/submit',
   logAction('SUBMIT_KYC', 'KYC'),
   kycController.submitKYC
 );
-
 /**
  * @swagger
- * /api/v1/kyc/{kycId}/verify:
+ * /api/v1/kyc/{bookingId}/verify:
  *   post:
- *     summary: Verify KYC documents (Admin only)
+ *     summary: Verify KYC documents by booking ID (Admin only)
  *     tags: [KYC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: kycId
+ *         name: bookingId
  *         required: true
  *         schema:
  *           type: string
- *         description: KYC ID
+ *         description: Booking ID
  *     requestBody:
  *       required: true
  *       content:
@@ -197,34 +195,104 @@ router.post('/:bookingId/submit',
  *                 data:
  *                   type: object
  *                   properties:
+ *                     kycId:
+ *                       type: string
  *                     status:
  *                       type: string
  *                     verifiedBy:
  *                       type: string
  *                     verificationNote:
  *                       type: string
- *                     verificationDate:
- *                       type: string
- *                       format: date-time
  *                     bookingStatus:
  *                       type: string
  *       400:
- *         description: Invalid status or KYC ID, or KYC already processed
+ *         description: Invalid status or booking ID, or KYC already processed
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden (not admin)
  *       404:
- *         description: KYC not found
+ *         description: Booking or KYC not found
  *       500:
  *         description: Server error
  */
-router.post('/:kycId/verify',
+router.post('/:bookingId/verify',
   protect,
   authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
   logAction('VERIFY_KYC', 'KYC'),
-  kycController.verifyKYC
+  kycController.verifyKYCByBooking
 );
+
+// /**
+//  * @swagger
+//  * /api/v1/kyc/{kycId}/verify:
+//  *   post:
+//  *     summary: Verify KYC documents (Admin only)
+//  *     tags: [KYC]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: kycId
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: KYC ID
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - status
+//  *             properties:
+//  *               status:
+//  *                 type: string
+//  *                 enum: [APPROVED, REJECTED]
+//  *               verificationNote:
+//  *                 type: string
+//  *     responses:
+//  *       200:
+//  *         description: KYC verification status updated
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 success:
+//  *                   type: boolean
+//  *                 data:
+//  *                   type: object
+//  *                   properties:
+//  *                     status:
+//  *                       type: string
+//  *                     verifiedBy:
+//  *                       type: string
+//  *                     verificationNote:
+//  *                       type: string
+//  *                     verificationDate:
+//  *                       type: string
+//  *                       format: date-time
+//  *                     bookingStatus:
+//  *                       type: string
+//  *       400:
+//  *         description: Invalid status or KYC ID, or KYC already processed
+//  *       401:
+//  *         description: Unauthorized
+//  *       403:
+//  *         description: Forbidden (not admin)
+//  *       404:
+//  *         description: KYC not found
+//  *       500:
+//  *         description: Server error
+//  */
+// router.post('/:kycId/verify',
+//   protect,
+//   authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
+//   logAction('VERIFY_KYC', 'KYC'),
+//   kycController.verifyKYC
+// );
 
 /**
  * @swagger
@@ -306,6 +374,86 @@ router.delete('/:kycId',
   authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
   logAction('DELETE_KYC', 'KYC'),
   kycController.deleteKYC
+);
+
+/**
+ * @swagger
+ * /api/v1/kyc/{bookingId}/status:
+ *   get:
+ *     summary: Get KYC status by booking ID
+ *     tags: [KYC]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Current KYC status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [PENDING, SUBMITTED, APPROVED, REJECTED]
+ *                 lastUpdated:
+ *                   type: string
+ *                   format: date-time
+ *                 verificationNote:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking or KYC not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:bookingId/status',
+  protect,
+  logAction('VIEW_KYC_STATUS', 'KYC'),
+  kycController.getKYCStatusByBooking
+);
+
+/**
+ * @swagger
+ * /api/v1/kyc/{bookingId}/download:
+ *   get:
+ *     summary: View KYC documents as PDF in browser
+ *     tags: [KYC]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: PDF file containing all KYC documents displayed in browser
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: KYC documents not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:bookingId/download',
+  protect,
+  logAction('DOWNLOAD_KYC', 'KYC'),
+  kycController.downloadKYCPdf
 );
 
 module.exports = router;

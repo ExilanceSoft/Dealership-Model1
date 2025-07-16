@@ -433,3 +433,125 @@ exports.delegatePermissions = async (req, res) => {
     });
   }
 };
+
+exports.extendBufferTime = async (req, res) => {
+  try {
+    const { userId, hours, reason } = req.body;
+
+    if (!userId || !hours || !reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId, hours and reason are required'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if requester has permission
+    const canExtend = req.user.roles.some(role => 
+      role.permissions.some(p => 
+        p.module === 'USER' && p.action === 'MANAGE'
+      )
+    );
+
+    if (!canExtend) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to extend buffer times'
+      });
+    }
+
+    const newBufferTime = new Date(Date.now() + hours * 60 * 60 * 1000);
+
+    // Record the extension
+    user.bufferExtensions.push({
+      extendedBy: req.user._id,
+      newBufferTime,
+      reason
+    });
+
+    // Update the buffer time
+    user.documentBufferTime = newBufferTime;
+    
+    // Unfreeze if they were frozen
+    if (user.isFrozen) {
+      user.isFrozen = false;
+      user.freezeReason = '';
+    }
+
+    await user.save();
+
+    await AuditLog.create({
+      action: 'EXTEND_BUFFER_TIME',
+      entity: 'User',
+      entityId: user._id,
+      user: req.user._id,
+      ip: req.ip,
+      metadata: {
+        extendedFor: userId,
+        hours,
+        reason,
+        newBufferTime
+      },
+      status: 'SUCCESS'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Buffer time extended successfully',
+      data: {
+        newBufferTime,
+        isFrozen: user.isFrozen
+      }
+    });
+
+  } catch (error) {
+    console.error('Error extending buffer time:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error extending buffer time',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+exports.getBufferHistory = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .select('bufferExtensions documentBufferTime isFrozen freezeReason')
+      .populate('bufferExtensions.extendedBy', 'name email');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        currentBufferTime: user.documentBufferTime,
+        isFrozen: user.isFrozen,
+        freezeReason: user.freezeReason,
+        extensions: user.bufferExtensions
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting buffer history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting buffer history',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};

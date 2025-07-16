@@ -1,34 +1,32 @@
-2025-07-09 17:34:28 [[31MERROR[39M]: uncaughtException: Cannot access 'app' before initialization
-ReferenceError: Cannot access 'app' before initialization
-    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\app.js:11:1)
+2025-07-15 17:10:16 [[31MERROR[39M]: uncaughtException: Cannot find module 'node-cron'
+Require stack:
+- E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js
+- E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\app.js
+Error: Cannot find module 'node-cron'
+Require stack:
+- E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js
+- E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\app.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1144:15)
+    at Module._load (node:internal/modules/cjs/loader:985:27)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:3:14)
     at Module._compile (node:internal/modules/cjs/loader:1376:14)
     at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
     at Module.load (node:internal/modules/cjs/loader:1207:32)
     at Module._load (node:internal/modules/cjs/loader:1023:12)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:135:12)
-    at node:internal/main/run_main_module:28:49
-ReferenceError: Cannot access 'app' before initialization
-    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\app.js:11:1)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+Error: Cannot find module 'node-cron'
+Require stack:
+- E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js
+- E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\app.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1144:15)
+    at Module._load (node:internal/modules/cjs/loader:985:27)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:3:14)
     at Module._compile (node:internal/modules/cjs/loader:1376:14)
     at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
     at Module.load (node:internal/modules/cjs/loader:1207:32)
     at Module._load (node:internal/modules/cjs/loader:1023:12)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:135:12)
-    at node:internal/main/run_main_module:28:49
-2025-07-09 17:34:38 [[31MERROR[39M]: uncaughtException: Cannot access 'app' before initialization
-ReferenceError: Cannot access 'app' before initialization
-    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\app.js:11:1)
-    at Module._compile (node:internal/modules/cjs/loader:1376:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
-    at Module.load (node:internal/modules/cjs/loader:1207:32)
-    at Module._load (node:internal/modules/cjs/loader:1023:12)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:135:12)
-    at node:internal/main/run_main_module:28:49
-ReferenceError: Cannot access 'app' before initialization
-    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\app.js:11:1)
-    at Module._compile (node:internal/modules/cjs/loader:1376:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
-    at Module.load (node:internal/modules/cjs/loader:1207:32)
-    at Module._load (node:internal/modules/cjs/loader:1023:12)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:135:12)
-    at node:internal/main/run_main_module:28:49
+    at Module.require (node:internal/modules/cjs/loader:1235:19)

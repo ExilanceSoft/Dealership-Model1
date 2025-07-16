@@ -2,7 +2,7 @@ const Role = require('../models/Role');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const Permission = require('../models/Permission');
-
+const mongoose = require('mongoose');
 exports.createRole = async (req, res) => {
   try {
     const { name, description, permissions } = req.body;
@@ -304,66 +304,57 @@ exports.assignRole = async (req, res) => {
 exports.assignPermissions = async (req, res) => {
   try {
     const { roleId, permissionIds } = req.body;
-    
-    if (!roleId || !permissionIds || !Array.isArray(permissionIds)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Role ID and permission IDs array are required' 
+
+    // Validate required fields
+    if (!roleId || !Array.isArray(permissionIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'roleId and permissionIds are required',
       });
     }
-    
-    const role = await Role.findById(roleId);
-    if (!role) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Role not found' 
+
+    // Check that all permission IDs are valid and active
+    const validPermissions = await Permission.find({
+      _id: { $in: permissionIds },
+      is_active: true,
+    });
+
+    if (validPermissions.length !== permissionIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'One or more permissions are invalid or inactive',
       });
     }
-    
-    // Verify the permissions exist
-    const permissions = await Permission.find({ _id: { $in: permissionIds } });
-    if (permissions.length !== permissionIds.length) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'One or more permissions not found' 
-      });
-    }
-    
-    // Add permissions that aren't already assigned
-    const newPermissions = permissionIds.filter(
-      pid => !role.permissions.includes(pid)
+
+    // Assign permissions to the role
+    const updatedRole = await Role.findByIdAndUpdate(
+      roleId,
+      { permissions: permissionIds },
+      { new: true, runValidators: false } // Skip schema validation
     );
-    
-    if (newPermissions.length > 0) {
-      role.permissions = [...role.permissions, ...newPermissions];
-      await role.save();
+
+    if (!updatedRole) {
+      return res.status(404).json({
+        success: false,
+        message: 'Role not found',
+      });
     }
-    
-    await AuditLog.create({
-      action: 'ASSIGN_PERMISSIONS',
-      entity: 'Role',
-      entityId: role._id,
-      user: req.user.id,
-      ip: req.ip,
-      metadata: { 
-        permissions: permissionIds,
-        count: newPermissions.length
-      }
-    });
-    
-    res.status(200).json({ 
-      success: true, 
+
+    return res.status(200).json({
+      success: true,
       message: 'Permissions assigned successfully',
-      data: role
+      data: updatedRole,
     });
-  } catch (err) {
-    console.error('Error assigning permissions:', err);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error assigning permissions' 
+  } catch (error) {
+    console.error('Error assigning permissions:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error assigning permissions',
+      error: error.message,
     });
   }
 };
+
 exports.inheritRole = async (req, res) => {
   try {
     const { roleId, parentRoleId } = req.body;

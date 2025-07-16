@@ -111,25 +111,68 @@ exports.getColorById = async (req, res, next) => {
 };
 
 // Update a color
+// Update a color
 exports.updateColor = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.colorId)) {
       return next(new AppError('Invalid color ID format', 400));
     }
 
-    // Prevent updating models array directly through this endpoint
-    if (req.body.models) {
-      return next(new AppError('Cannot update models directly. Use assign/unassign endpoints.', 400));
+    const { name, hex_code, models } = req.body;
+    const updateData = { name, hex_code };
+
+    // If models are provided in the request
+    if (models && Array.isArray(models)) {
+      // Validate all model IDs
+      if (!models.every(id => mongoose.Types.ObjectId.isValid(id))) {
+        return next(new AppError('One or more model IDs are invalid', 400));
+      }
+
+      // Check if models exist
+      const modelsCount = await Model.countDocuments({ _id: { $in: models } });
+      if (modelsCount !== models.length) {
+        return next(new AppError('One or more model IDs are invalid', 400));
+      }
+
+      // Get current models for the color
+      const currentColor = await Color.findById(req.params.colorId);
+      if (!currentColor) {
+        return next(new AppError('No color found with that ID', 404));
+      }
+
+      const currentModels = currentColor.models.map(id => id.toString());
+      const newModels = models.filter(id => !currentModels.includes(id));
+      const removedModels = currentModels.filter(id => !models.includes(id));
+
+      // Update models arrays
+      if (newModels.length > 0) {
+        await Model.updateMany(
+          { _id: { $in: newModels } },
+          { $addToSet: { colors: req.params.colorId } }
+        );
+      }
+
+      if (removedModels.length > 0) {
+        await Model.updateMany(
+          { _id: { $in: removedModels } },
+          { $pull: { colors: req.params.colorId } }
+        );
+      }
+
+      updateData.models = models;
     }
 
     const updatedColor = await Color.findByIdAndUpdate(
       req.params.colorId,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true
       }
-    );
+    ).populate({
+      path: 'models',
+      select: 'model_name type status'
+    });
 
     if (!updatedColor) {
       return next(new AppError('No color found with that ID', 404));

@@ -5,80 +5,10 @@ const AuditLog = require('../models/AuditLog');
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
+const { promisify } = require('util');
+const pipeline = promisify(require('stream').pipeline);
 
-// Helper function to handle file upload
-const handleFinanceLetterUpload = (file, bookingId) => {
-  if (!file) return null;
-  
-  const uploadDir = path.join(__dirname, '../uploads/finance-letters', bookingId);
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  const ext = path.extname(file.originalname);
-  const filename = `finance-letter-${Date.now()}${ext}`;
-  const filePath = path.join(uploadDir, filename);
-
-  fs.writeFileSync(filePath, file.buffer);
-  return `/uploads/finance-letters/${bookingId}/${filename}`;
-};
-
-/**
- * @desc Get finance letter details for a booking
- * @route GET /api/v1/finance-letter/:bookingId
- * @access Private
- */
-exports.getFinanceLetterDetails = async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid booking ID' 
-      });
-    }
-
-    const booking = await Booking.findById(bookingId)
-      .select('customerDetails.name customerDetails.salutation');
-
-    if (!booking) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Booking not found' 
-      });
-    }
-
-    const financeLetter = await FinanceLetter.findOne({ booking: bookingId })
-      .select('status verifiedBy verificationNote')
-      .populate('verifiedBy', 'name');
-
-    const response = {
-      customerName: `${booking.customerDetails.salutation || ''} ${booking.customerDetails.name}`.trim(),
-      financeLetterStatus: financeLetter ? financeLetter.status : 'NOT_SUBMITTED',
-      verificationNote: financeLetter ? financeLetter.verificationNote : null,
-      verifiedBy: financeLetter?.verifiedBy?.name || null
-    };
-
-    res.status(200).json({ 
-      success: true, 
-      data: response 
-    });
-  } catch (err) {
-    console.error('Error fetching finance letter details:', err);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-
-/**
- * @desc Submit finance letter for a booking
- * @route POST /api/v1/finance-letter/:bookingId/submit
- * @access Private
- */
+// Submit Finance Letter
 exports.submitFinanceLetter = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -92,21 +22,11 @@ exports.submitFinanceLetter = async (req, res) => {
       });
     }
 
-    const booking = await Booking.findById(bookingId)
-      .select('customerDetails.name customerDetails.salutation status');
-
+    const booking = await Booking.findById(bookingId);
     if (!booking) {
       return res.status(404).json({ 
         success: false, 
         message: 'Booking not found' 
-      });
-    }
-
-    const existingFinanceLetter = await FinanceLetter.findOne({ booking: bookingId });
-    if (existingFinanceLetter) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Finance letter already submitted' 
       });
     }
 
@@ -117,27 +37,51 @@ exports.submitFinanceLetter = async (req, res) => {
       });
     }
 
-    const financeLetterPath = handleFinanceLetterUpload(file, bookingId);
-    if (!financeLetterPath) {
-      return res.status(400).json({
-        success: false,
-        message: 'Failed to upload finance letter'
-      });
+    const uploadDir = path.join(__dirname, '../uploads/finance-letters', bookingId);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const financeLetter = await FinanceLetter.create({
+    const filename = `finance-letter-${Date.now()}-${file.originalname}`;
+    const filePath = path.join(uploadDir, filename);
+    const fileUrl = `/uploads/finance-letters/${bookingId}/${filename}`;
+
+    await fs.promises.writeFile(filePath, file.buffer);
+
+    const financeLetterData = {
       booking: bookingId,
-      customerName: `${booking.customerDetails.salutation || ''} ${booking.customerDetails.name}`.trim(),
-      financeLetter: financeLetterPath
-    });
-    
-    if (booking.status === 'APPROVED') {
-      booking.status = 'FINANCE_LETTER_PENDING';
-      await booking.save();
+      customerName: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
+      financeLetter: fileUrl,
+      submittedBy: userId,
+      status: 'PENDING'
+    };
+
+    const existingFinanceLetter = await FinanceLetter.findOne({ booking: bookingId });
+    let financeLetter;
+
+    if (existingFinanceLetter) {
+      // Delete old file
+      if (existingFinanceLetter.financeLetter) {
+        const oldFilePath = path.join(__dirname, '..', existingFinanceLetter.financeLetter);
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
+      }
+      financeLetter = await FinanceLetter.findByIdAndUpdate(
+        existingFinanceLetter._id, 
+        financeLetterData, 
+        { new: true }
+      );
+    } else {
+      financeLetter = await FinanceLetter.create(financeLetterData);
     }
+
+    // Update booking finance letter status
+    booking.financeLetterStatus = 'PENDING';
+    await booking.save();
 
     await AuditLog.create({
-      action: 'SUBMIT_FINANCE_LETTER',
+      action: existingFinanceLetter ? 'FINANCE_LETTER_RESUBMITTED' : 'FINANCE_LETTER_SUBMITTED',
       entity: 'FINANCE_LETTER',
       entityId: financeLetter._id,
       user: userId,
@@ -146,18 +90,19 @@ exports.submitFinanceLetter = async (req, res) => {
       status: 'SUCCESS'
     });
 
-    res.status(201).json({ 
-      success: true, 
-      data: { 
+    res.status(201).json({
+      success: true,
+      data: {
         financeLetterId: financeLetter._id,
-        status: financeLetter.status 
+        status: financeLetter.status,
+        documentUrl: financeLetter.financeLetter
       }
     });
   } catch (err) {
     console.error('Error submitting finance letter:', err);
     
     await AuditLog.create({
-      action: 'SUBMIT_FINANCE_LETTER',
+      action: 'FINANCE_LETTER_SUBMISSION_FAILED',
       entity: 'FINANCE_LETTER',
       user: req.user?.id,
       ip: req.ip,
@@ -167,75 +112,85 @@ exports.submitFinanceLetter = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: 'Server error',
+      message: 'Error submitting finance letter',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
 
-/**
- * @desc Verify finance letter (Admin only)
- * @route POST /api/v1/finance-letter/:financeLetterId/verify
- * @access Private/Admin
- */
-exports.verifyFinanceLetter = async (req, res) => {
+// Verify Finance Letter by Booking ID
+exports.verifyFinanceLetterByBooking = async (req, res) => {
   try {
-    const { financeLetterId } = req.params;
+    const { bookingId } = req.params;
     const { status, verificationNote } = req.body;
     const userId = req.user.id;
 
-    if (!mongoose.Types.ObjectId.isValid(financeLetterId)) {
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid finance letter ID' 
+        message: 'Invalid booking ID' 
       });
     }
 
     if (!['APPROVED', 'REJECTED'].includes(status)) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid status' 
+        message: 'Status must be either APPROVED or REJECTED' 
       });
     }
 
-    const financeLetter = await FinanceLetter.findByIdAndUpdate(
-      financeLetterId,
-      {
-        status,
-        verifiedBy: userId,
-        verificationNote: verificationNote || '',
-        updatedAt: Date.now()
-      },
-      { new: true }
-    ).populate('booking', 'status');
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found' 
+      });
+    }
 
+    const financeLetter = await FinanceLetter.findOne({ booking: bookingId });
     if (!financeLetter) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Finance letter not found' 
+        message: 'Finance letter not found for this booking' 
       });
     }
 
-    if (status === 'APPROVED' && financeLetter.booking) {
-      await Booking.findByIdAndUpdate(financeLetter.booking._id, { 
-        status: 'FINANCE_LETTER_VERIFIED',
-        updatedAt: Date.now()
+    if (financeLetter.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        message: 'Finance letter has already been processed'
       });
     }
+
+    // Update finance letter
+    financeLetter.status = status;
+    financeLetter.verifiedBy = userId;
+    financeLetter.verificationNote = verificationNote || '';
+    financeLetter.verificationDate = new Date();
+    await financeLetter.save();
+
+    // Update booking status
+    booking.financeLetterStatus = status;
+    await booking.save();
 
     await AuditLog.create({
-      action: 'VERIFY_FINANCE_LETTER',
+      action: 'FINANCE_LETTER_VERIFIED',
       entity: 'FINANCE_LETTER',
       entityId: financeLetter._id,
       user: userId,
       ip: req.ip,
-      metadata: { status, verificationNote },
+      metadata: { 
+        status, 
+        verificationNote,
+        bookingId 
+      },
       status: 'SUCCESS'
     });
 
-    res.status(200).json({ 
-      success: true, 
-      data: { 
+    res.status(200).json({
+      success: true,
+      data: {
+        financeLetterId: financeLetter._id,
         status: financeLetter.status,
         verifiedBy: userId,
         verificationNote: financeLetter.verificationNote
@@ -245,9 +200,9 @@ exports.verifyFinanceLetter = async (req, res) => {
     console.error('Error verifying finance letter:', err);
     
     await AuditLog.create({
-      action: 'VERIFY_FINANCE_LETTER',
+      action: 'FINANCE_LETTER_VERIFICATION_FAILED',
       entity: 'FINANCE_LETTER',
-      entityId: req.params.financeLetterId,
+      entityId: req.params.bookingId,
       user: req.user?.id,
       ip: req.ip,
       status: 'FAILED',
@@ -256,18 +211,14 @@ exports.verifyFinanceLetter = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: 'Server error',
+      message: 'Error verifying finance letter',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
 
-/**
- * @desc Get finance letter document
- * @route GET /api/v1/finance-letter/:bookingId/document
- * @access Private
- */
-exports.getFinanceLetterDocument = async (req, res) => {
+// Get Finance Letter Status by Booking ID
+exports.getFinanceLetterStatusByBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
 
@@ -278,101 +229,81 @@ exports.getFinanceLetterDocument = async (req, res) => {
       });
     }
 
-    const financeLetter = await FinanceLetter.findOne({ booking: bookingId })
-      .select('financeLetter status');
+    const booking = await Booking.findById(bookingId)
+      .select('financeLetterStatus customerDetails');
 
-    if (!financeLetter) {
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found' 
+      });
+    }
+
+    const financeLetter = await FinanceLetter.findOne({ booking: bookingId })
+      .select('status financeLetter verificationNote verifiedBy verificationDate')
+      .populate('verifiedBy', 'name');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        bookingId,
+        customerName: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
+        status: booking.financeLetterStatus,
+        documentUrl: financeLetter?.financeLetter || null,
+        verificationNote: financeLetter?.verificationNote || null,
+        verifiedBy: financeLetter?.verifiedBy?.name || null,
+        verificationDate: financeLetter?.verificationDate || null
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching finance letter status:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching finance letter status',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Download Finance Letter
+exports.downloadFinanceLetter = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid booking ID' 
+      });
+    }
+
+    const financeLetter = await FinanceLetter.findOne({ booking: bookingId });
+    if (!financeLetter || !financeLetter.financeLetter) {
       return res.status(404).json({ 
         success: false, 
         message: 'Finance letter not found' 
       });
     }
 
-    res.status(200).json({ 
-      success: true, 
-      data: {
-        documentPath: financeLetter.financeLetter,
-        status: financeLetter.status
-      }
-    });
-  } catch (err) {
-    console.error('Error fetching finance letter document:', err);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-
-/**
- * @desc Get all finance letters with pagination
- * @route GET /api/v1/finance-letter
- * @access Private/Admin
- */
-exports.getAllFinanceLetters = async (req, res) => {
-  try {
-    const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
-    const pageInt = parseInt(page);
-    const limitInt = parseInt(limit);
-
-    if (isNaN(pageInt) || isNaN(limitInt) || pageInt < 1 || limitInt < 1) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid pagination parameters'
+    const filePath = path.join(__dirname, '..', financeLetter.financeLetter);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Finance letter file not found' 
       });
     }
 
-    const query = {};
-    if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
-      query.status = status;
-    }
-
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    const [financeLetters, total] = await Promise.all([
-      FinanceLetter.find(query)
-        .populate('booking', 'bookingReference vehicleDetails')
-        .populate('verifiedBy', 'name email')
-        .sort(sort)
-        .skip((pageInt - 1) * limitInt)
-        .limit(limitInt)
-        .lean(),
-      FinanceLetter.countDocuments(query)
-    ]);
-
-    const formattedFinanceLetters = financeLetters.map(letter => ({
-      id: letter._id,
-      bookingId: letter.booking?._id,
-      bookingReference: letter.booking?.bookingReference,
-      vehicle: letter.booking?.vehicleDetails?.model,
-      customerName: letter.customerName,
-      status: letter.status,
-      verifiedBy: letter.verifiedBy ? {
-        name: letter.verifiedBy.name,
-        email: letter.verifiedBy.email
-      } : null,
-      verificationNote: letter.verificationNote,
-      createdAt: letter.createdAt,
-      updatedAt: letter.updatedAt
-    }));
-
-    res.status(200).json({
-      success: true,
-      data: formattedFinanceLetters,
-      pagination: {
-        total,
-        page: pageInt,
-        limit: limitInt,
-        totalPages: Math.ceil(total / limitInt)
-      }
-    });
+    res.setHeader('Content-Type', 'application/pdf');
+    // res.setHeader('Content-Disposition', `attachment; filename=finance-letter-${bookingId}.pdf`);
+    res.setHeader('Content-Disposition', `inline; filename=finance-letter-${bookingId}.pdf`);
+    
+    const readStream = fs.createReadStream(filePath);
+    await pipeline(readStream, res);
   } catch (err) {
-    console.error('Error fetching finance letters:', err);
+    console.error('Error downloading finance letter:', err);
     res.status(500).json({
       success: false,
-      message: 'Server error',
+      message: 'Error downloading finance letter',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }

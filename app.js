@@ -10,6 +10,7 @@ const { setupSwagger, getLocalIp } = require('./config/swagger');
 const path = require('path');
 
 
+
 // Uncaught exception handler
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
@@ -76,10 +77,11 @@ app.use(cors({
   origin: [
     'http://localhost:5002',
     `http://${getLocalIp()}:5002`,
-    'http://localhost:3001',
+    'http://localhost:3000',
     'http://localhost:3000/tvs',
-    'http://127.0.0.1:5500',  // Add this line
-    // Add production domains here when needed
+    'http://127.0.0.1:5500',
+    'https://exilance.com/tvs',
+    'https://exilance.com'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -140,7 +142,7 @@ app.use('/api/v1/financers', financerRoutes);
 app.use('/api/v1/accessories', accessoryRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/kyc',kycRoutes);
-app.use('/api/v1/finance-letter',FinanceLetterRoutes);
+app.use('/api/v1/finance-letters',FinanceLetterRoutes);
 app.use('/api/v1/accessory-categories',AccessoryCategoryRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {

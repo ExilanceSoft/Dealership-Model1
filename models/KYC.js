@@ -43,6 +43,10 @@ const KYCSchema = new mongoose.Schema({
     type: String,
     required: false
   },
+  documentPdf: {
+    type: String,
+    required: true
+  },
   status: {
     type: String,
     enum: ['PENDING', 'APPROVED', 'REJECTED'],

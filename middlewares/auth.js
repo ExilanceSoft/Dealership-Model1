@@ -1,136 +1,83 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const logger = require('../config/logger');
-const { checkIP } = require('./ipWhitelist');
-const rateLimit = require('express-rate-limit');
+const AuditLog = require('../models/AuditLog');
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: 'Too many login attempts, please try again later'
-});
-
-exports.authLimiter = authLimiter;
-
-exports.protect = async (req, res, next) => {
-  let token;
-  
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-  else if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
-  }
-  
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Not authorized to access this route'
-    });
-  }
-  
+// 1. Authentication Middleware
+const protect = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let token;
     
-    req.user = await User.findById(decoded.id)
-      .select('+loginIPs')
-      .populate({
-        path: 'roles',
-        select: 'name permissions isSuperAdmin'
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized, no token'
       });
-    
-    if (!req.user) {
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).populate('roles');
+
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: 'User not found'
       });
     }
-    
-    if (!req.user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'User account is inactive'
-      });
-    }
 
-    // Add isSuperAdmin method to req.user
-    req.user.isSuperAdmin = async function() {
-      await this.populate('roles');
-      return this.roles.some(role => role.isSuperAdmin);
-    };
-    
-    if (process.env.ENABLE_IP_WHITELISTING === 'true') {
-      await checkIP(req, res, next);
-    } else {
-      next();
-    }
+    req.user = user;
+    next();
   } catch (err) {
-    logger.error(`JWT verification error: ${err.message}`);
-    
-    let message = 'Not authorized, token failed';
-    if (err.name === 'TokenExpiredError') {
-      message = 'Token expired';
-    } else if (err.name === 'JsonWebTokenError') {
-      message = 'Invalid token';
-    }
-    
+    console.error('Authentication error:', err);
     res.status(401).json({
       success: false,
-      message
+      message: 'Not authorized, token failed'
     });
   }
 };
 
-exports.hasPermission = (permission) => {
+// 2. Authorization Middleware
+const authorize = (module, action) => {
   return async (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
+    try {
+      // Skip permission check for super admin if desired
+      if (req.user.roles.some(r => r.isSuperAdmin)) {
+        return next();
+      }
+
+      const hasPermission = await req.user.hasPermission(module, action);
+      
+      if (!hasPermission) {
+        await AuditLog.create({
+          action: 'UNAUTHORIZED_ACCESS_ATTEMPT',
+          entity: module,
+          entityId: req.params.id || null,
+          user: req.user._id,
+          ip: req.ip,
+          metadata: {
+            attemptedAction: action,
+            route: req.originalUrl
+          }
+        });
+
+        return res.status(403).json({
+          success: false,
+          message: `Not authorized. Required permission: ${module}:${action}`
+        });
+      }
+
+      next();
+    } catch (err) {
+      console.error('Authorization error:', err);
+      res.status(500).json({
         success: false,
-        message: 'Not authenticated'
+        message: 'Authorization check failed'
       });
     }
-
-    if (req.user.roles.some(role => role.isSuperAdmin)) {
-      return next();
-    }
-
-    const hasPermission = req.user.roles.some(role => 
-      role.permissions.includes(permission)
-    );
-
-    if (!hasPermission) {
-      logger.warn(`Permission denied for user ${req.user.id} - required ${permission}`);
-      return res.status(403).json({
-        success: false,
-        message: `Not authorized, requires ${permission} permission`
-      });
-    }
-
-    next();
   };
 };
 
-exports.authorize = (...roles) => {
-  return async (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Not authenticated'
-      });
-    }
-
-    const hasRole = req.user.roles.some(role => 
-      roles.includes(role.name)
-    );
-
-    if (!hasRole) {
-      logger.warn(`Role access denied for user ${req.user.id} - required ${roles}`);
-      return res.status(403).json({
-        success: false,
-        message: `User role ${req.user.roles.map(r => r.name)} is not authorized to access this route`
-      });
-    }
-    
-    next();
-  };
-};
+module.exports = { protect, authorize };

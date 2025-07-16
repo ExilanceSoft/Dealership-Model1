@@ -6,131 +6,35 @@ const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
 
-// Configure multer for file upload
+// Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 100 * 1024 * 1024 // 100MB limit per file
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['application/pdf'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF files are allowed.'), false);
+    }
   }
 });
 
 /**
  * @swagger
  * tags:
- *   name: FinanceLetter
+ *   name: Finance Letters
  *   description: Finance letter management
  */
 
 /**
  * @swagger
- * /api/v1/finance-letter:
- *   get:
- *     summary: Get all finance letters with pagination (Admin only)
- *     tags: [FinanceLetter]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         description: Items per page
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [PENDING, APPROVED, REJECTED]
- *         description: Filter by status
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *         description: Field to sort by
- *       - in: query
- *         name: sortOrder
- *         schema:
- *           type: string
- *           enum: [asc, desc]
- *         description: Sort order
- *     responses:
- *       200:
- *         description: List of finance letters
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/FinanceLetter'
- *                 pagination:
- *                   $ref: '#/components/schemas/Pagination'
- *       400:
- *         description: Invalid query parameters
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.get(
-  '/',
-  protect,
-  authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
-  financeLetterController.getAllFinanceLetters
-);
-
-/**
- * @swagger
- * /api/v1/finance-letter/{bookingId}:
- *   get:
- *     summary: Get finance letter details for a booking
- *     tags: [FinanceLetter]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: bookingId
- *         required: true
- *         schema:
- *           type: string
- *         description: Booking ID
- *     responses:
- *       200:
- *         description: Finance letter details
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/FinanceLetterDetails'
- *       400:
- *         description: Invalid booking ID
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Booking not found
- *       500:
- *         description: Server error
- */
-router.get('/:bookingId', 
-  protect, 
-  financeLetterController.getFinanceLetterDetails
-);
-
-/**
- * @swagger
- * /api/v1/finance-letter/{bookingId}/submit:
+ * /api/v1/finance-letters/{bookingId}/submit:
  *   post:
- *     summary: Submit finance letter for a booking
- *     tags: [FinanceLetter]
+ *     summary: Submit or resubmit finance letter for a booking
+ *     tags: [Finance Letters]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -150,15 +54,28 @@ router.get('/:bookingId',
  *               financeLetter:
  *                 type: string
  *                 format: binary
+ *                 description: PDF file of the finance letter
  *     responses:
  *       201:
- *         description: Finance letter submitted
+ *         description: Finance letter submitted successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/FinanceLetterSubmission'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     financeLetterId:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     documentUrl:
+ *                       type: string
  *       400:
- *         description: Missing file or invalid booking ID
+ *         description: Missing finance letter or invalid booking ID
  *       401:
  *         description: Unauthorized
  *       404:
@@ -175,56 +92,79 @@ router.post('/:bookingId/submit',
 
 /**
  * @swagger
- * /api/v1/finance-letter/{financeLetterId}/verify:
+ * /api/v1/finance-letters/{bookingId}/verify:
  *   post:
- *     summary: Verify finance letter (Admin only)
- *     tags: [FinanceLetter]
+ *     summary: Verify finance letter (Admin/Manager only)
+ *     tags: [Finance Letters]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: financeLetterId
+ *         name: bookingId
  *         required: true
  *         schema:
  *           type: string
- *         description: Finance letter ID
+ *         description: Booking ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/FinanceLetterVerification'
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [APPROVED, REJECTED]
+ *               verificationNote:
+ *                 type: string
+ *                 description: Reason for approval/rejection
  *     responses:
  *       200:
- *         description: Verification status updated
+ *         description: Finance letter verification status updated
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/FinanceLetterVerificationResponse'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     financeLetterId:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     verifiedBy:
+ *                       type: string
+ *                     verificationNote:
+ *                       type: string
  *       400:
- *         description: Invalid status or ID
+ *         description: Invalid status or finance letter already processed
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden
+ *         description: Forbidden (not admin/manager)
  *       404:
- *         description: Finance letter not found
+ *         description: Booking or finance letter not found
  *       500:
  *         description: Server error
  */
-router.post('/:financeLetterId/verify',
+router.post('/:bookingId/verify',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
+  authorize('ADMIN', 'MANAGER'),
   logAction('VERIFY_FINANCE_LETTER', 'FINANCE_LETTER'),
-  financeLetterController.verifyFinanceLetter
+  financeLetterController.verifyFinanceLetterByBooking
 );
 
 /**
  * @swagger
- * /api/v1/finance-letter/{bookingId}/document:
+ * /api/v1/finance-letters/{bookingId}/status:
  *   get:
- *     summary: Get finance letter document
- *     tags: [FinanceLetter]
+ *     summary: Get finance letter status by booking ID
+ *     tags: [Finance Letters]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -236,23 +176,75 @@ router.post('/:financeLetterId/verify',
  *         description: Booking ID
  *     responses:
  *       200:
- *         description: Finance letter document
+ *         description: Current finance letter status
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/FinanceLetterDocument'
- *       400:
- *         description: Invalid booking ID
+ *               type: object
+ *               properties:
+ *                 bookingId:
+ *                   type: string
+ *                 customerName:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   enum: [PENDING, APPROVED, REJECTED]
+ *                 documentUrl:
+ *                   type: string
+ *                 verificationNote:
+ *                   type: string
+ *                 verifiedBy:
+ *                   type: string
+ *                 verificationDate:
+ *                   type: string
+ *                   format: date-time
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Document not found
+ *         description: Booking or finance letter not found
  *       500:
  *         description: Server error
  */
-router.get('/:bookingId/document',
+router.get('/:bookingId/status',
   protect,
-  financeLetterController.getFinanceLetterDocument
+  logAction('VIEW_FINANCE_LETTER_STATUS', 'FINANCE_LETTER'),
+  financeLetterController.getFinanceLetterStatusByBooking
+);
+
+/**
+ * @swagger
+ * /api/v1/finance-letters/{bookingId}/download:
+ *   get:
+ *     summary: Download finance letter
+ *     tags: [Finance Letters]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Finance letter file
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Finance letter not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:bookingId/download',
+  protect,
+  logAction('DOWNLOAD_FINANCE_LETTER', 'FINANCE_LETTER'),
+  financeLetterController.downloadFinanceLetter
 );
 
 module.exports = router;

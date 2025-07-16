@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
@@ -169,16 +168,28 @@ const bookingSchema = new mongoose.Schema({
     ref: 'Color',
     required: [true, 'Color is required']
   },
+  chassisNumber: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Optional field
+        return /^[A-Z0-9]{17}$/.test(v); // Standard 17-character chassis number format
+      },
+      message: 'Chassis number must be 17 alphanumeric characters'
+    }
+  },
   customerType: {
     type: String,
-    enum: ['B2B', 'B2C','CSD'],
+    enum: ['B2B', 'B2C', 'CSD'],
     required: [true, 'Customer type is required']
   },
   isCSD: {
-  type: Boolean,
-  default: false,
-  required: true
-},
+    type: Boolean,
+    default: false,
+    required: true
+  },
   gstin: {
     type: String,
     trim: true,
@@ -213,6 +224,16 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     min: 0,
     default: 0
+  },
+  kycStatus: {
+    type: String,
+    enum: ['NOT_SUBMITTED', 'PENDING', 'APPROVED', 'REJECTED'],
+    default: 'NOT_SUBMITTED'
+  },
+  financeLetterStatus: {
+    type: String,
+    enum: ['NOT_SUBMITTED', 'PENDING', 'APPROVED', 'REJECTED'],
+    default: 'NOT_SUBMITTED'
   },
   customerDetails: {
     salutation: {
@@ -346,7 +367,7 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED','KYC_PENDING', 'KYC_VERIFIED','PENDING_APPROVAL (Discount_Exceeded)'],
+    enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED', 'PENDING_APPROVAL (Discount_Exceeded)'],
     default: 'DRAFT'
   },
   branch: {
@@ -404,8 +425,34 @@ const bookingSchema = new mongoose.Schema({
   formGenerated: {
     type: Boolean,
     default: false
+  },
+   qrCode: {
+    type: String,
+    default: ''
+  },
+  pendingUpdates: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
+  updateRequestStatus: {
+    type: String,
+    enum: ['NONE', 'PENDING', 'APPROVED', 'REJECTED'],
+    default: 'NONE'
+  },
+  updateRequestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  updateApprovedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  updateRequestNote: {
+    type: String,
+    default: ''
   }
-}, {
+},
+  {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
@@ -445,6 +492,7 @@ bookingSchema.pre('save', async function(next) {
 bookingSchema.index({ bookingNumber: 1 });
 bookingSchema.index({ model: 1 });
 bookingSchema.index({ color: 1 });
+bookingSchema.index({ chassisNumber: 1 }); // Added index for chassisNumber
 bookingSchema.index({ rto: 1 });
 bookingSchema.index({ branch: 1 });
 bookingSchema.index({ status: 1 });

@@ -4,7 +4,8 @@ const bookingController = require('../controllers/bookingController');
 const { protect, authorize } = require('../middlewares/auth');
 const pdfController = require('../controllers/pdfController');
 const { logAction } = require('../middlewares/audit');
-
+const qrController = require('../controllers/qrController');
+// router.use(protect);
 /**
  * @swagger
  * tags:
@@ -331,7 +332,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'CREATE'), 
   logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
@@ -421,7 +422,7 @@ router.post('/',
  */
 router.get('/', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getAllBookings
 );
 
@@ -458,7 +459,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getBookingById
 );
 /**
@@ -514,7 +515,7 @@ router.get('/:id',
  */
 router.put('/:id', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'UPDATE'),  // Changed to permission check
   logAction('UPDATE', 'Booking'), 
   bookingController.updateBooking
 );
@@ -523,7 +524,7 @@ router.put('/:id',
  * @swagger
  * /api/v1/bookings/{id}/approve:
  *   post:
- *     summary: Approve a booking (requires APPROVE_BOOKING permission)
+ *     summary: Approve a booking and optionally allocate chassis number
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
@@ -543,6 +544,10 @@ router.put('/:id',
  *               approvalNote:
  *                 type: string
  *                 description: Optional note for approval
+ *               chassisNumber:
+ *                 type: string
+ *                 description: Optional 17-character chassis number to allocate
+ *                 example: "MA6FRE4521KM12345"
  *     responses:
  *       200:
  *         description: Booking approved
@@ -551,7 +556,7 @@ router.put('/:id',
  *             schema:
  *               $ref: '#/components/schemas/Booking'
  *       400:
- *         description: Booking doesn't require approval
+ *         description: Invalid input or booking doesn't require approval
  *         content:
  *           application/json:
  *             schema:
@@ -562,24 +567,51 @@ router.put('/:id',
  *         description: Forbidden (no approval permission)
  *       404:
  *         description: Booking not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/:id/approve', 
   protect, 
-  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'APPROVE'),  // Specific approve permission
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
 );
-
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/form:
+ *   get:
+ *     summary: Get booking form HTML by ID
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking form HTML content
+ *         content:
+ *           text/html:
+ *             schema:
+ *               type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/form', 
+  protect, 
+  authorize('BOOKING', 'READ'),
+  bookingController.getBookingForm
+);
 /**
  * @swagger
  * /api/v1/bookings/{id}/reject:
@@ -636,10 +668,12 @@ router.post('/:id/approve',
  */
 router.post('/:id/reject', 
   protect, 
-  authorize('MANAGER', 'ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'APPROVE'),  // Uses same permission as approve
   logAction('REJECT', 'Booking'), 
   bookingController.rejectBooking
 );
+
+
 
 /**
  * @swagger
@@ -688,7 +722,7 @@ router.post('/:id/reject',
  */
 router.post('/:id/complete', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'COMPLETE'),  // Specific complete permission
   logAction('COMPLETE', 'Booking'), 
   bookingController.completeBooking
 );
@@ -749,7 +783,7 @@ router.post('/:id/complete',
  */
 router.post('/:id/cancel', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'CANCEL'),  // Specific cancel permission
   logAction('CANCEL', 'Booking'), 
   bookingController.cancelBooking
 );
@@ -796,7 +830,7 @@ router.post('/:id/cancel',
  */
 router.get('/:id/receipt', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateBookingReceipt
 );
 
@@ -835,7 +869,7 @@ router.get('/:id/receipt',
  */
 router.get('/:id/helmet-invoice', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateHelmetInvoice
 );
 
@@ -880,12 +914,433 @@ router.get('/:id/helmet-invoice',
  */
 router.get('/:id/accessories-challan', 
   protect, 
-  authorize('SALES', 'ADMIN', 'SUPERADMIN','MANAGER','SALES_EXECUTIVE'),
+  authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateAccessoriesChallan
 );
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/documents:
+ *   get:
+ *     summary: Get booking with KYC and Finance Letter status
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking details with document statuses
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 booking:
+ *                   $ref: '#/components/schemas/Booking'
+ *                 kycStatus:
+ *                   type: string
+ *                   enum: [PENDING, SUBMITTED, APPROVED, REJECTED]
+ *                   description: Current KYC status
+ *                 financeLetterStatus:
+ *                   type: string
+ *                   enum: [PENDING, SUBMITTED, APPROVED, REJECTED]
+ *                   description: Current Finance Letter status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/documents',
+  protect,
+  authorize('BOOKING', 'READ'),
+  bookingController.getBookingWithDocuments
+);
 
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/ready-for-delivery:
+ *   get:
+ *     summary: Check if booking is ready for delivery
+ *     description: Verifies all required documents (KYC, Finance Letter) are approved
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Delivery readiness status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ready:
+ *                   type: boolean
+ *                   description: Whether booking is ready for delivery
+ *                 missingRequirements:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   description: List of missing requirements if not ready
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/ready-for-delivery',
+  protect,
+  authorize('BOOKING', 'READ'),
+  bookingController.checkReadyForDelivery
+);
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/qr-code:
+ *   get:
+ *     summary: Generate QR code for a booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: QR code image as data URL
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 qrCode:
+ *                   type: string
+ *                   description: Data URL of the QR code image
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/qr-code', 
+  protect, 
+  authorize('BOOKING', 'READ'),
+  async (req, res) => {
+    try {
+      const qrCode = await qrController.generateQRCode(req.params.id);
+      res.json({ qrCode });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+);
 
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/update-form:
+ *   get:
+ *     summary: Get booking data for update form
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking data and form HTML
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 booking:
+ *                   $ref: '#/components/schemas/Booking'
+ *                 formHtml:
+ *                   type: string
+ *                   description: HTML content of the form
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/update-form', 
+  async (req, res) => {
+    try {
+      const result = await qrController.getBookingForUpdateForm(req.params.id);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+);
 
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/submit-update:
+ *   post:
+ *     summary: Submit booking update request
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               updates:
+ *                 type: object
+ *                 description: Fields to update
+ *     responses:
+ *       200:
+ *         description: Update request submitted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       400:
+ *         description: Invalid update request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/submit-update', 
+  protect,
+  async (req, res) => {
+    try {
+      const booking = await qrController.submitUpdateRequest(
+        req.params.id, 
+        req.body.updates, 
+        req.user.id
+      );
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+);
 
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/approve-update:
+ *   post:
+ *     summary: Approve booking update request
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 description: Optional approval note
+ *     responses:
+ *       200:
+ *         description: Update approved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/approve-update', 
+  protect, 
+  authorize('BOOKING', 'APPROVE'),
+  logAction('APPROVE_UPDATE', 'Booking'),
+  async (req, res) => {
+    try {
+      const booking = await qrController.processUpdateRequest(
+        req.params.id, 
+        'APPROVE', 
+        req.user.id,
+        req.body.note
+      );
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+);
 
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/reject-update:
+ *   post:
+ *     summary: Reject booking update request
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 description: Optional rejection note
+ *     responses:
+ *       200:
+ *         description: Update rejected
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/reject-update', 
+  protect, 
+  authorize('BOOKING', 'APPROVE'),
+  logAction('REJECT_UPDATE', 'Booking'),
+  async (req, res) => {
+    try {
+      const booking = await qrController.processUpdateRequest(
+        req.params.id, 
+        'REJECT', 
+        req.user.id,
+        req.body.note
+      );
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/pending-updates:
+ *   get:
+ *     summary: Get pending update requests
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of bookings with pending updates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get('/pending-updates', 
+  protect, 
+  authorize('BOOKING', 'APPROVE'),
+  async (req, res) => {
+    try {
+      const branchId = req.user.isSuperAdmin ? null : req.user.branch;
+      const bookings = await qrController.getPendingUpdateRequests(branchId);
+      res.json(bookings);
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+);
 module.exports = router;

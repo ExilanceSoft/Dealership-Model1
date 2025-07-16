@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// 1. Define User Schema with comprehensive field definitions
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -31,44 +32,92 @@ const UserSchema = new mongoose.Schema({
   },
   otp: String,
   otpExpires: Date,
+  
+  // 2. Roles array with validation to ensure active roles
   roles: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role',
-    required: true
+    required: [true, 'At least one role is required'],
+    validate: {
+      validator: async function(roleIds) {
+        const count = await mongoose.model('Role').countDocuments({ 
+          _id: { $in: roleIds },
+          is_active: true
+        });
+        return count === roleIds.length;
+      },
+      message: 'One or more roles are invalid or inactive'
+    }
   }],
+
+  // 3. Direct permissions with grant tracking
   permissions: [{
     permission: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Permission'
+      ref: 'Permission',
+      required: true
     },
-    expiresAt: Date
+    grantedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    expiresAt: {
+      type: Date,
+      validate: {
+        validator: function(date) {
+          return !date || date > new Date();
+        },
+        message: 'Expiration date must be in the future'
+      }
+    }
   }],
+
+  // 4. Delegated access permissions
   delegatedAccess: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'User',
+      required: true
     },
     permissions: [{
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Permission'
+      ref: 'Permission',
+      required: true
     }],
-    expiresAt: Date
+    grantedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+      validate: {
+        validator: function(date) {
+          return date > new Date();
+        },
+        message: 'Expiration date must be in the future'
+      }
+    }
   }],
+
+  // 5. Branch association
   branch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch'
   },
-   discount: {
+  
+  // 6. Discount field with role-based validation
+  discount: {
     type: Number,
     default: 0,
     min: 0,
     validate: {
       validator: async function(v) {
-        // Skip validation if no discount is set
         if (v === 0 || !this.roles || this.roles.length === 0) return true;
         
         try {
-          // Get the first role (assuming single role assignment)
           const role = await mongoose.model('Role').findById(this.roles[0]).lean();
           return role?.name === 'SALES_EXECUTIVE';
         } catch (err) {
@@ -79,6 +128,33 @@ const UserSchema = new mongoose.Schema({
       message: 'Discount can only be assigned to SALES_EXECUTIVE users'
     }
   },
+  
+  isFrozen: {
+    type: Boolean,
+    default: false
+  },
+  freezeReason: {
+    type: String,
+    default: ''
+  },
+  documentBufferTime: {
+    type: Date,
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // Default 24 hours from now
+  },
+  bufferExtensions: [{
+    extendedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    extendedAt: {
+      type: Date,
+      default: Date.now
+    },
+    newBufferTime: Date,
+    reason: String
+  }],
+
+  // 7. Status and tracking fields
   isActive: {
     type: Boolean,
     default: true
@@ -91,14 +167,14 @@ const UserSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes
-UserSchema.index({ email: 1 });
-UserSchema.index({ mobile: 1 });
-UserSchema.index({ branch: 1 });
-UserSchema.index({ isActive: 1 });
-UserSchema.index({ discount: 1 });
+// 8. Database indexes for performance optimization
+UserSchema.index({ email: 1 });          // Index for email field
+UserSchema.index({ mobile: 1 });         // Index for mobile field
+UserSchema.index({ branch: 1 });         // Index for branch field
+UserSchema.index({ isActive: 1 });       // Index for active status
+UserSchema.index({ discount: 1 });       // Index for discount field
 
-// Virtual for branch details
+// 9. Virtual field for branch details
 UserSchema.virtual('branchDetails', {
   ref: 'Branch',
   localField: 'branch',
@@ -107,129 +183,131 @@ UserSchema.virtual('branchDetails', {
   options: { select: 'name address city state' }
 });
 
-// Check if user is SuperAdmin
+// 10. Method to check if user is SuperAdmin
 UserSchema.methods.isSuperAdmin = async function() {
   await this.populate('roles');
   return this.roles.some(role => role.isSuperAdmin);
 };
 
-// Check if user is Sales Executive
-UserSchema.methods.isSalesExecutive = async function() {
-  await this.populate('roles');
-  return this.roles.some(role => role.name === 'SALES_EXECUTIVE');
-};
-
-// Get all permissions including role and assigned permissions
+// 11. Method to get all permissions (roles + direct + delegated)
 UserSchema.methods.getAllPermissions = async function() {
-  const isSuperAdmin = await this.isSuperAdmin();
-  if (isSuperAdmin) {
+  // 12. SuperAdmin has all permissions
+  if (await this.isSuperAdmin()) {
     return [{
       _id: 'ALL_PERMISSIONS',
       name: 'ALL',
       module: 'ALL',
-      action: 'ALL'
+      action: 'ALL',
+      category: 'SYSTEM'
     }];
   }
 
-  await this.populate({
-    path: 'roles',
-    populate: {
-      path: 'permissions inheritedRoles'
+  // 13. Get permissions from all assigned roles
+  let rolePermissions = [];
+  for (const roleId of this.roles) {
+    const role = await mongoose.model('Role').findById(roleId);
+    if (role) {
+      const permissions = await role.getAllPermissions();
+      rolePermissions = [...rolePermissions, ...permissions];
     }
-  }).populate('permissions.permission delegatedAccess.permissions');
-
-  let allPermissions = [];
-  
-  // Get permissions from roles
-  for (const role of this.roles) {
-    const rolePermissions = await role.getAllPermissions();
-    allPermissions = [...allPermissions, ...rolePermissions];
   }
-  
-  // Add direct permissions
+
+  // 14. Get active direct permissions (not expired)
   const now = new Date();
-  const userPermissions = this.permissions
-    .filter(p => !p.expiresAt || p.expiresAt > now)
-    .map(p => p.permission);
-  allPermissions = [...allPermissions, ...userPermissions];
-  
-  // Add delegated permissions
-  const delegatedPermissions = this.delegatedAccess
-    .filter(d => !d.expiresAt || d.expiresAt > now)
-    .flatMap(d => d.permissions);
-  allPermissions = [...allPermissions, ...delegatedPermissions];
-  
-  // Remove duplicates
-  const permissionIds = new Set(allPermissions.map(p => p._id.toString()));
-  return allPermissions.filter(p => {
-    const duplicate = permissionIds.has(p._id.toString());
-    permissionIds.delete(p._id.toString());
-    return !duplicate;
-  });
+  const directPermissions = await mongoose.model('Permission').find({
+    _id: { $in: this.permissions.filter(p => !p.expiresAt || p.expiresAt > now)
+      .map(p => p.permission) },
+    is_active: true
+  }).lean();
+
+  // 15. Get active delegated permissions (not expired)
+  const activeDelegated = this.delegatedAccess.filter(d => d.expiresAt > now);
+  const delegatedPermissions = await mongoose.model('Permission').find({
+    _id: { $in: activeDelegated.flatMap(d => d.permissions) },
+    is_active: true
+  }).lean();
+
+  // 16. Combine and deduplicate all permissions
+  const allPermissions = [...rolePermissions, ...directPermissions, ...delegatedPermissions];
+  const uniquePermissions = [];
+  const seen = new Set();
+
+  for (const perm of allPermissions) {
+    const permId = perm._id.toString();
+    if (!seen.has(permId)) {
+      seen.add(permId);
+      uniquePermissions.push(perm);
+    }
+  }
+
+  return uniquePermissions;
 };
 
-// Check specific permission
+// 17. Method to check specific permission
 UserSchema.methods.hasPermission = async function(module, action) {
+  // 18. SuperAdmin always has permission
   if (await this.isSuperAdmin()) return true;
   
+  // 19. Normalize input parameters
+  const normalizedModule = module.toUpperCase();
+  const normalizedAction = action.toUpperCase();
+  
+  // 20. Get all permissions
   const permissions = await this.getAllPermissions();
+  
+  // 21. Check for matching permission
   return permissions.some(p => 
-    p.module === module.toUpperCase() && 
-    (p.action === 'ALL' || p.action === action.toUpperCase())
+    p.module === normalizedModule && 
+    (p.action === 'ALL' || p.action === normalizedAction)
   );
 };
 
-// Delegate permissions to another user
-UserSchema.methods.delegatePermissions = async function(userId, permissionIds, expiresAt) {
-  const User = mongoose.model('User');
-  const targetUser = await User.findById(userId);
-  if (!targetUser) throw new Error('User not found');
-  
-  const Permission = mongoose.model('Permission');
-  const permissions = await Permission.find({ _id: { $in: permissionIds } });
-  if (permissions.length !== permissionIds.length) {
-    throw new Error('One or more permissions not found');
-  }
-  
-  this.delegatedAccess.push({
-    user: targetUser._id,
-    permissions: permissionIds,
-    expiresAt: expiresAt ? new Date(expiresAt) : null
-  });
-  
-  await this.save();
-};
-
-// Get discount amount (only for SALES_EXECUTIVE)
-UserSchema.methods.getDiscountAmount = async function() {
-  const isSalesExec = await this.isSalesExecutive();
-  return isSalesExec ? this.discount : 0;
-};
-
-// Validate branch requirement for non-SuperAdmin users and discount assignment
+// 22. Pre-save hook for role validation
 UserSchema.pre('save', async function(next) {
-  try {
-    if (this.isModified('roles') || !this.roles) {
-      await this.populate('roles');
-    }
-    const isSuperAdmin = this.roles.some(role => role.isSuperAdmin);
+  if (this.isModified('roles')) {
+    const Role = mongoose.model('Role');
+    const roles = await Role.find({ _id: { $in: this.roles } });
     
-    if (!isSuperAdmin && !this.branch) {
-      throw new Error('Branch is required for non-SuperAdmin users');
+    // 23. Prevent SuperAdmin from having additional roles
+    const hasSuperAdmin = roles.some(r => r.isSuperAdmin);
+    if (hasSuperAdmin && this.roles.length > 1) {
+      throw new Error('SuperAdmin cannot have additional roles');
     }
-
-    // Validate discount assignment
-    if (this.isModified('discount') && this.discount > 0) {
-      const isSalesExec = this.roles.some(role => role.name === 'SALES_EXECUTIVE');
-      if (!isSalesExec) {
-        throw new Error('Discount can only be assigned to SALES_EXECUTIVE users');
-      }
-    }
-    
-    next();
-  } catch (err) {
-    next(err);
   }
+  next();
 });
 
+// 24. Method to debug permissions
+UserSchema.methods.debugPermissions = async function() {
+  const user = await this.populate('roles permissions.permission delegatedAccess.user delegatedAccess.permissions');
+  
+  const result = {
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      isSuperAdmin: await user.isSuperAdmin()
+    },
+    roles: user.roles.map(role => ({
+      id: role._id,
+      name: role.name,
+      isSuperAdmin: role.isSuperAdmin
+    })),
+    directPermissions: user.permissions.map(p => ({
+      permission: p.permission.name,
+      module: p.permission.module,
+      action: p.permission.action,
+      expiresAt: p.expiresAt
+    })),
+    effectivePermissions: (await user.getAllPermissions()).map(p => ({
+      module: p.module,
+      action: p.action,
+      source: p.source || 'role'
+    }))
+  };
+
+  return result;
+};
+
+// 25. Export the User model
 module.exports = mongoose.model('User', UserSchema);

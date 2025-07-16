@@ -271,6 +271,24 @@ router.get('/:colorId', colorController.getColorById);
  *       500:
  *         description: Server error
  */
+
+// And update the ColorUpdate schema to include models:
+/**
+ *     ColorUpdate:
+ *       type: object
+ *       properties:
+ *         name:
+ *           type: string
+ *           example: Midnight Black Updated
+ *         hex_code:
+ *           type: string
+ *           example: "#010101"
+ *         models:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
+ */
 router.put(
   '/:colorId',
   protect,

@@ -442,4 +442,88 @@ router.post('/delegate-permissions',
   userController.delegatePermissions
 );
 
+/**
+ * @swagger
+ * /api/v1/users/{userId}/extend-buffer:
+ *   post:
+ *     summary: Extend document submission buffer time for a user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the user to extend buffer for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - hours
+ *               - reason
+ *             properties:
+ *               hours:
+ *                 type: number
+ *                 description: Number of hours to extend the buffer
+ *               reason:
+ *                 type: string
+ *                 description: Reason for the extension
+ *     responses:
+ *       200:
+ *         description: Buffer time extended successfully
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:userId/extend-buffer', 
+  protect, 
+  authorize('USER', 'MANAGE'), 
+  userController.extendBufferTime
+);
+
+/**
+ * @swagger
+ * /api/v1/users/{userId}/buffer-history:
+ *   get:
+ *     summary: Get buffer time extension history for a user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the user to get history for
+ *     responses:
+ *       200:
+ *         description: Buffer history retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (no permission)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:userId/buffer-history', 
+  protect, 
+  authorize('USER', 'READ'), 
+  userController.getBufferHistory
+);
+
 module.exports = router;
