@@ -64,6 +64,12 @@
     </style>
 </head>
 <body>
+      <div class="qr-code-container">
+        {{#if qrCode}}
+        <img src="{{qrCode}}" width="80" height="80" alt="Booking QR Code">
+        <div class="qr-code-text">Scan to verify booking</div>
+        {{/if}}
+    </div>
     <!-- Header Section -->
     <table class="header-table">
         <tr>
@@ -79,7 +85,44 @@
             <td colspan="3">{{branchDetails.name}}</td>
         </tr>
     </table>
-
+    <!-- In your bookingFormTemplate.html -->
+{{#if chassisNumber}}
+<div class="vehicle-details-section">
+  <h3>Vehicle Details</h3>
+  <table>
+    <tr>
+      <td><strong>Chassis Number:</strong></td>
+      <td>{{chassisNumber}}</td>
+    </tr>
+    <tr>
+      <td><strong>Battery Number:</strong></td>
+      <td>{{batteryNumber}}</td>
+    </tr>
+    <tr>
+      <td><strong>Key Number:</strong></td>
+      <td>{{keyNumber}}</td>
+    </tr>
+    {{#if motorNumber}}
+    <tr>
+      <td><strong>Motor Number:</strong></td>
+      <td>{{motorNumber}}</td>
+    </tr>
+    {{/if}}
+    {{#if chargerNumber}}
+    <tr>
+      <td><strong>Charger Number:</strong></td>
+      <td>{{chargerNumber}}</td>
+    </tr>
+    {{/if}}
+    {{#if engineNumber}}
+    <tr>
+      <td><strong>Engine Number:</strong></td>
+      <td>{{engineNumber}}</td>
+    </tr>
+    {{/if}}
+  </table>
+</div>
+{{/if}}
     <!-- Customer Details -->
     <div class="section-title">Customer & Vehicle Details</div>
     <table class="header-table">

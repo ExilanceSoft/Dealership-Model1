@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const Permission = require('../models/Permission');
+// const userStatusMiddleware = require('../middlewares/userStatusMiddleware');
+
 
 // Helper function to get user query projection
 const getUserProjection = {
@@ -552,6 +554,154 @@ exports.getBufferHistory = async (req, res) => {
       success: false,
       message: 'Error getting buffer history',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+exports.extendDocumentDeadline = async (req, res) => {
+  try {
+    const { userId, additionalHours, reason } = req.body;
+    
+    if (!userId || !additionalHours) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId and additionalHours are required'
+      });
+    }
+
+    const isManager = req.user.roles.some(r => ['MANAGER', 'ADMIN'].includes(r.name));
+    if (!isManager && !req.user.roles.some(r => r.isSuperAdmin)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized to extend deadlines'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const salesExecutiveRole = await Role.findOne({ name: 'SALES_EXECUTIVE' });
+    if (!user.roles.some(r => r.equals(salesExecutiveRole._id))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only extend deadlines for SALES_EXECUTIVE users'
+      });
+    }
+
+    const newBufferTime = new Date(Date.now() + (additionalHours * 60 * 60 * 1000));
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        documentBufferTime: newBufferTime,
+        isFrozen: false,
+        freezeReason: '',
+        $push: {
+          bufferExtensions: {
+            extendedBy: req.user.id,
+            newBufferTime,
+            reason: reason || 'Extended by manager'
+          }
+        }
+      },
+      { new: true }
+    );
+
+    await AuditLog.create({
+      action: 'EXTEND_DEADLINE',
+      entity: 'User',
+      entityId: user._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        extendedFor: userId,
+        additionalHours,
+        newBufferTime,
+        reason
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: updatedUser
+    });
+  } catch (err) {
+    console.error('Error extending document deadline:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error extending document deadline'
+    });
+  }
+};
+
+exports.unfreezeUser = async (req, res) => {
+  try {
+    const { userId, reason } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId is required'
+      });
+    }
+
+    const isManager = req.user.roles.some(r => ['MANAGER', 'ADMIN'].includes(r.name));
+    if (!isManager && !req.user.roles.some(r => r.isSuperAdmin)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized to unfreeze users'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        isFrozen: false,
+        freezeReason: '',
+        $push: {
+          bufferExtensions: {
+            extendedBy: req.user.id,
+            reason: reason || 'Manually unfrozen by manager'
+          }
+        }
+      },
+      { new: true }
+    );
+
+    await AuditLog.create({
+      action: 'UNFREEZE_USER',
+      entity: 'User',
+      entityId: user._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        unfrozenUser: userId,
+        reason
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: updatedUser
+    });
+  } catch (err) {
+    console.error('Error unfreezing user:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error unfreezing user'
     });
   }
 };

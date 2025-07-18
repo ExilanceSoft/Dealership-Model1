@@ -45,6 +45,7 @@ const generateKycPdf = async (files, bookingId) => {
 };
 
 // Get KYC Details
+// Get KYC Details
 exports.getKYCDetails = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -69,7 +70,10 @@ exports.getKYCDetails = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: kyc
+      data: {
+        bookingId: bookingId, // Explicitly include booking ID in response
+        ...kyc.toObject() // Spread all other KYC details
+      }
     });
   } catch (err) {
     console.error('Error fetching KYC details:', err);
@@ -227,6 +231,24 @@ exports.submitKYC = async (req, res) => {
     // Update booking KYC status
     booking.kycStatus = 'PENDING';
     await booking.save();
+
+    // Unfreeze user account based on payment type
+    if (booking) {
+      if (booking.payment.type !== 'FINANCE') {
+        await User.findByIdAndUpdate(req.user.id, {
+          isFrozen: false,
+          freezeReason: ''
+        });
+      } else {
+        const financeLetter = await FinanceLetter.findOne({ booking: bookingId });
+        if (financeLetter) {
+          await User.findByIdAndUpdate(req.user.id, {
+            isFrozen: false,
+            freezeReason: ''
+          });
+        }
+      }
+    }
 
     // Log the action
     await AuditLog.create({

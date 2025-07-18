@@ -80,6 +80,15 @@ exports.submitFinanceLetter = async (req, res) => {
     booking.financeLetterStatus = 'PENDING';
     await booking.save();
 
+    // Check KYC and unfreeze user if KYC exists
+    const kyc = await KYC.findOne({ booking: bookingId });
+    if (kyc) {
+      await User.findByIdAndUpdate(userId, {
+        isFrozen: false,
+        freezeReason: ''
+      });
+    }
+
     await AuditLog.create({
       action: existingFinanceLetter ? 'FINANCE_LETTER_RESUBMITTED' : 'FINANCE_LETTER_SUBMITTED',
       entity: 'FINANCE_LETTER',
@@ -117,7 +126,56 @@ exports.submitFinanceLetter = async (req, res) => {
     });
   }
 };
+// Get Finance Letter by Booking ID
+exports.getFinanceLetterByBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid booking ID' 
+      });
+    }
+
+    const financeLetter = await FinanceLetter.findOne({ booking: bookingId })
+      .populate('verifiedBy', 'name email')
+      .lean();
+
+    if (!financeLetter) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Finance letter not found for this booking' 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        bookingId: bookingId, // Explicitly include booking ID
+        ...financeLetter // Spread all other finance letter details
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching finance letter:', err);
+    
+    await AuditLog.create({
+      action: 'VIEW_FINANCE_LETTER_FAILED',
+      entity: 'FINANCE_LETTER',
+      entityId: req.params.bookingId,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching finance letter',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
 // Verify Finance Letter by Booking ID
 exports.verifyFinanceLetterByBooking = async (req, res) => {
   try {

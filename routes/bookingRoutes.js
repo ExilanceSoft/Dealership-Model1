@@ -5,6 +5,9 @@ const { protect, authorize } = require('../middlewares/auth');
 const pdfController = require('../controllers/pdfController');
 const { logAction } = require('../middlewares/audit');
 const qrController = require('../controllers/qrController');
+const Vehicle = require('../models/vehicleInwardModel');
+// const { checkSalesExecutiveStatus } = require('../middlewares/userStatusMiddleware');
+
 // router.use(protect);
 /**
  * @swagger
@@ -332,11 +335,56 @@ const qrController = require('../controllers/qrController');
  */
 router.post('/', 
   protect, 
+  // checkSalesExecutiveStatus,
   authorize('BOOKING', 'CREATE'), 
   logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
-
+/**
+ * @swagger
+ * /api/v1/bookings/pending-updates:
+ *   get:
+ *     summary: Get pending update requests
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of bookings with pending updates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get('/pending-updates', 
+  protect, 
+  authorize('BOOKING', 'APPROVE'),
+  async (req, res) => {
+    try {
+      const branchId = req.user.isSuperAdmin ? null : req.user.branch;
+      const pendingUpdates = await qrController.getPendingUpdateRequests(branchId);
+      
+      res.json({
+        success: true,
+        count: pendingUpdates.length,
+        data: pendingUpdates
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+);
 /**
  * @swagger
  * /api/v1/bookings:
@@ -524,7 +572,7 @@ router.put('/:id',
  * @swagger
  * /api/v1/bookings/{id}/approve:
  *   post:
- *     summary: Approve a booking and optionally allocate chassis number
+ *     summary: Approve a booking and optionally allocate chassis number with vehicle details
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
@@ -536,6 +584,7 @@ router.put('/:id',
  *           type: string
  *         description: Booking ID
  *     requestBody:
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
@@ -546,11 +595,13 @@ router.put('/:id',
  *                 description: Optional note for approval
  *               chassisNumber:
  *                 type: string
- *                 description: Optional 17-character chassis number to allocate
+ *                 description: 17-character chassis number to allocate
  *                 example: "MA6FRE4521KM12345"
+ *             required:
+ *               - chassisNumber
  *     responses:
  *       200:
- *         description: Booking approved
+ *         description: Booking approved with vehicle details
  *         content:
  *           application/json:
  *             schema:
@@ -566,7 +617,7 @@ router.put('/:id',
  *       403:
  *         description: Forbidden (no approval permission)
  *       404:
- *         description: Booking not found
+ *         description: Booking not found or vehicle not found
  *       500:
  *         description: Server error
  */
@@ -576,6 +627,114 @@ router.post('/:id/approve',
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
 );
+// Add this to your routes file
+/**
+ * @swagger
+ * /api/v1/bookings/{chassisNumber}:
+ *   get:
+ *     summary: Retrieve vehicle details by chassis number
+ *     description: |
+ *       Fetches critical vehicle components by its 17-character chassis number.
+ *       Returns battery, key, motor, charger, and engine numbers along with status.
+ *     tags: [Vehicle Testing]
+ *     parameters:
+ *       - in: path
+ *         name: chassisNumber
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^[A-Z0-9]{17}$'
+ *           example: "MA6FRE4521KM12345"
+ *         description: 17-character alphanumeric chassis number (case insensitive)
+ *     responses:
+ *       200:
+ *         description: Vehicle details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     batteryNumber:
+ *                       type: string
+ *                     keyNumber:
+ *                       type: string
+ *                     motorNumber:
+ *                       type: string
+ *                     chargerNumber:
+ *                       type: string
+ *                     engineNumber:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *       400:
+ *         description: Invalid chassis number format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Invalid chassis number format"
+ *       404:
+ *         description: Vehicle not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Vehicle not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Server error"
+ */
+router.get('/:chassisNumber', async (req, res) => {
+  try {
+    const { chassisNumber } = req.params;
+    
+    // Updated validation to be more permissive while maintaining length requirement
+    if (!chassisNumber || chassisNumber.length !== 17 || !/^[A-Z0-9]+$/i.test(chassisNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid chassis number format - must be exactly 17 alphanumeric characters'
+      });
+    }
+
+    const vehicle = await Vehicle.findOne({ 
+      chassisNumber: chassisNumber.toUpperCase() 
+    }).select('batteryNumber keyNumber motorNumber chargerNumber engineNumber status');
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: vehicle
+    });
+  } catch (err) {
+    console.error('Test vehicle lookup error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
 /**
  * @swagger
  * /api/v1/bookings/{id}/form:
@@ -726,7 +885,45 @@ router.post('/:id/complete',
   logAction('COMPLETE', 'Booking'), 
   bookingController.completeBooking
 );
-
+/**
+ * @swagger
+ * /api/v1/bookings/chassis/{chassisNumber}:
+ *   get:
+ *     summary: Get booking by chassis number
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chassisNumber
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^[A-Z0-9]{17}$'
+ *         description: 17-character chassis number
+ *     responses:
+ *       200:
+ *         description: Booking details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       400:
+ *         description: Invalid chassis number format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not authorized to view this booking)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/chassis/:chassisNumber', 
+  protect, 
+  authorize('BOOKING', 'READ'),
+  bookingController.getBookingByChassisNumber
+);
 /**
  * @swagger
  * /api/v1/bookings/{id}/cancel:
@@ -1062,65 +1259,63 @@ router.get('/:id/qr-code',
   }
 );
 
-/**
- * @swagger
- * /api/v1/bookings/{id}/update-form:
- *   get:
- *     summary: Get booking data for update form
- *     tags: [Bookings]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Booking ID
- *     responses:
- *       200:
- *         description: Booking data and form HTML
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 booking:
- *                   $ref: '#/components/schemas/Booking'
- *                 formHtml:
- *                   type: string
- *                   description: HTML content of the form
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Booking not found
- *       500:
- *         description: Server error
- */
-router.get('/:id/update-form', 
-  async (req, res) => {
-    try {
-      const result = await qrController.getBookingForUpdateForm(req.params.id);
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        message: error.message 
-      });
-    }
-  }
-);
+// /**
+//  * @swagger
+//  * /api/v1/bookings/{id}/update-form:
+//  *   get:
+//  *     summary: Get booking data for update form
+//  *     tags: [Bookings]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: Booking ID
+//  *     responses:
+//  *       200:
+//  *         description: Booking data and form HTML
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 booking:
+//  *                   $ref: '#/components/schemas/Booking'
+//  *                 formHtml:
+//  *                   type: string
+//  *                   description: HTML content of the form
+//  *       401:
+//  *         description: Unauthorized
+//  *       403:
+//  *         description: Forbidden
+//  *       404:
+//  *         description: Booking not found
+//  *       500:
+//  *         description: Server error
+//  */
+// router.get('/:id/update-form', 
+//   async (req, res) => {
+//     try {
+//       const result = await qrController.getBookingForUpdateForm(req.params.id);
+//       res.json(result);
+//     } catch (error) {
+//       res.status(500).json({ 
+//         success: false, 
+//         message: error.message 
+//       });
+//     }
+//   }
+// );
 
 /**
  * @swagger
  * /api/v1/bookings/{id}/submit-update:
  *   post:
- *     summary: Submit booking update request
+ *     summary: Submit booking update request (unauthenticated)
  *     tags: [Bookings]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -1147,32 +1342,50 @@ router.get('/:id/update-form',
  *               $ref: '#/components/schemas/Booking'
  *       400:
  *         description: Invalid update request
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/submit-update:
+ *   post:
+ *     summary: Submit booking update request (unauthenticated)
+ *     tags: [Bookings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               updates:
+ *                 type: object
+ *                 description: Fields to update
+ *     responses:
+ *       200:
+ *         description: Update request submitted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       400:
+ *         description: Invalid update request
  *       404:
  *         description: Booking not found
  *       500:
  *         description: Server error
  */
 router.post('/:id/submit-update', 
-  protect,
-  async (req, res) => {
-    try {
-      const booking = await qrController.submitUpdateRequest(
-        req.params.id, 
-        req.body.updates, 
-        req.user.id
-      );
-      res.json(booking);
-    } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        message: error.message 
-      });
-    }
-  }
+  qrController.submitUpdateRequest
 );
 
 /**
@@ -1223,13 +1436,10 @@ router.post('/:id/approve-update',
   logAction('APPROVE_UPDATE', 'Booking'),
   async (req, res) => {
     try {
-      const booking = await qrController.processUpdateRequest(
-        req.params.id, 
-        'APPROVE', 
-        req.user.id,
-        req.body.note
-      );
-      res.json(booking);
+      const result = await qrController.approveUpdateRequest(req, res);
+      if (!res.headersSent) {
+        res.json(result);
+      }
     } catch (error) {
       res.status(500).json({ 
         success: false, 
@@ -1305,40 +1515,139 @@ router.post('/:id/reject-update',
 
 /**
  * @swagger
- * /api/v1/bookings/pending-updates:
+ * /api/v1/bookings/{id}/update-form:
  *   get:
- *     summary: Get pending update requests
+ *     summary: Get booking update form HTML
+ *     description: Returns an HTML form for updating booking details, accessible via QR code
  *     tags: [Bookings]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
  *     responses:
  *       200:
- *         description: List of bookings with pending updates
+ *         description: HTML form for updating booking
+ *         content:
+ *           text/html:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Invalid booking ID format
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Booking'
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get('/:id/update-form', bookingController.getUpdateForm);
+// bookingRoutes.js - Add this new route
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/pending-update:
+ *   get:
+ *     summary: Get pending update request for a specific booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Pending update request details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                   description: Booking ID
+ *                 bookingNumber:
+ *                   type: string
+ *                   description: Booking number
+ *                 customerName:
+ *                   type: string
+ *                   description: Customer name
+ *                 model:
+ *                   type: string
+ *                   description: Model name
+ *                 color:
+ *                   type: string
+ *                   description: Color name
+ *                 pendingUpdates:
+ *                   type: object
+ *                   description: Requested updates
+ *                 updateRequestStatus:
+ *                   type: string
+ *                   enum: [NONE, PENDING, APPROVED, REJECTED]
+ *                   description: Update request status
+ *                 updateRequestNote:
+ *                   type: string
+ *                   description: Update request note
+ *                 updateRequestedBy:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Invalid booking ID or no pending updates
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden
+ *       404:
+ *         description: Booking not found
  *       500:
  *         description: Server error
  */
-router.get('/pending-updates', 
+router.get('/:id/pending-update', 
   protect, 
   authorize('BOOKING', 'APPROVE'),
   async (req, res) => {
     try {
-      const branchId = req.user.isSuperAdmin ? null : req.user.branch;
-      const bookings = await qrController.getPendingUpdateRequests(branchId);
-      res.json(bookings);
+      const pendingUpdate = await qrController.getPendingUpdateRequestById(req.params.id);
+      res.json({
+        success: true,
+        data: pendingUpdate
+      });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        message: error.message 
+      let statusCode = 500;
+      if (error.message === 'Invalid booking ID format') statusCode = 400;
+      if (error.message === 'Booking not found') statusCode = 404;
+      if (error.message === 'No pending update request found for this booking') statusCode = 400;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message,
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }

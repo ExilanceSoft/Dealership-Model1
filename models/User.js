@@ -129,36 +129,39 @@ const UserSchema = new mongoose.Schema({
     }
   },
   
-  isFrozen: {
-    type: Boolean,
-    default: false
+ // Add these fields to the UserSchema
+isFrozen: {
+  type: Boolean,
+  default: false
+},
+freezeReason: {
+  type: String,
+  default: ''
+},
+documentBufferTime: {
+  type: Date,
+  default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // Default 24 hours from now
+},
+bufferExtensions: [{
+  extendedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
-  freezeReason: {
-    type: String,
-    default: ''
-  },
-  documentBufferTime: {
+  extendedAt: {
     type: Date,
-    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // Default 24 hours from now
+    default: Date.now
   },
-  bufferExtensions: [{
-    extendedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    extendedAt: {
-      type: Date,
-      default: Date.now
-    },
-    newBufferTime: Date,
-    reason: String
-  }],
+  newBufferTime: Date,
+  reason: String
+}],
 
   // 7. Status and tracking fields
-  isActive: {
-    type: Boolean,
-    default: true
-  },
+  status: {
+  type: String,
+  enum: ['ACTIVE', 'FROZEN', 'EXTENDED', 'INACTIVE'],
+  default: 'ACTIVE'
+}
+,
   lastLogin: Date,
   loginIPs: [String]
 }, { 

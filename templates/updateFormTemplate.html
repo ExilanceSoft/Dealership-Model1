@@ -5,76 +5,218 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Booking Update Form</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    h1 { color: #333; text-align: center; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: bold; }
-    input, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-    button { background: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
-    button:hover { background: #45a049; }
-    .booking-info { background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 25px;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+    }
+    .booking-info {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 25px;
+      border-left: 4px solid #3498db;
+    }
+    .booking-info h2 {
+      color: #2c3e50;
+      margin-top: 0;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+    input:focus, select:focus {
+      border-color: #3498db;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    button {
+      background: #3498db;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100%;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background: #2980b9;
+    }
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+    .form-row .form-group {
+      flex: 1;
+    }
+    .success-message {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .error-message {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 10px 0;
+    }
+    .loading-spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid #3498db;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @media (max-width: 600px) {
+      .form-row {
+        flex-direction: column;
+        gap: 0;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Booking Update Request</h1>
-  
-  <div class="booking-info">
-    <h2>Current Booking Details</h2>
-    <p><strong>Booking Number:</strong> {{booking.bookingNumber}}</p>
-    <p><strong>Customer:</strong> {{booking.customerDetails.salutation}} {{booking.customerDetails.name}}</p>
-    <p><strong>Model:</strong> {{booking.modelDetails.name}}</p>
-    <p><strong>Color:</strong> {{booking.colorDetails.name}}</p>
+  <div class="container">
+    <h1>Booking Update Request</h1>
+    
+    <div class="success-message" id="successMessage">
+      Your update request has been submitted successfully! It will be reviewed by management.
+    </div>
+    
+    <div class="error-message" id="errorMessage"></div>
+    
+    <div class="booking-info">
+      <h2>Current Booking Details</h2>
+      <p><strong>Booking Number:</strong> {{booking.bookingNumber}}</p>
+      <p><strong>Customer:</strong> {{booking.customerDetails.salutation}} {{booking.customerDetails.name}}</p>
+      <p><strong>Model:</strong> {{modelDetails.model_name}}</p>
+      <p><strong>Color:</strong> {{colorDetails.name}}</p>
+    </div>
+
+    <form id="updateForm">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="salutation">Salutation</label>
+          <select id="salutation" name="customerDetails.salutation" required>
+            <option value="Mr." {{#if (eq booking.customerDetails.salutation 'Mr.')}}selected{{/if}}>Mr.</option>
+            <option value="Mrs." {{#if (eq booking.customerDetails.salutation 'Mrs.')}}selected{{/if}}>Mrs.</option>
+            <option value="Miss" {{#if (eq booking.customerDetails.salutation 'Miss')}}selected{{/if}}>Miss</option>
+            <option value="Dr." {{#if (eq booking.customerDetails.salutation 'Dr.')}}selected{{/if}}>Dr.</option>
+            <option value="Prof." {{#if (eq booking.customerDetails.salutation 'Prof.')}}selected{{/if}}>Prof.</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="name">Customer Name</label>
+          <input type="text" id="name" name="customerDetails.name" value="{{booking.customerDetails.name}}" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="mobile1">Primary Mobile</label>
+          <input type="tel" id="mobile1" name="customerDetails.mobile1" value="{{booking.customerDetails.mobile1}}" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="mobile2">Secondary Mobile (Optional)</label>
+          <input type="tel" id="mobile2" name="customerDetails.mobile2" value="{{booking.customerDetails.mobile2}}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="address">Address</label>
+        <input type="text" id="address" name="customerDetails.address" value="{{booking.customerDetails.address}}" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="pincode">Pincode</label>
+          <input type="text" id="pincode" name="customerDetails.pincode" value="{{booking.customerDetails.pincode}}" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="color">Vehicle Color</label>
+          <input type="text" id="color" name="color" value="{{booking.colorDetails.name}}" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="paymentType">Payment Type</label>
+        <select id="paymentType" name="payment.type" required>
+          <option value="CASH" {{#if (eq booking.payment.type 'CASH')}}selected{{/if}}>Cash</option>
+          <option value="FINANCE" {{#if (eq booking.payment.type 'FINANCE')}}selected{{/if}}>Finance</option>
+        </select>
+      </div>
+
+      <div class="loading" id="loadingIndicator">
+        <div class="loading-spinner"></div>
+        <p>Submitting your request...</p>
+      </div>
+      
+      <button type="submit" id="submitButton">Submit Update Request</button>
+    </form>
   </div>
-
-  <form id="updateForm">
-    <div class="form-group">
-      <label for="name">Customer Name</label>
-      <input type="text" id="name" name="customerDetails.name" value="{{booking.customerDetails.name}}" required>
-    </div>
-
-    <div class="form-group">
-      <label for="mobile1">Primary Mobile</label>
-      <input type="tel" id="mobile1" name="customerDetails.mobile1" value="{{booking.customerDetails.mobile1}}" required>
-    </div>
-
-    <div class="form-group">
-      <label for="mobile2">Secondary Mobile (Optional)</label>
-      <input type="tel" id="mobile2" name="customerDetails.mobile2" value="{{booking.customerDetails.mobile2}}">
-    </div>
-
-    <div class="form-group">
-      <label for="address">Address</label>
-      <input type="text" id="address" name="customerDetails.address" value="{{booking.customerDetails.address}}" required>
-    </div>
-
-    <div class="form-group">
-      <label for="pincode">Pincode</label>
-      <input type="text" id="pincode" name="customerDetails.pincode" value="{{booking.customerDetails.pincode}}" required>
-    </div>
-
-    <div class="form-group">
-      <label for="color">Vehicle Color</label>
-      <select id="color" name="color">
-        {{#each modelDetails.colors}}
-        <option value="{{this._id}}" {{#if (eq this._id ../booking.color)}}selected{{/if}}>{{this.name}}</option>
-        {{/each}}
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label for="paymentType">Payment Type</label>
-      <select id="paymentType" name="payment.type">
-        <option value="CASH" {{#if (eq booking.payment.type 'CASH')}}selected{{/if}}>Cash</option>
-        <option value="FINANCE" {{#if (eq booking.payment.type 'FINANCE')}}selected{{/if}}>Finance</option>
-      </select>
-    </div>
-
-    <button type="submit">Submit Update Request</button>
-  </form>
 
   <script>
     document.getElementById('updateForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      // Show loading indicator
+      document.getElementById('loadingIndicator').style.display = 'block';
+      document.getElementById('submitButton').disabled = true;
+      
+      // Hide any previous messages
+      document.getElementById('successMessage').style.display = 'none';
+      document.getElementById('errorMessage').style.display = 'none';
       
       const formData = new FormData(e.target);
       const updates = {};
@@ -102,14 +244,44 @@
         const result = await response.json();
         
         if (response.ok) {
-          alert('Update request submitted successfully! It will be reviewed by management.');
+          // Show success message
+          document.getElementById('successMessage').style.display = 'block';
+          // Reset form
+          document.getElementById('updateForm').reset();
+          // Scroll to top
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-          alert(`Error: ${result.message}`);
+          // Show error message
+          const errorElement = document.getElementById('errorMessage');
+          errorElement.textContent = result.message || 'Failed to submit update request';
+          errorElement.style.display = 'block';
+          // Scroll to error
+          errorElement.scrollIntoView({ behavior: 'smooth' });
         }
       } catch (error) {
-        alert('Failed to submit update request. Please try again.');
+        const errorElement = document.getElementById('errorMessage');
+        errorElement.textContent = 'Failed to submit update request. Please try again.';
+        errorElement.style.display = 'block';
+        errorElement.scrollIntoView({ behavior: 'smooth' });
         console.error(error);
+      } finally {
+        // Hide loading indicator
+        document.getElementById('loadingIndicator').style.display = 'none';
+        document.getElementById('submitButton').disabled = false;
       }
+    });
+
+    // Add input validation
+    document.getElementById('mobile1').addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '').substring(0, 10);
+    });
+    
+    document.getElementById('mobile2').addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '').substring(0, 10);
+    });
+    
+    document.getElementById('pincode').addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '').substring(0, 6);
     });
   </script>
 </body>

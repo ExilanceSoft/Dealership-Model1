@@ -12,14 +12,6 @@ const upload = multer({
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB limit per file
   },
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = ['application/pdf'];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF files are allowed.'), false);
-    }
-  }
 });
 
 /**
@@ -28,6 +20,43 @@ const upload = multer({
  *   name: Finance Letters
  *   description: Finance letter management
  */
+
+/**
+ * @swagger
+ * /api/v1/finance-letters/{bookingId}:
+ *   get:
+ *     summary: Get finance letter details by booking ID
+ *     tags: [Finance Letters]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Finance letter details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FinanceLetter'
+ *       400:
+ *         description: Invalid booking ID
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Finance letter not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:bookingId', 
+  protect,
+  logAction('VIEW_FINANCE_LETTER', 'FINANCE_LETTER'),
+  financeLetterController.getFinanceLetterByBooking
+);
 
 /**
  * @swagger
@@ -74,6 +103,9 @@ const upload = multer({
  *                       type: string
  *                     documentUrl:
  *                       type: string
+ *                     submissionDate:
+ *                       type: string
+ *                       format: date-time
  *       400:
  *         description: Missing finance letter or invalid booking ID
  *       401:
@@ -117,9 +149,11 @@ router.post('/:bookingId/submit',
  *               status:
  *                 type: string
  *                 enum: [APPROVED, REJECTED]
+ *                 example: APPROVED
  *               verificationNote:
  *                 type: string
  *                 description: Reason for approval/rejection
+ *                 example: "Document meets all requirements"
  *     responses:
  *       200:
  *         description: Finance letter verification status updated
@@ -141,6 +175,9 @@ router.post('/:bookingId/submit',
  *                       type: string
  *                     verificationNote:
  *                       type: string
+ *                     verificationDate:
+ *                       type: string
+ *                       format: date-time
  *       400:
  *         description: Invalid status or finance letter already processed
  *       401:
@@ -215,7 +252,7 @@ router.get('/:bookingId/status',
  * @swagger
  * /api/v1/finance-letters/{bookingId}/download:
  *   get:
- *     summary: Download finance letter
+ *     summary: View or download finance letter
  *     tags: [Finance Letters]
  *     security:
  *       - bearerAuth: []
@@ -226,6 +263,11 @@ router.get('/:bookingId/status',
  *         schema:
  *           type: string
  *         description: Booking ID
+ *       - in: query
+ *         name: download
+ *         schema:
+ *           type: boolean
+ *         description: Set to true to force download
  *     responses:
  *       200:
  *         description: Finance letter file

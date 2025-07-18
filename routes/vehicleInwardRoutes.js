@@ -589,4 +589,42 @@ router.get(
  *         description: Server error
  */
 router.get('/branch/:branchId', vehicleController.getVehiclesByBranch);
+
+/**
+ * @swagger
+ * /api/v1/inward/chassis/{chassisNumber}:
+ *   get:
+ *     summary: Get an inward vehicle by chassis number
+ *     tags: [Vehicle Inward]
+ *     parameters:
+ *       - in: path
+ *         name: chassisNumber
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: CHS1234567890
+ *     responses:
+ *       200:
+ *         description: Vehicle details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     vehicle:
+ *                       $ref: '#/components/schemas/Vehicle'
+ *       400:
+ *         description: Chassis number is required
+ *       404:
+ *         description: Vehicle not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/chassis/:chassisNumber', vehicleController.getVehicleByChassisNumber);
 module.exports = router;

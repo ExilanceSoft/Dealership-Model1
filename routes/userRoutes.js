@@ -3,6 +3,8 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+// const userStatusMiddleware = require('../middleware/userStatusMiddleware');
+
 
 /**
  * @swagger
@@ -525,5 +527,131 @@ router.get('/:userId/buffer-history',
   authorize('USER', 'READ'), 
   userController.getBufferHistory
 );
+
+// ... (previous code remains the same)
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/extend-deadline:
+ *   post:
+ *     summary: Extend document submission deadline for a SALES_EXECUTIVE (Manager+)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the SALES_EXECUTIVE user to extend deadline for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - additionalHours
+ *             properties:
+ *               additionalHours:
+ *                 type: number
+ *                 description: Number of hours to extend the deadline
+ *                 example: 24
+ *               reason:
+ *                 type: string
+ *                 description: Reason for the extension
+ *                 example: "Additional time needed for document collection"
+ *     responses:
+ *       200:
+ *         description: Deadline extended successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Invalid input or not a SALES_EXECUTIVE user
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (not Manager+)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/:id/extend-deadline',
+  protect,
+  authorize(['MANAGER', 'ADMIN']),
+  logAction('EXTEND_DEADLINE', 'User'),
+  userController.extendDocumentDeadline
+);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/unfreeze:
+ *   post:
+ *     summary: Unfreeze a frozen SALES_EXECUTIVE user (Manager+)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the frozen user to unfreeze
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for unfreezing
+ *                 example: "Documents have been submitted"
+ *     responses:
+ *       200:
+ *         description: User unfrozen successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (not Manager+)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/:id/unfreeze',
+  protect,
+  authorize(['MANAGER', 'ADMIN']),
+  logAction('UNFREEZE_USER', 'User'),
+  userController.unfreezeUser
+);
+
+module.exports = router;
 
 module.exports = router;

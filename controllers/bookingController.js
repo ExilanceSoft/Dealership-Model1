@@ -16,17 +16,16 @@ const User = require('../models/User');
 const Color = require('../models/Color');
 const { generatePDFFromHtml } = require('../utils/pdfGenerator1');
 const qrController = require('../controllers/qrController');
-
+const Vehicle = require('../models/vehicleInwardModel');
+// const validateSalesExecutive = require('../middleware/validateSalesExecutive');
 // Configure Handlebars helpers
 Handlebars.registerHelper('formatDate', function(date) {
     return moment(date).format('DD/MM/YYYY');
 });
-
 Handlebars.registerHelper('formatCurrency', function(amount) {
     if (amount === undefined || amount === null) return '0.00';
     return parseFloat(amount).toFixed(2);
 });
-
 Handlebars.registerHelper('calculateTax', function(amount, rate) {
     if (!amount || !rate) return '0.00';
     return (amount * rate / 100).toFixed(2);
@@ -54,12 +53,10 @@ Handlebars.registerHelper('gt', function(a, b) {
 Handlebars.registerHelper('divide', function(a, b) {
     return a / b;
 });
-
 // Load the booking form template
 const templatePath = path.join(__dirname, '../templates/bookingFormTemplate.html');
 const templateHtml = fs.readFileSync(templatePath, 'utf8');
 const bookingFormTemplate = Handlebars.compile(templateHtml);
-
 // Helper function to generate booking form PDF
 // const generateBookingFormPDF = async (booking) => {
 //     try {
@@ -156,7 +153,6 @@ const generateBookingFormHTML = async (booking, saveToFile = true) => {
         throw error;
     }
 };
-
 // Helper function to calculate discounts
 const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
     const eligibleComponents = priceComponents.filter(c => 
@@ -202,7 +198,6 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
         };
     });
 };
-
 const validateDiscountLimits = (priceComponents) => {
     const violations = priceComponents.filter(
         c => c.isDiscountable && 
@@ -215,7 +210,6 @@ const validateDiscountLimits = (priceComponents) => {
         throw new Error(`Discount cannot exceed 95% for: ${itemNames}`);
     }
 };
-
 exports.createBooking = async (req, res) => {
     try {
         // Validate required fields
@@ -299,11 +293,11 @@ exports.createBooking = async (req, res) => {
                 });
             }
 
-            const isSalesExecutive = salesExecutive.roles.some(r => 
+            const isSalesExecutiveRole = salesExecutive.roles.some(r => 
                 r.name === 'SALES_EXECUTIVE'
             );
             
-            if (!isSalesExecutive) {
+            if (!isSalesExecutiveRole) {
                 return res.status(400).json({
                     success: false,
                     message: 'Selected user must have SALES_EXECUTIVE role'
@@ -579,56 +573,49 @@ exports.createBooking = async (req, res) => {
         }
 
         // Check discount scenarios
-  // Check discount scenarios
-// Check discount scenarios
-const modelHasDiscount = model.model_discount && model.model_discount > 0;
-const isSalesExecutive = req.user.roles.some(r => r.name === 'SALES_EXECUTIVE');
-const userDiscountLimit = isSalesExecutive ? (req.user.discount || 0) : 0;
-const isApplyingDiscount = req.body.discount && req.body.discount.value > 0;
-const discountExceedsLimit = isApplyingDiscount && req.body.discount.value > userDiscountLimit;
+        const modelHasDiscount = model.model_discount && model.model_discount > 0;
+        const currentUserIsSalesExecutive = req.user.roles.some(r => r.name === 'SALES_EXECUTIVE');
+        const userDiscountLimit = currentUserIsSalesExecutive ? (req.user.discount || 0) : 0;
+        const isApplyingDiscount = req.body.discount && req.body.discount.value > 0;
+        const discountExceedsLimit = isApplyingDiscount && req.body.discount.value > userDiscountLimit;
 
-// Debug logging (temporary)
-console.log('Model discount:', model.model_discount);
-console.log('User discount limit:', userDiscountLimit);
-console.log('Applied discount:', req.body.discount?.value);
+        // Initialize variables for status and form generation
+        let status = 'DRAFT';
+        let requiresApproval = false;
+        let approvalNote = '';
+        let shouldGenerateForm = true;
 
-// Initialize variables for status and form generation
-let status = 'DRAFT';
-let requiresApproval = false;
-let approvalNote = '';
-let shouldGenerateForm = true;
-
-// Determine status and form generation based on discount scenarios
-if (modelHasDiscount) {
-    status = 'PENDING_APPROVAL';
-    requiresApproval = true;
-    approvalNote = 'Model discount requires approval';
-    shouldGenerateForm = false;
-} else if (isApplyingDiscount) {
-    if (isSalesExecutive) {
-        if (discountExceedsLimit) {
-            status = 'PENDING_APPROVAL (Discount_Exceeded)';
-            shouldGenerateForm = false;
-            requiresApproval = true;
-            approvalNote = 'Discount exceeds sales executive limit';
-        } else {
+        // Determine status and form generation based on discount scenarios
+        if (modelHasDiscount) {
             status = 'PENDING_APPROVAL';
             requiresApproval = true;
-            approvalNote = 'Discount within limit requires approval';
+            approvalNote = 'Model discount requires approval';
             shouldGenerateForm = false;
+        } else if (isApplyingDiscount) {
+            if (currentUserIsSalesExecutive) {
+                if (discountExceedsLimit) {
+                    status = 'PENDING_APPROVAL (Discount_Exceeded)';
+                    shouldGenerateForm = false;
+                    requiresApproval = true;
+                    approvalNote = 'Discount exceeds sales executive limit';
+                } else {
+                    status = 'PENDING_APPROVAL';
+                    requiresApproval = true;
+                    approvalNote = 'Discount within limit requires approval';
+                    shouldGenerateForm = false;
+                }
+            } else {
+                // Non-sales executive applying discount - requires approval
+                status = 'PENDING_APPROVAL';
+                requiresApproval = true;
+                approvalNote = 'Discount requires approval (non-SALES_EXECUTIVE user)';
+                shouldGenerateForm = false;
+            }
+        } else {
+            // No discounts - form will be generated, status remains DRAFT
+            shouldGenerateForm = true;
+            status = 'DRAFT';
         }
-    } else {
-        // Non-sales executive applying discount - requires approval
-        status = 'PENDING_APPROVAL';
-        requiresApproval = true;
-        approvalNote = 'Discount requires approval (non-SALES_EXECUTIVE user)';
-        shouldGenerateForm = false;
-    }
-} else {
-    // No discounts - form will be generated, status remains DRAFT
-    shouldGenerateForm = true;
-    status = 'DRAFT';
-}
 
         // Apply discounts if any
         let discounts = [];
@@ -731,6 +718,16 @@ if (modelHasDiscount) {
         const qrCode = await qrController.generateQRCode(booking._id);
         booking.qrCode = qrCode;
         await booking.save();
+
+        // Handle sales executive document buffer time
+        if (currentUserIsSalesExecutive) {
+            await User.findByIdAndUpdate(req.user.id, {
+                documentBufferTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                isFrozen: false,
+                freezeReason: ''
+            });
+        }
+
         // Populate the booking with all necessary data
         const populatedBooking = await Booking.findById(booking._id)
             .populate('modelDetails')
@@ -744,7 +741,7 @@ if (modelHasDiscount) {
             .populate({ path: 'payment.financer', model: 'FinanceProvider' });
 
         // Generate and save the booking form PDF if allowed
-        if (generateBookingFormHTML) {
+        if (shouldGenerateForm && generateBookingFormHTML) {
             try {
                 const formResult = await generateBookingFormHTML(populatedBooking);
                 populatedBooking.formPath = formResult.url;
@@ -879,112 +876,227 @@ exports.getBookingForm = async (req, res) => {
     });
   }
 };
-exports.approveBooking = async (req, res) => {
-    try {
-        // Validate booking ID
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid booking ID format' 
-            });
-        }
-
-        // Check user permissions
-        const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-        const isManagerOrAdmin = req.user.roles.some(r => 
-            ['MANAGER', 'ADMIN', 'SUPERADMIN'].includes(r.name)
-        );
-        
-        if (!isSuperAdmin && !isManagerOrAdmin) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Unauthorized to approve bookings' 
-            });
-        }
-
-        // Find and update the booking
-        const booking = await Booking.findOneAndUpdate(
-            { 
-                _id: req.params.id,
-                status: 'PENDING_APPROVAL'
-            },
-            { 
-                $set: { 
-                    status: 'APPROVED',
-                    approvedBy: req.user.id,
-                    'discounts.$[].approvedBy': req.user.id,
-                    'discounts.$[].approvalStatus': 'APPROVED',
-                    'discounts.$[].approvalNote': req.body.approvalNote || ''
-                } 
-            },
-            { 
-                new: true,
-                populate: [
-                    'modelDetails',
-                    'colorDetails',
-                    'branchDetails',
-                    'createdByDetails',
-                    'salesExecutiveDetails',
-                    'approvedByDetails',
-                    { path: 'priceComponents.header', model: 'Header' },
-                    { path: 'accessories.accessory', model: 'Accessory' }
-                ]
-            }
-        );
-
-        if (!booking) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Booking not found or not pending approval' 
-            });
-        }
-
-        // Generate and save the booking form PDF after approval
-        try {
-            const formResult = await generateBookingFormHTML(booking);
-            booking.formPath = formResult.url;
-            booking.formGenerated = true;
-            
-            await booking.save();
-        } catch (pdfError) {
-            console.error('Error generating booking form PDF after approval:', pdfError);
-            // Continue even if PDF generation fails
-        }
-
-        // Create audit log
-        await AuditLog.create({
-            action: 'APPROVE',
-            entity: 'Booking',
-            entityId: booking._id,
-            user: req.user.id,
-            ip: req.ip,
-            metadata: { approvalNote: req.body.approvalNote },
-            status: 'SUCCESS'
-        });
-
-        res.status(200).json({
-            success: true,
-            data: booking
-        });
-    } catch (err) {
-        console.error('Error approving booking:', err);
-        
-        await AuditLog.create({
-            action: 'APPROVE',
-            entity: 'Booking',
-            entityId: req.params.id,
-            user: req.user?.id,
-            ip: req.ip,
-            status: 'FAILED',
-            error: err.message
-        });
-
-        res.status(500).json({
-            success: false,
-            message: 'Error approving booking',
-            error: process.env.NODE_ENV === 'development' ? err.message : undefined
-        });
+// In your bookingController.js
+exports.getBookingByChassisNumber = async (req, res) => {
+  try {
+    const { chassisNumber } = req.params;
+    
+    // Validate chassis number format
+    if (!chassisNumber || !/^[A-Z0-9]{17}$/.test(chassisNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid chassis number format - must be exactly 17 alphanumeric characters'
+      });
     }
+
+    // Find booking by chassis number (case insensitive)
+    const booking = await Booking.findOne({ 
+      chassisNumber: chassisNumber.toUpperCase() 
+    })
+      .populate('model')
+      .populate('color')
+      .populate('branch')
+      .populate('createdBy', 'name email')
+      .populate('salesExecutive', 'name email')
+      .populate({
+        path: 'priceComponents.header',
+        model: 'Header'
+      })
+      .populate({
+        path: 'accessories.accessory',
+        model: 'Accessory'
+      })
+      .populate({
+        path: 'exchangeDetails.broker',
+        model: 'Broker'
+      })
+      .populate({
+        path: 'payment.financer',
+        model: 'FinanceProvider'
+      })
+      .populate('approvedBy', 'name email');
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found for this chassis number'
+      });
+    }
+
+    // Check if user has permission to view this booking
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to view this booking'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: booking
+    });
+
+  } catch (err) {
+    console.error('Error getting booking by chassis number:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching booking',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+exports.approveBooking = async (req, res) => {
+  try {
+    // 1. Validate booking ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid booking ID format' 
+      });
+    }
+
+    console.log("🔧 Booking ID Validated:", req.params.id);
+
+    // 2. Validate chassis number if provided
+    if (req.body.chassisNumber && !/^[A-Z0-9]{10,25}$/.test(req.body.chassisNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid chassis number format'
+      });
+    }
+
+    // 3. Check user permissions
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    const isManagerOrAdmin = req.user.roles.some(r => 
+      ['MANAGER', 'ADMIN', 'SUPERADMIN'].includes(r.name)
+    );
+
+    if (!isSuperAdmin && !isManagerOrAdmin) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Unauthorized to approve bookings' 
+      });
+    }
+
+    // 4. Get vehicle if chassis number exists
+    let vehicle = null;
+    let vehicleDetails = {};
+
+    if (req.body.chassisNumber) {
+      const chassis = req.body.chassisNumber.toUpperCase();
+      console.log("🔎 Looking for vehicle with chassisNumber:", chassis);
+
+      vehicle = await Vehicle.findOne({ chassisNumber: chassis });
+
+      if (!vehicle) {
+        console.log("❌ No vehicle found for chassisNumber:", chassis);
+      } else {
+        console.log("✅ Vehicle found:", {
+          keyNumber: vehicle.keyNumber,
+          engineNumber: vehicle.engineNumber,
+          batteryNumber: vehicle.batteryNumber,
+          motorNumber: vehicle.motorNumber,
+          chargerNumber: vehicle.chargerNumber,
+          qrCode: vehicle.qrCode
+        });
+
+        vehicleDetails = {
+          batteryNumber: vehicle.batteryNumber || null,
+          keyNumber: vehicle.keyNumber || null,
+          motorNumber: vehicle.motorNumber || null,
+          chargerNumber: vehicle.chargerNumber || null,
+          engineNumber: vehicle.engineNumber || null,
+          qrCode: vehicle.qrCode || null
+        };
+      }
+    }
+
+    // 5. Prepare update
+    const updateData = {
+      status: 'APPROVED',
+      approvedBy: req.user.id,
+      "discounts.$[].approvedBy": req.user.id,
+      "discounts.$[].approvalStatus": 'APPROVED',
+      "discounts.$[].approvalNote": req.body.approvalNote || '',
+      ...(req.body.chassisNumber && { chassisNumber: req.body.chassisNumber.toUpperCase() }),
+      ...vehicleDetails
+    };
+
+    console.log("🛠️ Final updateData object:", updateData);
+
+    // 6. Update booking
+    const booking = await Booking.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        status: 'PENDING_APPROVAL'
+      },
+      { $set: updateData },
+      { new: true }
+    )
+      .populate("model", "model_name type")
+      .populate("color", "name code")
+      .populate("branch", "name address")
+      .populate("approvedBy", "name email mobile");
+
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found or not pending approval' 
+      });
+    }
+
+    // 7. Attach final values in response
+    const response = {
+      ...booking.toObject(),
+      fullCustomerName: `${booking.customerDetails.salutation || ""} ${booking.customerDetails.name || ""}`.trim(),
+      batteryNumber: vehicleDetails.batteryNumber,
+      keyNumber: vehicleDetails.keyNumber,
+      motorNumber: vehicleDetails.motorNumber,
+      chargerNumber: vehicleDetails.chargerNumber,
+      engineNumber: vehicleDetails.engineNumber,
+      qrCode: vehicleDetails.qrCode
+    };
+
+    console.log("📦 Final response data to send:", response);
+
+    // 8. Generate booking form (optional)
+    try {
+      const formResult = await generateBookingFormHTML(booking);
+      booking.formPath = formResult.url;
+      booking.formGenerated = true;
+      await booking.save();
+    } catch (err) {
+      console.error("⚠️ Error generating booking form PDF:", err);
+    }
+
+    // 9. Create audit log
+    AuditLog.create({
+      action: "APPROVE",
+      entity: "Booking",
+      entityId: booking._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        approvalNote: req.body.approvalNote || null,
+        chassisNumber: req.body.chassisNumber || null
+      },
+      status: "SUCCESS"
+    }).catch((err) => console.error("Audit Log Error:", err));
+
+    res.status(200).json({
+      success: true,
+      data: response
+    });
+
+  } catch (err) {
+    console.error("❌ Error approving booking:", err);
+    res.status(500).json({
+      success: false,
+      message: "Error approving booking",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
 };
 // Get booking by ID with all populated details (fixed version)
 exports.getBookingById = async (req, res) => {
@@ -998,11 +1110,13 @@ exports.getBookingById = async (req, res) => {
       });
     }
 
+    // Find the booking with all necessary populated data
     const booking = await Booking.findById(bookingId)
-      .populate('model')
-      .populate('color')
-      .populate('branch')
+      .populate('model', 'model_name type')
+      .populate('color', 'name code')
+      .populate('branch', 'name')
       .populate('createdBy', 'name email')
+      .populate('salesExecutive', 'name email')
       .populate({
         path: 'priceComponents.header',
         model: 'Header'
@@ -1028,18 +1142,27 @@ exports.getBookingById = async (req, res) => {
       });
     }
 
-    // Check if user has permission to view this booking
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
+    // Check if user has BOOKING:READ permission
+    if (!req.user || !req.user.hasPermission('BOOKING', 'READ')) {
       return res.status(403).json({
         success: false,
         message: 'You are not authorized to view this booking'
       });
     }
 
+    // Convert to plain object and transform the response
+    const bookingObj = booking.toObject();
+    
+    // Ensure model name is included in the response
+    if (bookingObj.model) {
+      bookingObj.model.name = bookingObj.model.model_name;
+      // Optionally keep both names or just one
+      // delete bookingObj.model.model_name; 
+    }
+
     res.status(200).json({
       success: true,
-      data: booking
+      data: bookingObj
     });
 
   } catch (err) {
@@ -1051,13 +1174,12 @@ exports.getBookingById = async (req, res) => {
     });
   }
 };
-
 // Update getAllBookings
 exports.getAllBookings = async (req, res) => {
   try {
     const { 
       page = 1, 
-      limit = 10, 
+      limit = 100, 
       status, 
       branch, 
       fromDate, 
@@ -1241,74 +1363,81 @@ exports.getAllBookings = async (req, res) => {
     });
   }
 };
-// Update getBookingById
-exports.getBookingById = async (req, res) => {
-  try {
-    const bookingId = req.params.id;
+// exports.getBookingById = async (req, res) => {
+//   try {
+//     const bookingId = req.params.id;
     
-    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid booking ID format'
-      });
-    }
+//     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid booking ID format'
+//       });
+//     }
 
-    const booking = await Booking.findById(bookingId)
-      .populate('model')
-      .populate('color')
-      .populate('branch')
-      .populate('createdBy', 'name email')
-      .populate('salesExecutive', 'name email')
-      .populate({
-        path: 'priceComponents.header',
-        model: 'Header'
-      })
-      .populate({
-        path: 'accessories.accessory',
-        model: 'Accessory'
-      })
-      .populate({
-        path: 'exchangeDetails.broker',
-        model: 'Broker',
-        select: 'name mobile email'
-      })
-      .populate({
-        path: 'payment.financer',
-        model: 'FinanceProvider',
-        select: 'name'
-      })
-      .populate('approvedBy', 'name email');
+//     // Find the booking with all necessary populated data
+//     const booking = await Booking.findById(bookingId)
+//       .populate('model', 'model_name type') // Ensure model_name is populated
+//       .populate('color', 'name code')
+//       .populate('branch', 'name')
+//       .populate('createdBy', 'name email')
+//       .populate('salesExecutive', 'name email')
+//       .populate({
+//         path: 'priceComponents.header',
+//         model: 'Header'
+//       })
+//       .populate({
+//         path: 'accessories.accessory',
+//         model: 'Accessory'
+//       })
+//       .populate({
+//         path: 'exchangeDetails.broker',
+//         model: 'Broker'
+//       })
+//       .populate({
+//         path: 'payment.financer',
+//         model: 'FinanceProvider'
+//       })
+//       .populate('approvedBy', 'name email');
 
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
+//     if (!booking) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Booking not found'
+//       });
+//     }
 
-    // Check if user has permission to view this booking
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to view this booking'
-      });
-    }
+//     // Check if user has permission to view this booking
+//     const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+//     if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
+//       return res.status(403).json({
+//         success: false,
+//         message: 'You are not authorized to view this booking'
+//       });
+//     }
 
-    res.status(200).json({
-      success: true,
-      data: booking
-    });
+//     // Convert to plain object and transform the response
+//     const bookingObj = booking.toObject();
+    
+//     // Ensure model name is included in the response
+//     if (bookingObj.model) {
+//       bookingObj.model.name = bookingObj.model.model_name;
+//       delete bookingObj.model.model_name; // Optional: clean up the field name
+//     }
 
-  } catch (err) {
-    console.error('Error getting booking:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching booking',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       data: bookingObj
+//     });
+
+//   } catch (err) {
+//     console.error('Error getting booking:', err);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Server error while fetching booking',
+//       error: process.env.NODE_ENV === 'development' ? err.message : undefined
+//     });
+//   }
+// };
 exports.updateBooking = async (req, res) => {
     try {
         // Validate booking ID
@@ -1982,117 +2111,114 @@ exports.updateBooking = async (req, res) => {
         });
     }
 };
+// exports.approveBooking = async (req, res) => {
+//     try {
+//         // 1. Validate booking ID
+//         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+//             return res.status(400).json({ 
+//                 success: false, 
+//                 message: 'Invalid booking ID format' 
+//             });
+//         }
 
-   
+//         // 2. Validate chassis number if provided
+//         if (req.body.chassisNumber && !/^[A-Za-z0-9]{17}$/.test(req.body.chassisNumber)) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Invalid chassis number format (must be 17 alphanumeric characters)'
+//             });
+//         }
 
-exports.approveBooking = async (req, res) => {
-    try {
-        // 1. Validate booking ID
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid booking ID format' 
-            });
-        }
-
-        // 2. Validate chassis number if provided
-        if (req.body.chassisNumber && !/^[A-Za-z0-9]{17}$/.test(req.body.chassisNumber)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid chassis number format (must be 17 alphanumeric characters)'
-            });
-        }
-
-        // 3. Check user permissions
-        const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-        const isManagerOrAdmin = req.user.roles.some(r => 
-            ['MANAGER', 'ADMIN', 'SUPERADMIN'].includes(r.name)
-        );
+//         // 3. Check user permissions
+//         const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+//         const isManagerOrAdmin = req.user.roles.some(r => 
+//             ['MANAGER', 'ADMIN', 'SUPERADMIN'].includes(r.name)
+//         );
         
-        if (!isSuperAdmin && !isManagerOrAdmin) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Unauthorized to approve bookings' 
-            });
-        }
+//         if (!isSuperAdmin && !isManagerOrAdmin) {
+//             return res.status(403).json({ 
+//                 success: false, 
+//                 message: 'Unauthorized to approve bookings' 
+//             });
+//         }
 
-        // 4. Prepare update data
-        const updateData = { 
-            status: 'APPROVED',
-            approvedBy: req.user.id,
-            'discounts.$[].approvedBy': req.user.id,
-            'discounts.$[].approvalStatus': 'APPROVED',
-            'discounts.$[].approvalNote': req.body.approvalNote || ''
-        };
+//         // 4. Prepare update data
+//         const updateData = { 
+//             status: 'APPROVED',
+//             approvedBy: req.user.id,
+//             'discounts.$[].approvedBy': req.user.id,
+//             'discounts.$[].approvalStatus': 'APPROVED',
+//             'discounts.$[].approvalNote': req.body.approvalNote || ''
+//         };
 
-        // 5. Add chassis number to update if provided
-        if (req.body.chassisNumber) {
-            updateData.chassisNumber = req.body.chassisNumber;
-        }
+//         // 5. Add chassis number to update if provided
+//         if (req.body.chassisNumber) {
+//             updateData.chassisNumber = req.body.chassisNumber;
+//         }
 
-        // 6. Find and update the booking
-        const booking = await Booking.findOneAndUpdate(
-            { 
-                _id: req.params.id,
-                status: 'PENDING_APPROVAL'
-            },
-            { $set: updateData },
-            { 
-                new: true,
-                populate: [
-                    { path: 'modelDetails', select: 'model_name type' },
-                    { path: 'colorDetails', select: 'name code' },
-                    { path: 'branchDetails', select: 'name address' },
-                    { path: 'approvedByDetails', select: 'name email' }
-                ]
-            }
-        );
+//         // 6. Find and update the booking
+//         const booking = await Booking.findOneAndUpdate(
+//             { 
+//                 _id: req.params.id,
+//                 status: 'PENDING_APPROVAL'
+//             },
+//             { $set: updateData },
+//             { 
+//                 new: true,
+//                 populate: [
+//                     { path: 'modelDetails', select: 'model_name type' },
+//                     { path: 'colorDetails', select: 'name code' },
+//                     { path: 'branchDetails', select: 'name address' },
+//                     { path: 'approvedByDetails', select: 'name email' }
+//                 ]
+//             }
+//         );
 
-        if (!booking) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Booking not found or not pending approval' 
-            });
-        }
+//         if (!booking) {
+//             return res.status(404).json({ 
+//                 success: false, 
+//                 message: 'Booking not found or not pending approval' 
+//             });
+//         }
 
-        // 7. Generate and save the booking form PDF after approval
-        try {
-            const formResult = await generateBookingFormHTML(booking);
-            booking.formPath = formResult.url;
-            booking.formGenerated = true;
-            await booking.save();
-        } catch (pdfError) {
-            console.error('Error generating booking form PDF after approval:', pdfError);
-            // Continue even if PDF generation fails
-        }
+//         // 7. Generate and save the booking form PDF after approval
+//         try {
+//             const formResult = await generateBookingFormHTML(booking);
+//             booking.formPath = formResult.url;
+//             booking.formGenerated = true;
+//             await booking.save();
+//         } catch (pdfError) {
+//             console.error('Error generating booking form PDF after approval:', pdfError);
+//             // Continue even if PDF generation fails
+//         }
 
-        // 8. Create audit log (non-blocking)
-        AuditLog.create({
-            action: 'APPROVE',
-            entity: 'Booking',
-            entityId: booking._id,
-            user: req.user.id,
-            ip: req.ip,
-            metadata: { 
-                approvalNote: req.body.approvalNote,
-                chassisNumber: req.body.chassisNumber || null
-            },
-            status: 'SUCCESS'
-        }).catch(err => console.error('Audit log error:', err));
+//         // 8. Create audit log (non-blocking)
+//         AuditLog.create({
+//             action: 'APPROVE',
+//             entity: 'Booking',
+//             entityId: booking._id,
+//             user: req.user.id,
+//             ip: req.ip,
+//             metadata: { 
+//                 approvalNote: req.body.approvalNote,
+//                 chassisNumber: req.body.chassisNumber || null
+//             },
+//             status: 'SUCCESS'
+//         }).catch(err => console.error('Audit log error:', err));
 
-        res.status(200).json({
-            success: true,
-            data: booking
-        });
-    } catch (err) {
-        console.error('Error approving booking:', err);
-        res.status(500).json({
-            success: false,
-            message: 'Error approving booking',
-            error: process.env.NODE_ENV === 'development' ? err.message : undefined
-        });
-    }
-};
+//         res.status(200).json({
+//             success: true,
+//             data: booking
+//         });
+//     } catch (err) {
+//         console.error('Error approving booking:', err);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error approving booking',
+//             error: process.env.NODE_ENV === 'development' ? err.message : undefined
+//         });
+//     }
+// };
 exports.rejectBooking = async (req, res) => {
   try {
     // Find booking
@@ -2185,7 +2311,6 @@ exports.rejectBooking = async (req, res) => {
     });
   }
 };
-
 exports.completeBooking = async (req, res) => {
   try {
     // Find booking
@@ -2265,7 +2390,6 @@ exports.completeBooking = async (req, res) => {
     });
   }
 };
-
 exports.cancelBooking = async (req, res) => {
   try {
     // Find booking
@@ -2348,7 +2472,6 @@ exports.cancelBooking = async (req, res) => {
     });
   }
 };
-
 exports.getBookingWithDocuments = async (req, res) => {
   try {
     const bookingId = req.params.id;
@@ -2426,7 +2549,6 @@ exports.getBookingWithDocuments = async (req, res) => {
     });
   }
 };
-
 // Check if Booking is Ready for Delivery
 exports.checkReadyForDelivery = async (req, res) => {
   try {
@@ -2487,5 +2609,85 @@ exports.checkReadyForDelivery = async (req, res) => {
     });
   }
 };
+exports.getUpdateForm = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
 
+    // Find the booking with all necessary populated data
+    const booking = await Booking.findById(bookingId)
+      .populate('modelDetails')
+      .populate('colorDetails')
+      .populate('branchDetails')
+      .populate('salesExecutiveDetails');
 
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Get the model with its colors populated
+    const model = await Model.findById(booking.model)
+      .populate('colors'); // This ensures colors are fully populated
+
+    if (!model) {
+      return res.status(404).json({
+        success: false,
+        message: 'Model not found'
+      });
+    }
+
+    // Prepare data for the template
+    const formData = {
+      booking: {
+        ...booking.toObject(),
+        modelDetails: booking.modelDetails,
+        colorDetails: booking.colorDetails,
+        _id: booking._id
+      },
+      modelDetails: {
+        ...model.toObject(),
+        colors: model.colors // This should now be an array of color objects
+      }
+    };
+
+    // Load the update form template
+    const templatePath = path.join(__dirname, '../templates/updateFormTemplate.html');
+    const templateHtml = fs.readFileSync(templatePath, 'utf8');
+    const updateFormTemplate = Handlebars.compile(templateHtml);
+
+    // Generate HTML content
+    const html = updateFormTemplate(formData);
+
+    // Set response headers for HTML content
+    res.set('Content-Type', 'text/html');
+    res.status(200).send(html);
+
+  } catch (err) {
+    console.error('Error getting update form:', err);
+    
+    await AuditLog.create({
+      action: 'VIEW_UPDATE_FORM',
+      entity: 'Booking',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching update form',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};

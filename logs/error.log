@@ -1,1 +1,0 @@
-{"timestamp":"2025-07-16 10:40:11","level":"\u001b[31MERROR\u001b[39M","message":"Error getting accessories by model: Cast to ObjectId failed for value \"XL 100 COMFORT KICKSTART OBD IIB\" (type string) at path \"applicable_models\" for model \"Accessory\"","stack":null}

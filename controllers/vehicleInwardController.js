@@ -622,3 +622,64 @@ exports.getVehiclesByBranch = async (req, res, next) => {
     next(new AppError('Server Error', 500));
   }
 };
+
+// Get vehicle by chassis number
+exports.getVehicleByChassisNumber = async (req, res, next) => {
+  try {
+    const { chassisNumber } = req.params;
+
+    if (!chassisNumber) {
+      return next(new AppError('Chassis number is required', 400));
+    }
+
+    const vehicle = await Vehicle.findOne({ chassisNumber: chassisNumber.toUpperCase() })
+      .populate(populateOptions);
+
+    if (!vehicle) {
+      return next(new AppError('No vehicle found with that chassis number', 404));
+    }
+
+    // Transform the response to handle null references
+    const vehicleObj = vehicle.toObject();
+    
+    if (!vehicleObj.model) {
+      vehicleObj.model = {
+        _id: vehicle.model,
+        model_name: 'Unknown Model',
+        type: 'Unknown'
+      };
+    }
+    
+    if (!vehicleObj.unloadLocation) {
+      vehicleObj.unloadLocation = {
+        _id: vehicle.unloadLocation,
+        name: 'Unknown Location'
+      };
+    }
+    
+    vehicleObj.colors = vehicleObj.colors.map(color => {
+      return color || {
+        _id: color,
+        name: 'Unknown Color',
+        hex_code: '#CCCCCC'
+      };
+    });
+    
+    if (!vehicleObj.addedBy) {
+      vehicleObj.addedBy = {
+        _id: vehicle.addedBy,
+        name: 'Unknown User'
+      };
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        vehicle: vehicleObj
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting vehicle by chassis number: ${err.message}`);
+    next(new AppError('Server Error', 500));
+  }
+};

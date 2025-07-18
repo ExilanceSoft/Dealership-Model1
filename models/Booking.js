@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
+// Sub-schemas remain unchanged
 const exchangeVehicleSchema = new mongoose.Schema({
   broker: {
     type: mongoose.Schema.Types.ObjectId,
@@ -152,6 +153,7 @@ const discountSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+// Main Booking Schema
 const bookingSchema = new mongoose.Schema({
   bookingNumber: {
     type: String,
@@ -168,17 +170,48 @@ const bookingSchema = new mongoose.Schema({
     ref: 'Color',
     required: [true, 'Color is required']
   },
+  // Vehicle identification fields
   chassisNumber: {
     type: String,
     trim: true,
     uppercase: true,
     validate: {
       validator: function(v) {
-        if (!v) return true; // Optional field
-        return /^[A-Z0-9]{17}$/.test(v); // Standard 17-character chassis number format
+        if (!v) return true;
+        return /^[A-Z0-9]{17}$/.test(v);
       },
       message: 'Chassis number must be 17 alphanumeric characters'
     }
+  },
+  batteryNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  keyNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  motorNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  chargerNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  engineNumber: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
+  // Changed from vehicleDetails to vehicleRef to avoid conflict
+  vehicleRef: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Vehicle'
   },
   customerType: {
     type: String,
@@ -426,7 +459,7 @@ const bookingSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-   qrCode: {
+  qrCode: {
     type: String,
     default: ''
   },
@@ -451,11 +484,54 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     default: ''
   }
-},
-  {
+}, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toJSON: { 
+    virtuals: true,
+    transform: function(doc, ret) {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+      
+      // Include vehicle details from either direct fields or populated vehicle
+      const vehicle = doc.vehicle || {};
+      ret.batteryNumber = doc.batteryNumber || vehicle.batteryNumber || null;
+      ret.keyNumber = doc.keyNumber || vehicle.keyNumber || null;
+      ret.motorNumber = doc.motorNumber || vehicle.motorNumber || null;
+      ret.chargerNumber = doc.chargerNumber || vehicle.chargerNumber || null;
+      ret.engineNumber = doc.engineNumber || vehicle.engineNumber || null;
+      
+      return ret;
+    }
+  },
+  toObject: { 
+    virtuals: true,
+    transform: function(doc, ret) {
+      ret.id = ret._id;
+      delete ret._id;
+      delete ret.__v;
+      
+      const vehicle = doc.vehicle || {};
+      ret.batteryNumber = doc.batteryNumber || vehicle.batteryNumber || null;
+      ret.keyNumber = doc.keyNumber || vehicle.keyNumber || null;
+      ret.motorNumber = doc.motorNumber || vehicle.motorNumber || null;
+      ret.chargerNumber = doc.chargerNumber || vehicle.chargerNumber || null;
+      ret.engineNumber = doc.engineNumber || vehicle.engineNumber || null;
+      
+      return ret;
+    }
+  }
+});
+
+// Virtual for vehicle details
+bookingSchema.virtual('vehicle', {
+  ref: 'Vehicle',
+  localField: 'vehicleRef',
+  foreignField: '_id',
+  justOne: true,
+  options: {
+    select: 'batteryNumber keyNumber motorNumber chargerNumber engineNumber chassisNumber qrCode'
+  }
 });
 
 // Generate booking number before saving
@@ -492,7 +568,7 @@ bookingSchema.pre('save', async function(next) {
 bookingSchema.index({ bookingNumber: 1 });
 bookingSchema.index({ model: 1 });
 bookingSchema.index({ color: 1 });
-bookingSchema.index({ chassisNumber: 1 }); // Added index for chassisNumber
+bookingSchema.index({ chassisNumber: 1 });
 bookingSchema.index({ rto: 1 });
 bookingSchema.index({ branch: 1 });
 bookingSchema.index({ status: 1 });

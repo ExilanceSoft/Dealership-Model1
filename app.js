@@ -8,6 +8,8 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const { setupSwagger, getLocalIp } = require('./config/swagger');
 const path = require('path');
+const { runDocumentCheck } = require('./jobs/documentDeadlineJob');
+
 
 
 
@@ -35,6 +37,10 @@ connectDB().catch(err => {
   process.exit(1);
 });
 
+// Run initial document check on startup
+runDocumentCheck().catch(err => {
+  console.error('Initial document check failed:', err);
+});
 
 // Import all route files
 const authRoutes = require('./routes/authRoutes');

@@ -1,13 +1,65 @@
 // controllers/qrController.js
 const QRCode = require('qrcode');
+const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
-const { generateBookingFormHTML } = require('./bookingController');
+const Handlebars = require('handlebars');
+const Color = require('../models/Color');
+// const { generateBookingFormHTML } = require('../controllers/bookingController');
 const path = require('path');
 const fs = require('fs');
+const templatePath = path.join(__dirname, '../templates/updateFormTemplate.html');
+const templateHtml = fs.readFileSync(templatePath, 'utf8');
+const bookingFormTemplate = Handlebars.compile(templateHtml);
+const generateBookingFormHTML = async (booking, saveToFile = true) => {
+    try {
+        // Prepare data for the template
+        const formData = {
+            ...booking.toObject(),
+            branchDetails: booking.branchDetails,
+            modelDetails: booking.modelDetails,
+            colorDetails: booking.colorDetails,
+            salesExecutiveDetails: booking.salesExecutiveDetails,
+            createdAt: booking.createdAt,
+            bookingNumber: booking.bookingNumber
+        };
 
+        // Generate HTML content
+        const html = bookingFormTemplate(formData);
+
+        if (!saveToFile) {
+            return html;
+        }
+
+        // Define upload directory path
+        const uploadDir = path.join(process.cwd(), 'uploads', 'booking-forms');
+        
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // Generate unique filename with timestamp to avoid overwriting
+        const fileName = `booking-form-${booking.bookingNumber}-${Date.now()}.html`;
+        
+        // Create full file path
+        const filePath = path.join(uploadDir, fileName);
+
+        // Write HTML file
+        fs.writeFileSync(filePath, html);
+
+        // Return file information
+        return {
+            path: filePath,
+            fileName: fileName,
+            url: `/uploads/booking-forms/${fileName}`
+        };
+    } catch (error) {
+        console.error('Error generating booking form HTML:', error);
+        throw error;
+    }
+};
 // Generate QR Code for a booking
-// Update the generateQRCode function
 exports.generateQRCode = async (bookingId) => {
   try {
     const booking = await Booking.findById(bookingId);
@@ -15,8 +67,8 @@ exports.generateQRCode = async (bookingId) => {
       throw new Error('Booking not found');
     }
 
-    // Generate URL that will be encoded in QR code
-    const qrData = `${process.env.FRONTEND_URL}/booking-update/${booking._id}`;
+    // Generate URL that will point directly to the update form HTML page
+    const qrData = `${process.env.FRONTEND_URL || process.env.BACKEND_URL}api/v1/bookings/${booking._id}/update-form`;
     
     // Generate QR code as data URL
     const qrCodeDataURL = await QRCode.toDataURL(qrData);
@@ -31,7 +83,6 @@ exports.generateQRCode = async (bookingId) => {
     throw error;
   }
 };
-
 // Get booking data for update form
 exports.getBookingForUpdateForm = async (bookingId) => {
   try {
@@ -56,129 +107,125 @@ exports.getBookingForUpdateForm = async (bookingId) => {
   }
 };
 
-// Submit update request
-exports.submitUpdateRequest = async (bookingId, updates, userId) => {
+exports.submitUpdateRequest = async (req, res) => {
   try {
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
-      throw new Error('Booking not found');
+    const { updates } = req.body;
+    const bookingId = req.params.id;
+
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'No updates provided' 
+      });
     }
 
-    // Validate updates
-    const allowedFields = [
-      'customerDetails.name',
-      'customerDetails.mobile1',
-      'customerDetails.mobile2',
-      'customerDetails.address',
-      'customerDetails.pincode',
-      'color',
-      'payment.type',
-      'payment.scheme',
-      'payment.emiPlan'
-    ];
-
-    const filteredUpdates = {};
-    for (const field in updates) {
-      if (allowedFields.includes(field)) {
-        filteredUpdates[field] = updates[field];
-      }
-    }
-
-    // Save updates as pending
-    booking.pendingUpdates = filteredUpdates;
-    booking.updateRequestStatus = 'PENDING';
-    booking.updateRequestedBy = userId;
-    await booking.save();
-
-    // Log the action
-    await AuditLog.create({
-      action: 'UPDATE_REQUEST',
-      entity: 'Booking',
-      entityId: booking._id,
-      user: userId,
-      metadata: {
-        updates: filteredUpdates
+    // Just store raw input into pendingUpdate
+    const booking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { 
+        pendingUpdates: updates,
+        updateRequestStatus: 'PENDING',
+        updateRequestedBy: null // Since this is unauthenticated
       },
-      status: 'SUCCESS'
-    });
+      { new: true }
+    );
 
-    return booking;
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Booking not found' 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Update request submitted successfully. Awaiting approval.',
+      data: booking
+    });
   } catch (error) {
-    console.error('Error submitting update request:', error);
-    throw error;
+    console.error('submitUpdateRequest error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
 // Process update request (approve/reject)
-exports.processUpdateRequest = async (bookingId, action, managerId, note = '') => {
+exports.approveUpdateRequest = async (req, res) => {
   try {
+    const bookingId = req.params.id;
+    const { note } = req.body;
+
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      throw new Error('Booking not found');
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found' 
+      });
     }
 
-    if (booking.updateRequestStatus !== 'PENDING') {
-      throw new Error('No pending update request for this booking');
+    // Check if there are pending updates
+    if (!booking.pendingUpdates || booking.updateRequestStatus !== 'PENDING') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No pending update request found for this booking' 
+      });
     }
 
-    if (action === 'APPROVE') {
-      // Apply the updates
-      for (const field in booking.pendingUpdates) {
-        const value = booking.pendingUpdates[field];
-        const fieldParts = field.split('.');
-        
-        if (fieldParts.length === 1) {
-          booking[fieldParts[0]] = value;
-        } else if (fieldParts.length === 2) {
-          if (!booking[fieldParts[0]]) booking[fieldParts[0]] = {};
-          booking[fieldParts[0]][fieldParts[1]] = value;
-        }
+    // Apply updates from pendingUpdates
+    const updates = booking.pendingUpdates;
+    
+    if (updates.customerDetails) {
+      booking.customerDetails = {
+        ...booking.customerDetails,
+        ...updates.customerDetails
+      };
+    }
+
+    if (updates.payment) {
+      booking.payment = {
+        ...booking.payment,
+        ...updates.payment
+      };
+    }
+
+    if (updates.color) {
+      const color = await Color.findOne({ name: updates.color });
+      if (color) {
+        booking.color = color._id;
       }
-
-      booking.updateRequestStatus = 'APPROVED';
-      booking.updateApprovedBy = managerId;
-      booking.updateRequestNote = note;
-      booking.pendingUpdates = null;
-
-      await booking.save();
-
-      // Log the action
-      await AuditLog.create({
-        action: 'UPDATE_APPROVED',
-        entity: 'Booking',
-        entityId: booking._id,
-        user: managerId,
-        metadata: {
-          note
-        },
-        status: 'SUCCESS'
-      });
-
-    } else if (action === 'REJECT') {
-      booking.updateRequestStatus = 'REJECTED';
-      booking.updateApprovedBy = managerId;
-      booking.updateRequestNote = note;
-      booking.pendingUpdates = null;
-
-      await booking.save();
-
-      // Log the action
-      await AuditLog.create({
-        action: 'UPDATE_REJECTED',
-        entity: 'Booking',
-        entityId: booking._id,
-        user: managerId,
-        metadata: {
-          note
-        },
-        status: 'SUCCESS'
-      });
     }
 
-    return booking;
-  } catch (error) {
-    console.error('Error processing update request:', error);
-    throw error;
+    // Clear pending updates and update status
+    booking.pendingUpdates = null;
+    booking.updateRequestStatus = 'APPROVED';
+    booking.updateApprovedBy = req.user.id;
+    booking.updateRequestNote = note || '';
+    
+    await booking.save();
+
+    // Populate the updated booking for response
+    const updatedBooking = await Booking.findById(bookingId)
+      .populate('modelDetails')
+      .populate('colorDetails')
+      .populate('branchDetails')
+      .populate('salesExecutiveDetails');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking updates approved successfully',
+      data: updatedBooking
+    });
+
+  } catch (err) {
+    console.error('approveUpdateRequest error:', err);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -186,20 +233,85 @@ exports.processUpdateRequest = async (bookingId, action, managerId, note = '') =
 exports.getPendingUpdateRequests = async (branchId = null) => {
   try {
     const query = { 
-      updateRequestStatus: 'PENDING' 
+      updateRequestStatus: 'PENDING',
+      pendingUpdates: { $exists: true, $ne: null } // Ensure pendingUpdates exists and is not null
     };
 
     if (branchId) {
       query.branch = branchId;
     }
 
-    return await Booking.find(query)
-      .populate('modelDetails')
-      .populate('colorDetails')
+    const bookings = await Booking.find(query)
+      .populate('modelDetails', 'model_name') // Only include necessary fields
+      .populate('colorDetails', 'name')
       .populate('updateRequestedBy', 'name email')
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean(); // Convert to plain JS objects
+
+    // Transform the data to only include relevant pending update information
+    const pendingUpdates = bookings.map(booking => ({
+      _id: booking._id,
+      bookingNumber: booking.bookingNumber,
+      customerName: booking.customerDetails.name,
+      model: booking.modelDetails?.model_name,
+      color: booking.colorDetails?.name,
+      pendingUpdates: booking.pendingUpdates,
+      updateRequestStatus: booking.updateRequestStatus,
+      updateRequestNote: booking.updateRequestNote,
+      updateRequestedBy: booking.updateRequestedBy,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt
+    }));
+
+    return pendingUpdates;
   } catch (error) {
     console.error('Error getting pending update requests:', error);
+    throw error;
+  }
+};
+
+// qrController.js - Add this new function
+
+/**
+ * @desc    Get pending update request for a specific booking
+ * @param   {String} bookingId - Booking ID
+ * @return  {Object} Pending update details
+ */
+exports.getPendingUpdateRequestById = async (bookingId) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      throw new Error('Invalid booking ID format');
+    }
+
+    const booking = await Booking.findById(bookingId)
+      .populate('modelDetails', 'model_name')
+      .populate('colorDetails', 'name')
+      .populate('updateRequestedBy', 'name email')
+      .lean();
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    if (booking.updateRequestStatus !== 'PENDING' || !booking.pendingUpdates) {
+      throw new Error('No pending update request found for this booking');
+    }
+
+    return {
+      _id: booking._id,
+      bookingNumber: booking.bookingNumber,
+      customerName: booking.customerDetails.name,
+      model: booking.modelDetails?.model_name,
+      color: booking.colorDetails?.name,
+      pendingUpdates: booking.pendingUpdates,
+      updateRequestStatus: booking.updateRequestStatus,
+      updateRequestNote: booking.updateRequestNote,
+      updateRequestedBy: booking.updateRequestedBy,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt
+    };
+  } catch (error) {
+    console.error('Error getting pending update request:', error);
     throw error;
   }
 };
