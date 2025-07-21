@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const Permission = require('../models/Permission');
+const Role = require("../models/Role");
 // const userStatusMiddleware = require('../middlewares/userStatusMiddleware');
 
 
@@ -560,17 +561,18 @@ exports.getBufferHistory = async (req, res) => {
 
 exports.extendDocumentDeadline = async (req, res) => {
   try {
-    const { userId, additionalHours, reason } = req.body;
+    const { additionalHours, reason } = req.body;
+    const userId = req.params.id; // Get ID from path parameter
     
-    if (!userId || !additionalHours) {
+    if (!additionalHours) {
       return res.status(400).json({
         success: false,
-        message: 'userId and additionalHours are required'
+        message: 'additionalHours is required'
       });
     }
 
     const isManager = req.user.roles.some(r => ['MANAGER', 'ADMIN'].includes(r.name));
-    if (!isManager && !req.user.roles.some(r => r.isSuperAdmin)) {
+    if (!isManager && !req.user.isSuperAdmin()) {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized to extend deadlines'
@@ -634,11 +636,53 @@ exports.extendDocumentDeadline = async (req, res) => {
     console.error('Error extending document deadline:', err);
     res.status(500).json({
       success: false,
-      message: 'Error extending document deadline'
+      message: 'Error extending document deadline',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
+exports.getFrozenSalesExecutives = async (req, res) => {
+  try {
+    // First, find the SALES_EXECUTIVE role
+    const salesExecutiveRole = await Role.findOne({ name: 'SALES_EXECUTIVE' });
+    
+    if (!salesExecutiveRole) {
+      return res.status(404).json({
+        success: false,
+        message: 'SALES_EXECUTIVE role not found'
+      });
+    }
 
+    // For non-SuperAdmins, limit to their branch
+    const query = req.user.isSuperAdmin() 
+      ? { 
+          roles: salesExecutiveRole._id,
+          isFrozen: true 
+        }
+      : { 
+          roles: salesExecutiveRole._id,
+          isFrozen: true,
+          branch: req.user.branch 
+        };
+
+    const frozenSalesExecutives = await User.find(query)
+      .select(getUserProjection)
+      .populate('roles')
+      .populate('branchDetails');
+
+    res.status(200).json({
+      success: true,
+      data: frozenSalesExecutives
+    });
+  } catch (err) {
+    console.error('Error fetching frozen sales executives:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching frozen sales executives',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
 exports.unfreezeUser = async (req, res) => {
   try {
     const { userId, reason } = req.body;

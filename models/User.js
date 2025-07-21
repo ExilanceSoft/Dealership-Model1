@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+const Role = require('./Role'); 
 // 1. Define User Schema with comprehensive field definitions
 const UserSchema = new mongoose.Schema({
   name: {
@@ -34,21 +34,46 @@ const UserSchema = new mongoose.Schema({
   otpExpires: Date,
   
   // 2. Roles array with validation to ensure active roles
-  roles: [{
-    type: mongoose.Schema.Types.ObjectId,
+  // Update the roles field validation in UserSchema
+  // Update the roles field in UserSchema
+// Update the roles field in UserSchema
+roles: {
+    type: [mongoose.Schema.Types.ObjectId],
     ref: 'Role',
-    required: [true, 'At least one role is required'],
     validate: {
-      validator: async function(roleIds) {
-        const count = await mongoose.model('Role').countDocuments({ 
-          _id: { $in: roleIds },
-          is_active: true
-        });
-        return count === roleIds.length;
+      validator: async function (roles) {
+        if (!roles || roles.length === 0) return false;
+
+        // Fetch roles from DB
+        const assignedRoles = await Role.find({ _id: { $in: roles } });
+
+        // Check if all provided roles exist
+        if (assignedRoles.length !== roles.length) {
+          throw new Error('One or more roles are invalid');
+        }
+
+        // Check if all roles are active
+        for (let role of assignedRoles) {
+          if (!role.is_active) {
+            throw new Error('One or more roles are inactive');
+          }
+        }
+
+        // Allow system roles only if marked as created by superadmin
+        if (this._isCreatingBySuperAdmin) return true;
+
+        // Prevent assignment of superadmin role unless explicitly allowed
+        const containsSystemRole = assignedRoles.some(role => role.isSuperAdmin);
+        if (containsSystemRole) {
+          throw new Error('You lack permission to assign system roles');
+        }
+
+        return true;
       },
-      message: 'One or more roles are invalid or inactive'
+      message: 'One or more roles are invalid, inactive, or you lack permission to assign system roles',
     }
-  }],
+  },
+
 
   // 3. Direct permissions with grant tracking
   permissions: [{
@@ -140,7 +165,7 @@ freezeReason: {
 },
 documentBufferTime: {
   type: Date,
-  default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // Default 24 hours from now
+  default: () => new Date(Date.now() + 24 * 60 * 60 * 1000)
 },
 bufferExtensions: [{
   extendedBy: {

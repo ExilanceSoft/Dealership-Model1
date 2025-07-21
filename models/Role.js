@@ -91,9 +91,8 @@ const RoleSchema = new mongoose.Schema({
 
 // 11. Method to get all permissions (including inherited)
 RoleSchema.methods.getAllPermissions = async function() {
-  // 12. SuperAdmin has all permissions
   if (this.isSuperAdmin) {
-    return [{
+    return [{ 
       _id: 'ALL_PERMISSIONS',
       name: 'ALL',
       module: 'ALL',
@@ -102,12 +101,10 @@ RoleSchema.methods.getAllPermissions = async function() {
     }];
   }
 
-  // 13. Get direct permissions
   const directPermissions = await mongoose.model('Permission')
     .find({ _id: { $in: this.permissions }, is_active: true })
     .lean();
 
-  // 14. Get inherited permissions
   let inheritedPermissions = [];
   if (this.inheritedRoles && this.inheritedRoles.length > 0) {
     const roles = await mongoose.model('Role')
@@ -119,7 +116,6 @@ RoleSchema.methods.getAllPermissions = async function() {
     }
   }
 
-  // 15. Combine and deduplicate
   const allPermissions = [...directPermissions, ...inheritedPermissions];
   const uniquePermissions = [];
   const seen = new Set();

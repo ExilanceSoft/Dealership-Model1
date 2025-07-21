@@ -1,6 +1,4 @@
 // controllers/kycController.js
-
-
 const KYC = require('../models/KYC');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
@@ -10,6 +8,8 @@ const path = require('path');
 const pdfkit = require('pdfkit');
 const { promisify } = require('util');
 const pipeline = promisify(require('stream').pipeline);
+const FinanceLetter = require('../models/FinanceLetter');
+const User = require('../models/User')
 
 // Helper to generate PDF from images
 const generateKycPdf = async (files, bookingId) => {

@@ -7,6 +7,8 @@ const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 const pipeline = promisify(require('stream').pipeline);
+const KYC = require('../models/KYC')
+const User = require('../models/User')
 
 // Submit Finance Letter
 exports.submitFinanceLetter = async (req, res) => {

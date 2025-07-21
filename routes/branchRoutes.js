@@ -4,6 +4,9 @@ const branchController = require('../controllers/branchController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
+// const validateSalesExecutive  = require('../middlewares/validateSalesExecutive');
+// const bookingController = require('../controllers/bookingController');
+
 
 // Configure multer for file uploads
 const upload = multer({
@@ -172,8 +175,8 @@ const upload = multer({
  *       500:
  *         description: Server error
  */
-router.post('/', 
-  protect, 
+router.post('/',
+  protect,
   authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   upload.fields([{ name: 'logo1', maxCount: 1 }, { name: 'logo2', maxCount: 1 }]),
   logAction('CREATE', 'Branch'), 

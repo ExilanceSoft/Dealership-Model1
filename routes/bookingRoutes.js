@@ -2,10 +2,13 @@ const express = require('express');
 const router = express.Router();
 const bookingController = require('../controllers/bookingController');
 const { protect, authorize } = require('../middlewares/auth');
+const { validateSalesExecutive } = require('../middlewares/validateSalesExecutive');
 const pdfController = require('../controllers/pdfController');
 const { logAction } = require('../middlewares/audit');
 const qrController = require('../controllers/qrController');
 const Vehicle = require('../models/vehicleInwardModel');
+
+
 // const { checkSalesExecutiveStatus } = require('../middlewares/userStatusMiddleware');
 
 // router.use(protect);
@@ -335,8 +338,9 @@ const Vehicle = require('../models/vehicleInwardModel');
  */
 router.post('/', 
   protect, 
-  // checkSalesExecutiveStatus,
+  // validateSalesExecutive,
   authorize('BOOKING', 'CREATE'), 
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
@@ -366,6 +370,7 @@ router.post('/',
  */
 router.get('/pending-updates', 
   protect, 
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   authorize('BOOKING', 'APPROVE'),
   async (req, res) => {
     try {
@@ -469,7 +474,8 @@ router.get('/pending-updates',
  *         description: Server error
  */
 router.get('/', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getAllBookings
 );
@@ -506,7 +512,8 @@ router.get('/',
  *         description: Server error
  */
 router.get('/:id', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getBookingById
 );
@@ -562,7 +569,8 @@ router.get('/:id',
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put('/:id', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'UPDATE'),  // Changed to permission check
   logAction('UPDATE', 'Booking'), 
   bookingController.updateBooking
@@ -622,119 +630,120 @@ router.put('/:id',
  *         description: Server error
  */
 router.post('/:id/approve', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'APPROVE'),  // Specific approve permission
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
 );
 // Add this to your routes file
-/**
- * @swagger
- * /api/v1/bookings/{chassisNumber}:
- *   get:
- *     summary: Retrieve vehicle details by chassis number
- *     description: |
- *       Fetches critical vehicle components by its 17-character chassis number.
- *       Returns battery, key, motor, charger, and engine numbers along with status.
- *     tags: [Vehicle Testing]
- *     parameters:
- *       - in: path
- *         name: chassisNumber
- *         required: true
- *         schema:
- *           type: string
- *           pattern: '^[A-Z0-9]{17}$'
- *           example: "MA6FRE4521KM12345"
- *         description: 17-character alphanumeric chassis number (case insensitive)
- *     responses:
- *       200:
- *         description: Vehicle details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     batteryNumber:
- *                       type: string
- *                     keyNumber:
- *                       type: string
- *                     motorNumber:
- *                       type: string
- *                     chargerNumber:
- *                       type: string
- *                     engineNumber:
- *                       type: string
- *                     status:
- *                       type: string
- *       400:
- *         description: Invalid chassis number format
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: "Invalid chassis number format"
- *       404:
- *         description: Vehicle not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: "Vehicle not found"
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: "Server error"
- */
-router.get('/:chassisNumber', async (req, res) => {
-  try {
-    const { chassisNumber } = req.params;
+// /**
+//  * @swagger
+//  * /api/v1/bookings/{chassisNumber}:
+//  *   get:
+//  *     summary: Retrieve vehicle details by chassis number
+//  *     description: |
+//  *       Fetches critical vehicle components by its 17-character chassis number.
+//  *       Returns battery, key, motor, charger, and engine numbers along with status.
+//  *     tags: [Vehicle Testing]
+//  *     parameters:
+//  *       - in: path
+//  *         name: chassisNumber
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *           pattern: '^[A-Z0-9]{17}$'
+//  *           example: "MA6FRE4521KM12345"
+//  *         description: 17-character alphanumeric chassis number (case insensitive)
+//  *     responses:
+//  *       200:
+//  *         description: Vehicle details retrieved successfully
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 success:
+//  *                   type: boolean
+//  *                   example: true
+//  *                 data:
+//  *                   type: object
+//  *                   properties:
+//  *                     batteryNumber:
+//  *                       type: string
+//  *                     keyNumber:
+//  *                       type: string
+//  *                     motorNumber:
+//  *                       type: string
+//  *                     chargerNumber:
+//  *                       type: string
+//  *                     engineNumber:
+//  *                       type: string
+//  *                     status:
+//  *                       type: string
+//  *       400:
+//  *         description: Invalid chassis number format
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               $ref: '#/components/schemas/ErrorResponse'
+//  *             example:
+//  *               success: false
+//  *               message: "Invalid chassis number format"
+//  *       404:
+//  *         description: Vehicle not found
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               $ref: '#/components/schemas/ErrorResponse'
+//  *             example:
+//  *               success: false
+//  *               message: "Vehicle not found"
+//  *       500:
+//  *         description: Server error
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               $ref: '#/components/schemas/ErrorResponse'
+//  *             example:
+//  *               success: false
+//  *               message: "Server error"
+//  */
+// router.get('/:chassisNumber', async (req, res) => {
+//   try {
+//     const { chassisNumber } = req.params;
     
-    // Updated validation to be more permissive while maintaining length requirement
-    if (!chassisNumber || chassisNumber.length !== 17 || !/^[A-Z0-9]+$/i.test(chassisNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid chassis number format - must be exactly 17 alphanumeric characters'
-      });
-    }
+//     // Updated validation to be more permissive while maintaining length requirement
+//     if (!chassisNumber || chassisNumber.length !== 17 || !/^[A-Z0-9]+$/i.test(chassisNumber)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid chassis number format - must be exactly 17 alphanumeric characters'
+//       });
+//     }
 
-    const vehicle = await Vehicle.findOne({ 
-      chassisNumber: chassisNumber.toUpperCase() 
-    }).select('batteryNumber keyNumber motorNumber chargerNumber engineNumber status');
+//     const vehicle = await Vehicle.findOne({ 
+//       chassisNumber: chassisNumber.toUpperCase() 
+//     }).select('batteryNumber keyNumber motorNumber chargerNumber engineNumber status');
 
-    if (!vehicle) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vehicle not found'
-      });
-    }
+//     if (!vehicle) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Vehicle not found'
+//       });
+//     }
 
-    res.json({
-      success: true,
-      data: vehicle
-    });
-  } catch (err) {
-    console.error('Test vehicle lookup error:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
+//     res.json({
+//       success: true,
+//       data: vehicle
+//     });
+//   } catch (err) {
+//     console.error('Test vehicle lookup error:', err);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Server error'
+//     });
+//   }
+// });
 /**
  * @swagger
  * /api/v1/bookings/{id}/form:
@@ -767,7 +776,8 @@ router.get('/:chassisNumber', async (req, res) => {
  *         description: Server error
  */
 router.get('/:id/form', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'READ'),
   bookingController.getBookingForm
 );
@@ -826,7 +836,8 @@ router.get('/:id/form',
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/:id/reject', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'APPROVE'),  // Uses same permission as approve
   logAction('REJECT', 'Booking'), 
   bookingController.rejectBooking
@@ -880,7 +891,8 @@ router.post('/:id/reject',
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/:id/complete', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'COMPLETE'),  // Specific complete permission
   logAction('COMPLETE', 'Booking'), 
   bookingController.completeBooking
@@ -920,7 +932,8 @@ router.post('/:id/complete',
  *         description: Server error
  */
 router.get('/chassis/:chassisNumber', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'READ'),
   bookingController.getBookingByChassisNumber
 );
@@ -980,6 +993,7 @@ router.get('/chassis/:chassisNumber',
  */
 router.post('/:id/cancel', 
   protect, 
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   authorize('BOOKING', 'CANCEL'),  // Specific cancel permission
   logAction('CANCEL', 'Booking'), 
   bookingController.cancelBooking
@@ -1026,7 +1040,8 @@ router.post('/:id/cancel',
  *         description: Server error
  */
 router.get('/:id/receipt', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateBookingReceipt
 );
@@ -1065,7 +1080,8 @@ router.get('/:id/receipt',
  *         description: Server error
  */
 router.get('/:id/helmet-invoice', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateHelmetInvoice
 );
@@ -1110,7 +1126,8 @@ router.get('/:id/helmet-invoice',
  *         description: Server error
  */
 router.get('/:id/accessories-challan', 
-  protect, 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateAccessoriesChallan
 );
@@ -1158,6 +1175,7 @@ router.get('/:id/accessories-challan',
  */
 router.get('/:id/documents',
   protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   authorize('BOOKING', 'READ'),
   bookingController.getBookingWithDocuments
 );
@@ -1205,6 +1223,7 @@ router.get('/:id/documents',
  */
 router.get('/:id/ready-for-delivery',
   protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   authorize('BOOKING', 'READ'),
   bookingController.checkReadyForDelivery
 );
@@ -1245,6 +1264,7 @@ router.get('/:id/ready-for-delivery',
  */
 router.get('/:id/qr-code', 
   protect, 
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   authorize('BOOKING', 'READ'),
   async (req, res) => {
     try {
@@ -1432,6 +1452,7 @@ router.post('/:id/submit-update',
  */
 router.post('/:id/approve-update', 
   protect, 
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   authorize('BOOKING', 'APPROVE'),
   logAction('APPROVE_UPDATE', 'Booking'),
   async (req, res) => {

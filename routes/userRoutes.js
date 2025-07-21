@@ -91,7 +91,41 @@ router.get('/',
   authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
   userController.getUsers
 );
-
+/**
+ * @swagger
+ * /api/v1/users/frozen-sales-executives:
+ *   get:
+ *     summary: Get all frozen SALES_EXECUTIVE users
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of frozen sales executives
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (not authorized)
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/frozen-sales-executives', 
+  protect, 
+  authorize('MANAGER', 'ADMIN', 'SUPERADMIN'),
+  userController.getFrozenSalesExecutives
+);
 /**
  * @swagger
  * /api/v1/users/{id}:
@@ -589,7 +623,7 @@ router.get('/:userId/buffer-history',
 router.post(
   '/:id/extend-deadline',
   protect,
-  authorize(['MANAGER', 'ADMIN']),
+  authorize(['MANAGER', 'ADMIN','SUPERADMIN']),
   logAction('EXTEND_DEADLINE', 'User'),
   userController.extendDocumentDeadline
 );
@@ -647,7 +681,7 @@ router.post(
 router.post(
   '/:id/unfreeze',
   protect,
-  authorize(['MANAGER', 'ADMIN']),
+  authorize(['MANAGER', 'ADMIN','SUPERADMIN']),
   logAction('UNFREEZE_USER', 'User'),
   userController.unfreezeUser
 );

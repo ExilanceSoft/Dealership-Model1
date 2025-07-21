@@ -274,44 +274,112 @@ exports.createBooking = async (req, res) => {
             }
         }
 
-        // Validate sales executive selection
+        // ==============================================
+        // Sales Executive Validation (previously in middleware)
+        // ==============================================
+        const currentUser = await User.findById(req.user.id).populate('roles');
+        const isCurrentUserSalesExecutive = currentUser.roles.some(r => r.name === 'SALES_EXECUTIVE');
+
+        // Handle sales executive selection
         if (req.body.sales_executive) {
-            if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid sales executive ID format'
-                });
-            }
+  if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid sales executive ID format'
+    });
+  }
 
-            const salesExecutive = await User.findById(req.body.sales_executive)
-                .populate('roles');
-            
-            if (!salesExecutive || !salesExecutive.isActive) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid or inactive sales executive selected'
-                });
-            }
+  const salesExecutive = await User.findById(req.body.sales_executive).populate('roles');
+  
+  if (!salesExecutive || salesExecutive.status !== 'ACTIVE') {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or inactive sales executive selected'
+    });
+  }
 
-            const isSalesExecutiveRole = salesExecutive.roles.some(r => 
-                r.name === 'SALES_EXECUTIVE'
-            );
-            
-            if (!isSalesExecutiveRole) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Selected user must have SALES_EXECUTIVE role'
-                });
-            }
+  const isSelectedUserSalesExecutive = salesExecutive.roles.some(r => r.name === 'SALES_EXECUTIVE');
+  
+  if (!isSelectedUserSalesExecutive) {
+    return res.status(400).json({
+      success: false,
+      message: 'Selected user must have SALES_EXECUTIVE role'
+    });
+  }
 
-            if (!salesExecutive.branch || 
-                salesExecutive.branch.toString() !== branchId.toString()) {
+  if (!salesExecutive.branch || salesExecutive.branch.toString() !== branchId.toString()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Sales executive must belong to the selected branch'
+    });
+  }
+
+  // Check if selected sales executive is frozen
+  if (salesExecutive.isFrozen) {
+    return res.status(400).json({
+      success: false,
+      message: `Selected sales executive is frozen due to: ${salesExecutive.freezeReason}`
+    });
+  }
+
+        } else if (!isSuperAdmin) {
+            // Default to current user if not specified and user is sales executive
+            if (isCurrentUserSalesExecutive) {
+                req.body.sales_executive = req.user.id;
+            } else {
                 return res.status(400).json({
                     success: false,
-                    message: 'Sales executive must belong to the selected branch'
+                    message: 'Sales executive selection is required'
                 });
             }
         }
+
+        // Check if current sales executive is frozen (when creating own booking)
+        if (isCurrentUserSalesExecutive && currentUser.isFrozen) {
+            return res.status(400).json({
+                success: false,
+                message: `Your account is frozen due to: ${currentUser.freezeReason}. Please submit pending documents before creating new bookings.`
+            });
+        }
+
+        // Check for pending documents if current user is sales executive
+        if (isCurrentUserSalesExecutive) {
+            const latestBooking = await Booking.findOne({
+                $or: [
+                    { createdBy: req.user.id },
+                    { salesExecutive: req.user.id }
+                ],
+                status: { $in: ['APPROVED', 'PENDING_APPROVAL'] }
+            }).sort({ createdAt: -1 });
+
+            if (latestBooking) {
+                const [kyc, financeLetter] = await Promise.all([
+                    KYC.findOne({ booking: latestBooking._id }),
+                    latestBooking.payment.type === 'FINANCE' 
+                        ? FinanceLetter.findOne({ booking: latestBooking._id })
+                        : Promise.resolve(null)
+                ]);
+
+                const missingDocuments = [];
+                if (!kyc || kyc.status !== 'APPROVED') missingDocuments.push('KYC');
+                if (latestBooking.payment.type === 'FINANCE' && (!financeLetter || financeLetter.status !== 'APPROVED')) {
+                    missingDocuments.push('Finance Letter');
+                }
+
+                if (missingDocuments.length > 0) {
+                    const now = new Date();
+                    if (currentUser.documentBufferTime && now > currentUser.documentBufferTime) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `You have pending document submissions for booking ${latestBooking.bookingNumber}. Please submit all required documents before creating new bookings.`
+                        });
+                    }
+                }
+            }
+        }
+        // ==============================================
+        // End of Sales Executive Validation
+        // ==============================================
 
         // Validate salutation
         const validSalutations = ['Mr.', 'Mrs.', 'Miss', 'Dr.', 'Prof.'];
@@ -418,7 +486,10 @@ exports.createBooking = async (req, res) => {
 
         // Verify at least one price component exists
         if (filteredComponents.length === 0) {
-            throw new Error('No valid price components found for this model and branch');
+            return res.status(400).json({
+                success: false,
+                message: 'No valid price components found for this model and branch'
+            });
         }
 
         // Calculate base amount using filtered components
@@ -445,7 +516,10 @@ exports.createBooking = async (req, res) => {
         if (req.body.accessories?.selected?.length > 0) {
             const accessoryIds = req.body.accessories.selected.map(acc => {
                 if (!mongoose.Types.ObjectId.isValid(acc.id)) {
-                    throw new Error(`Invalid accessory ID: ${acc.id}`);
+                    return res.status(400).json({
+                        success: false,
+                        message: `Invalid accessory ID: ${acc.id}`
+                    });
                 }
                 return new mongoose.Types.ObjectId(acc.id);
             });
@@ -459,16 +533,22 @@ exports.createBooking = async (req, res) => {
                 const missingIds = req.body.accessories.selected
                     .filter(a => !validAccessories.some(v => v._id.toString() === a.id))
                     .map(a => a.id);
-                throw new Error(`Invalid accessory IDs: ${missingIds.join(', ')}`);
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid accessory IDs: ${missingIds.join(', ')}`
+                });
             }
 
             const incompatibleAccessories = validAccessories.filter(
                 a => !a.applicable_models.some(m => m.toString() === req.body.model_id.toString())
             );
             if (incompatibleAccessories.length > 0) {
-                throw new Error(`Incompatible accessories: ${
-                    incompatibleAccessories.map(a => a.name).join(', ')
-                }`);
+                return res.status(400).json({
+                    success: false,
+                    message: `Incompatible accessories: ${
+                        incompatibleAccessories.map(a => a.name).join(', ')
+                    }`
+                });
             }
 
             const accessoriesTotalHeader = await Header.findOne({
@@ -476,7 +556,10 @@ exports.createBooking = async (req, res) => {
                 type: model.type
             });
             if (!accessoriesTotalHeader) {
-                throw new Error('ACCESSORIES TOTAL header not configured');
+                return res.status(400).json({
+                    success: false,
+                    message: 'ACCESSORIES TOTAL header not configured'
+                });
             }
 
             const accessoriesTotalPrice = model.prices.find(
@@ -511,16 +594,25 @@ exports.createBooking = async (req, res) => {
         let exchangeDetails = null;
         if (req.body.exchange?.is_exchange) {
             if (!req.body.exchange.broker_id) {
-                throw new Error('Broker selection is required for exchange');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Broker selection is required for exchange'
+                });
             }
 
             const broker = await Broker.findById(req.body.exchange.broker_id);
             if (!broker) {
-                throw new Error('Invalid broker selected');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid broker selected'
+                });
             }
 
             if (!broker.branches.some(b => b.branch.equals(branchId))) {
-                throw new Error('Broker not available for this branch');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Broker not available for this branch'
+                });
             }
 
             exchangeDetails = {
@@ -535,12 +627,18 @@ exports.createBooking = async (req, res) => {
         let payment = {};
         if (req.body.payment.type.toLowerCase() === 'finance') {
             if (!req.body.payment.financer_id) {
-                throw new Error('Financer selection is required');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Financer selection is required'
+                });
             }
 
             const financer = await FinanceProvider.findById(req.body.payment.financer_id);
             if (!financer) {
-                throw new Error('Invalid financer selected');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid financer selected'
+                });
             }
 
             let gcAmount = 0;
@@ -552,7 +650,10 @@ exports.createBooking = async (req, res) => {
                 });
 
                 if (!financerRate) {
-                    throw new Error('Financer rate not found for this branch');
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Financer rate not found for this branch'
+                    });
                 }
 
                 gcAmount = (baseAmount * financerRate.gcRate) / 100;
@@ -574,8 +675,7 @@ exports.createBooking = async (req, res) => {
 
         // Check discount scenarios
         const modelHasDiscount = model.model_discount && model.model_discount > 0;
-        const currentUserIsSalesExecutive = req.user.roles.some(r => r.name === 'SALES_EXECUTIVE');
-        const userDiscountLimit = currentUserIsSalesExecutive ? (req.user.discount || 0) : 0;
+        const userDiscountLimit = isCurrentUserSalesExecutive ? (req.user.discount || 0) : 0;
         const isApplyingDiscount = req.body.discount && req.body.discount.value > 0;
         const discountExceedsLimit = isApplyingDiscount && req.body.discount.value > userDiscountLimit;
 
@@ -592,7 +692,7 @@ exports.createBooking = async (req, res) => {
             approvalNote = 'Model discount requires approval';
             shouldGenerateForm = false;
         } else if (isApplyingDiscount) {
-            if (currentUserIsSalesExecutive) {
+            if (isCurrentUserSalesExecutive) {
                 if (discountExceedsLimit) {
                     status = 'PENDING_APPROVAL (Discount_Exceeded)';
                     shouldGenerateForm = false;
@@ -720,13 +820,13 @@ exports.createBooking = async (req, res) => {
         await booking.save();
 
         // Handle sales executive document buffer time
-        if (currentUserIsSalesExecutive) {
-            await User.findByIdAndUpdate(req.user.id, {
-                documentBufferTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                isFrozen: false,
-                freezeReason: ''
-            });
-        }
+        if (isCurrentUserSalesExecutive) {
+        await User.findByIdAndUpdate(req.user.id, {
+        documentBufferTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours in milliseconds
+        isFrozen: false,
+        freezeReason: ''
+    });
+    }
 
         // Populate the booking with all necessary data
         const populatedBooking = await Booking.findById(booking._id)

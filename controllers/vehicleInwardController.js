@@ -7,21 +7,6 @@ const logger = require('../config/logger');
 const mongoose = require('mongoose');
 const QRCode = require('qrcode');
 
-// Helper function to validate vehicle type specific fields
-const validateVehicleFields = (type, body) => {
-  const errors = [];
-  
-  if (type === 'EV') {
-    if (!body.batteryNumber) errors.push('Battery number is required for EV');
-    if (!body.motorNumber) errors.push('Motor number is required for EV');
-    if (!body.chargerNumber) errors.push('Charger number is required for EV');
-  } else if (type === 'ICE') {
-    if (!body.engineNumber) errors.push('Engine number is required for ICE');
-  }
-  
-  return errors;
-};
-
 // Enhanced population options with error handling
 const populateOptions = [
   {
@@ -51,6 +36,7 @@ const populateOptions = [
 ];
 
 // Create a new vehicle
+// Create a new vehicle
 exports.createVehicle = async (req, res, next) => {
   try {
     const { model, unloadLocation, type, colors, chassisNumber } = req.body;
@@ -68,25 +54,28 @@ exports.createVehicle = async (req, res, next) => {
     }
 
     // Validate referenced documents exist
-    const modelExists = await Model.exists({ _id: model });
+    const [modelExists, branchExists, colorsExist] = await Promise.all([
+      Model.exists({ _id: model }),
+      Branch.exists({ _id: unloadLocation }),
+      Color.countDocuments({ _id: { $in: colors } })
+    ]);
+
     if (!modelExists) {
       return next(new AppError('Referenced model does not exist', 400));
     }
 
-    const branchExists = await Branch.exists({ _id: unloadLocation });
     if (!branchExists) {
       return next(new AppError('Referenced branch does not exist', 400));
     }
 
-    const colorsExist = await Color.countDocuments({ _id: { $in: colors } });
     if (colorsExist !== colors.length) {
       return next(new AppError('One or more referenced colors do not exist', 400));
     }
-    
-    // Validate vehicle type specific fields
-    const fieldErrors = validateVehicleFields(type, req.body);
-    if (fieldErrors.length > 0) {
-      return next(new AppError(fieldErrors.join(', '), 400));
+
+    // Check for existing vehicle with same chassis number
+    const existingVehicle = await Vehicle.findOne({ chassisNumber });
+    if (existingVehicle) {
+      return next(new AppError(`Vehicle with chassis number ${chassisNumber} already exists`, 409));
     }
     
     // Create the vehicle
@@ -123,8 +112,15 @@ exports.createVehicle = async (req, res, next) => {
       }
     });
   } catch (err) {
+    // Handle duplicate key error specifically
+    if (err.code === 11000 && err.keyPattern?.chassisNumber) {
+      const duplicateValue = err.keyValue?.chassisNumber;
+      logger.error(`Duplicate chassis number error: ${duplicateValue}`);
+      return next(new AppError(`Vehicle with chassis number ${duplicateValue} already exists`, 409));
+    }
+    
     logger.error(`Error creating vehicle: ${err.message}`);
-    next(new AppError('Server Error', 500));
+    next(new AppError('Failed to create vehicle. Please try again.', 500));
   }
 };
 
