@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Booking Form - BK000033</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm 10mm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.3;
+            margin: 0;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            page-break-inside: avoid;
+        }
+        th, td {
+            padding: 4px 6px;
+            border: 1px solid #000;
+            vertical-align: top;
+        }
+        .header-table {
+            border: none;
+        }
+        .header-table td {
+            border: none;
+            padding: 1px 6px;
+        }
+        .item-table {
+            font-size: 9pt;
+        }
+        .item-table td {
+            padding: 2px 4px;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-bold {
+            font-weight: bold;
+        }
+        .section-title {
+            font-weight: bold;
+            margin: 8px 0 4px 0;
+            border-bottom: 1px solid #000;
+            padding-bottom: 2px;
+            font-size: 11pt;
+        }
+        .signature-table {
+            margin-top: 20px;
+        }
+        .signature-table td {
+            border: none;
+            padding-top: 30px;
+            width: 25%;
+            border-top: 1px solid #000;
+        }
+        .declaration {
+            font-size: 8pt;
+            text-align: justify;
+            margin-top: 10px;
+            line-height: 1.2;
+        }
+        .qr-code-container {
+            float: right;
+            text-align: center;
+            margin-left: 10px;
+            margin-bottom: 5px;
+        }
+        .qr-code-text {
+            font-size: 7pt;
+            margin-top: 1px;
+        }
+        .clearfix {
+            clear: both;
+        }
+        .no-border {
+            border: none !important;
+        }
+        .avoid-break {
+            page-break-inside: avoid;
+        }
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print {
+                display: none !important;
+            }
+            table {
+                page-break-inside: avoid;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="qr-code-container">
+        <img src="data:image/png;base64,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" width="60" height="60" alt="Booking QR Code">
+        <div class="qr-code-text">Scan to verify booking</div>
+    </div>
+
+    <!-- Header Section -->
+    <table class="header-table">
+        <tr>
+            <td width="40%"><span style="font-size: 14pt;"><b>Gandhi TVS</b></span></td>
+            <td width="40%" class="text-center"><b><u>Booking Form / Order Form</u></b></td>
+            <td width="20%" class="text-right"><img src="tvs.jpg" alt="tvs" width="80" height="16"></td>
+        </tr>
+        <tr>
+            <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
+            <td class="text-right">Date: 22/07/2025</td>
+        </tr>
+        <tr>
+            <td colspan="3"></td>
+        </tr>
+    </table>
+
+
+    <!-- Customer Details -->
+    <div class="section-title avoid-break">Customer & Vehicle Details</div>
+    <table class="header-table avoid-break">
+        <tr>
+            <td width="20%"><b>Booking No.:</b></td>
+            <td width="30%">BK000033</td>
+            <td width="20%"><b>GSTIN:</b></td>
+            <td width="30%">N/A</td>
+        </tr>
+        <tr>
+            <td><b>Customer Name:</b></td>
+            <td>Mr. Rahul Sharma</td>
+            <td><b>RTO Type:</b></td>
+            <td>BH</td>
+        </tr>
+        <tr>
+            <td><b>Address:</b></td>
+            <td colspan="3">456 Business Park, Nashik</td>
+        </tr>
+        <tr>
+            <td><b>Taluka:</b></td>
+            <td>Nashik</td>
+            <td><b>District:</b></td>
+            <td>Nashik</td>
+        </tr>
+        <tr>
+            <td><b>Pincode:</b></td>
+            <td>422005</td>
+            <td><b>Mobile No.:</b></td>
+            <td>9876543210</td>
+        </tr>
+        <tr>
+            <td><b>D.O.B.:</b></td>
+            <td>15/05/1985</td>
+            <td><b>Aadhar No.:</b></td>
+            <td>112233445566</td>
+        </tr>
+        <tr>
+            <td><b>Exchange Mode:</b></td>
+            <td>NO</td>
+            <td><b>Payment Mode:</b></td>
+            <td>FINANCE (ABC Finance1)</td>
+        </tr>
+        <tr>
+            <td><b>Model:</b></td>
+            <td></td>
+            <td><b>Color:</b></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td><b>Sales Rep:</b></td>
+            <td></td>
+            <td><b>HPA:</b></td>
+            <td>YES</td>
+        </tr>
+    </table>
+
+    <!-- Price Components -->
+    <div class="section-title avoid-break">Price Breakdown</div>
+    <table class="item-table avoid-break">
+        <thead>
+            <tr>
+                <th width="25%"><b>Particulars</b></th>
+                <th width="8%"><b>HSN</b></th>
+                <th width="10%"><b>Unit Cost</b></th>
+                <th width="10%"><b>Taxable</b></th>
+                <th width="6%"><b>CGST</b></th>
+                <th width="10%"><b>CGST AMT</b></th>
+                <th width="6%"><b>SGST</b></th>
+                <th width="10%"><b>SGST AMT</b></th>
+                <th width="8%"><b>DIS.</b></th>
+                <th width="10%"><b>TOTAL</b></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><b>ACCESSORIES TOTAL</b></td>
+                <td class="text-center">8703</td>
+                <td class="text-right">9000.00</td>
+                <td class="text-right">9000.00</td>
+                <td class="text-right">493.5%</td>
+                <td class="text-right">44415.00</td>
+                <td class="text-right">493.5%</td>
+                <td class="text-right">44415.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">9000.00</td>
+            </tr>
+            <tr>
+                <td><b>battery_capacity</b></td>
+                <td class="text-center">8703</td>
+                <td class="text-right">4567.00</td>
+                <td class="text-right">4517.00</td>
+                <td class="text-right">493.5%</td>
+                <td class="text-right">22291.40</td>
+                <td class="text-right">493.5%</td>
+                <td class="text-right">22291.40</td>
+                <td class="text-right">50.00</td>
+                <td class="text-right">4517.00</td>
+            </tr>
+            <tr>
+                <td><b>HYPOTHECATION CHARGES (IF APPLICABLE)</b></td>
+                <td class="text-center">8703</td>
+                <td class="text-right">500.00</td>
+                <td class="text-right">500.00</td>
+                <td class="text-right">493.5%</td>
+                <td class="text-right">2467.50</td>
+                <td class="text-right">493.5%</td>
+                <td class="text-right">2467.50</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">500.00</td>
+            </tr>
+            
+            <tr>
+                <td><b>Alloy Helmet</b></td>
+                <td class="text-center">-</td>
+                <td class="text-right">500.00</td>
+                <td class="text-right">500.00</td>
+                <td class="text-right">0%</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0%</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">500.00</td>
+            </tr>
+            <tr>
+                <td><b>Additional Charges</b></td>
+                <td class="text-center">-</td>
+                <td class="text-right">8500.00</td>
+                <td class="text-right">8500.00</td>
+                <td class="text-right">0%</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0%</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">8500.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Totals Section -->
+    <table class="header-table avoid-break">
+        <tr>
+            <td colspan="3"><strong>Total(A)</strong></td>
+            <td width="15%" class="text-right"><strong>28067.00</strong></td>
+        </tr>
+    </table>
+
+    <div class="clearfix"></div>
+    <table class="avoid-break">
+        <tbody>
+            <tr>
+                <td width="85%"><b>RTO TAX, REGISTRATION SMART CARD CHARGES AGENT FEES</b></td>
+                <td class="text-right">5000.00</td>
+            </tr>
+            
+            <tr>
+                <td><b>HP CHARGES</b></td>
+                <td class="text-right">500.00</td>
+            </tr>
+            
+            <tr>
+                <td><b>Insurance</b></td>
+                <td class="text-right">9000.00</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <table class="header-table avoid-break">
+        <tr>
+            <td colspan="3"><strong>Total(B)</strong></td>
+            <td width="15%" class="text-right"><strong>14500.00</strong></td>
+        </tr>
+    </table>
+    
+    <table class="avoid-break">
+        <tr>
+            <td><strong>GRAND TOTAL(A) + (B)</strong></td>
+            <td width="20%" class="text-right"><strong>42567.00</strong></td>
+        </tr>
+    </table>
+
+
+    <!-- Notes -->
+    <table class="avoid-break">
+        <tr>
+            <td width="10%"><strong>Notes:</strong></td>
+            <td></td>
+        </tr>
+    </table>
+
+    <!-- Declaration -->
+    <div class="section-title avoid-break">Bank Details</div>
+    <table class="avoid-break">
+        <tr>
+            <td><strong>Account Name:</strong> </td>
+        </tr>
+    </table>
+
+    <div class="section-title avoid-break">Declaration</div>
+    <table class="no-border avoid-break">
+        <tr>
+            <td class="declaration no-border">
+                <strong>Declaration-</strong> I/We Authorize the Dealer to register the vehicle at RTO in my/our name. 2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss. 3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration. 4) Registration Number allotted by RTO will be acceptable to me else I will pre book for choice number at RTO at my own. Dealership has no role in RTO Number allocation 5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same 6) I/We agree that the price at the time of delivery will be applicable. 7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle 8) I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking. 9) Subject to sangamner Jurisdication. I accept that vehicle once sold by dealer shall not be taken back/replaced for any reason.
+            </td>
+        </tr>
+    </table>
+
+    <!-- Signatures -->
+    <table class="signature-table avoid-break">
+        <tr>
+            <td>Customer's Signature</td>
+            <td>Sales Executive</td>
+            <td>Manager</td>
+            <td>Accountant</td>
+        </tr>
+    </table>
+</body>
+</html>

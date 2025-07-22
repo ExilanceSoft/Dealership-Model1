@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const brokerController = require('../controllers/brokerController');
-const { protect, authorize } = require('../middlewares/auth');
+const { protect, authorize, roleAuthorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 
 /**
@@ -271,7 +271,7 @@ router.post(
 router.get(
   '/branch/:branchId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  roleAuthorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
   brokerController.getBrokersByBranch
 );
 
@@ -548,7 +548,7 @@ router.get(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
   logAction('DELETE_BROKER', 'Broker'),
   brokerController.deleteBroker
 );

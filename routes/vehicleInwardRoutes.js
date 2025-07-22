@@ -242,7 +242,90 @@ router.post(
   logAction('CREATE', 'Vehicle'),
   vehicleController.createVehicle
 );
-
+/**
+ * @swagger
+ * /api/v1/inward/counts:
+ *   get:
+ *     summary: Get vehicle counts by status and branch
+ *     description: Superadmins get counts for all branches, others get counts for their own branch
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Vehicle counts retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: success
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         counts:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               branchId:
+ *                                 type: string
+ *                               branchName:
+ *                                 type: string
+ *                               branchCity:
+ *                                 type: string
+ *                               statusCounts:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     status:
+ *                                       type: string
+ *                                     count:
+ *                                       type: number
+ *                               total:
+ *                                 type: number
+ *                 - type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: success
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         branchId:
+ *                           type: string
+ *                         branchName:
+ *                           type: string
+ *                         branchCity:
+ *                           type: string
+ *                         statusCounts:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               status:
+ *                                 type: string
+ *                               count:
+ *                                 type: number
+ *                         total:
+ *                           type: number
+ *       400:
+ *         description: User not assigned to any branch
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/counts',
+  protect,
+  logAction('GET_COUNTS', 'Vehicle'),
+  vehicleController.getVehicleCounts
+);
 /**
  * @swagger
  * /api/v1/inward:

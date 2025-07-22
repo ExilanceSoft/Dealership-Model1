@@ -17,6 +17,11 @@ const Color = require('../models/Color');
 const { generatePDFFromHtml } = require('../utils/pdfGenerator1');
 const qrController = require('../controllers/qrController');
 const Vehicle = require('../models/vehicleInwardModel');
+const KYC = require('../models/KYC');
+const FinanceLetter = require('../models/FinanceLetter');
+
+
+
 // const validateSalesExecutive = require('../middleware/validateSalesExecutive');
 // Configure Handlebars helpers
 Handlebars.registerHelper('formatDate', function(date) {
@@ -274,54 +279,51 @@ exports.createBooking = async (req, res) => {
             }
         }
 
-        // ==============================================
-        // Sales Executive Validation (previously in middleware)
-        // ==============================================
+        // Sales Executive Validation
         const currentUser = await User.findById(req.user.id).populate('roles');
         const isCurrentUserSalesExecutive = currentUser.roles.some(r => r.name === 'SALES_EXECUTIVE');
 
         // Handle sales executive selection
         if (req.body.sales_executive) {
-  if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid sales executive ID format'
-    });
-  }
+            if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid sales executive ID format'
+                });
+            }
 
-  const salesExecutive = await User.findById(req.body.sales_executive).populate('roles');
-  
-  if (!salesExecutive || salesExecutive.status !== 'ACTIVE') {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid or inactive sales executive selected'
-    });
-  }
+            const salesExecutive = await User.findById(req.body.sales_executive).populate('roles');
+            
+            if (!salesExecutive || salesExecutive.status !== 'ACTIVE') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid or inactive sales executive selected'
+                });
+            }
 
-  const isSelectedUserSalesExecutive = salesExecutive.roles.some(r => r.name === 'SALES_EXECUTIVE');
-  
-  if (!isSelectedUserSalesExecutive) {
-    return res.status(400).json({
-      success: false,
-      message: 'Selected user must have SALES_EXECUTIVE role'
-    });
-  }
+            const isSelectedUserSalesExecutive = salesExecutive.roles.some(r => r.name === 'SALES_EXECUTIVE');
+            
+            if (!isSelectedUserSalesExecutive) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Selected user must have SALES_EXECUTIVE role'
+                });
+            }
 
-  if (!salesExecutive.branch || salesExecutive.branch.toString() !== branchId.toString()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Sales executive must belong to the selected branch'
-    });
-  }
+            if (!salesExecutive.branch || salesExecutive.branch.toString() !== branchId.toString()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Sales executive must belong to the selected branch'
+                });
+            }
 
-  // Check if selected sales executive is frozen
-  if (salesExecutive.isFrozen) {
-    return res.status(400).json({
-      success: false,
-      message: `Selected sales executive is frozen due to: ${salesExecutive.freezeReason}`
-    });
-  }
-
+            // Check if selected sales executive is frozen
+            if (salesExecutive.isFrozen) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Selected sales executive is frozen due to: ${salesExecutive.freezeReason}`
+                });
+            }
         } else if (!isSuperAdmin) {
             // Default to current user if not specified and user is sales executive
             if (isCurrentUserSalesExecutive) {
@@ -377,9 +379,6 @@ exports.createBooking = async (req, res) => {
                 }
             }
         }
-        // ==============================================
-        // End of Sales Executive Validation
-        // ==============================================
 
         // Validate salutation
         const validSalutations = ['Mr.', 'Mrs.', 'Miss', 'Dr.', 'Prof.'];
@@ -683,37 +682,31 @@ exports.createBooking = async (req, res) => {
         let status = 'DRAFT';
         let requiresApproval = false;
         let approvalNote = '';
-        let shouldGenerateForm = true;
 
-        // Determine status and form generation based on discount scenarios
+        // Determine status based on discount scenarios
         if (modelHasDiscount) {
             status = 'PENDING_APPROVAL';
             requiresApproval = true;
             approvalNote = 'Model discount requires approval';
-            shouldGenerateForm = false;
         } else if (isApplyingDiscount) {
             if (isCurrentUserSalesExecutive) {
                 if (discountExceedsLimit) {
                     status = 'PENDING_APPROVAL (Discount_Exceeded)';
-                    shouldGenerateForm = false;
                     requiresApproval = true;
                     approvalNote = 'Discount exceeds sales executive limit';
                 } else {
                     status = 'PENDING_APPROVAL';
                     requiresApproval = true;
                     approvalNote = 'Discount within limit requires approval';
-                    shouldGenerateForm = false;
                 }
             } else {
                 // Non-sales executive applying discount - requires approval
                 status = 'PENDING_APPROVAL';
                 requiresApproval = true;
                 approvalNote = 'Discount requires approval (non-SALES_EXECUTIVE user)';
-                shouldGenerateForm = false;
             }
         } else {
-            // No discounts - form will be generated, status remains DRAFT
-            shouldGenerateForm = true;
+            // No discounts - status remains DRAFT
             status = 'DRAFT';
         }
 
@@ -821,12 +814,12 @@ exports.createBooking = async (req, res) => {
 
         // Handle sales executive document buffer time
         if (isCurrentUserSalesExecutive) {
-        await User.findByIdAndUpdate(req.user.id, {
-        documentBufferTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours in milliseconds
-        isFrozen: false,
-        freezeReason: ''
-    });
-    }
+            await User.findByIdAndUpdate(req.user.id, {
+                documentBufferTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours in milliseconds
+                isFrozen: false,
+                freezeReason: ''
+            });
+        }
 
         // Populate the booking with all necessary data
         const populatedBooking = await Booking.findById(booking._id)
@@ -840,17 +833,15 @@ exports.createBooking = async (req, res) => {
             .populate({ path: 'exchangeDetails.broker', model: 'Broker' })
             .populate({ path: 'payment.financer', model: 'FinanceProvider' });
 
-        // Generate and save the booking form PDF if allowed
-        if (shouldGenerateForm && generateBookingFormHTML) {
-            try {
-                const formResult = await generateBookingFormHTML(populatedBooking);
-                populatedBooking.formPath = formResult.url;
-                populatedBooking.formGenerated = true;
-                await populatedBooking.save();
-            } catch (pdfError) {
-                console.error('Error generating booking form PDF:', pdfError);
-                // Continue even if PDF generation fails
-            }
+        // Generate and save the booking form HTML in ALL cases
+        try {
+            const formResult = await generateBookingFormHTML(populatedBooking);
+            populatedBooking.formPath = formResult.url;
+            populatedBooking.formGenerated = true;
+            await populatedBooking.save();
+        } catch (pdfError) {
+            console.error('Error generating booking form HTML:', pdfError);
+            // Continue even if HTML generation fails
         }
 
         await AuditLog.create({
@@ -894,6 +885,191 @@ exports.createBooking = async (req, res) => {
         });
     }
 };
+/**
+ * @desc    Get booking statistics and document counts
+ * @route   GET /api/v1/bookings/stats
+ * @access  Private (SuperAdmin sees all, others see their own)
+ */
+exports.getBookingStats = async (req, res) => {
+  try {
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    const isSalesExecutive = req.user.roles.some(r => r.name === 'SALES_EXECUTIVE');
+    
+    // Base match conditions
+    const matchConditions = {};
+    
+    // For non-superadmins, filter by branch or sales executive
+    if (!isSuperAdmin) {
+      if (isSalesExecutive) {
+        matchConditions.$or = [
+          { createdBy: req.user.id },
+          { salesExecutive: req.user.id }
+        ];
+      } else if (req.user.branch) {
+        matchConditions.branch = req.user.branch;
+      }
+    }
+
+    // Get date ranges
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // Get booking counts for different time periods
+    const [todayCount, weekCount, monthCount] = await Promise.all([
+      Booking.countDocuments({
+        ...matchConditions,
+        createdAt: { $gte: today }
+      }),
+      Booking.countDocuments({
+        ...matchConditions,
+        createdAt: { $gte: weekStart }
+      }),
+      Booking.countDocuments({
+        ...matchConditions,
+        createdAt: { $gte: monthStart }
+      })
+    ]);
+
+    // Get document status counts (all time)
+    const [kycPending, financeLetterPending] = await Promise.all([
+      Booking.countDocuments({
+        ...matchConditions,
+        kycStatus: 'PENDING'
+      }),
+      Booking.countDocuments({
+        ...matchConditions,
+        financeLetterStatus: 'PENDING',
+        'payment.type': 'FINANCE'
+      })
+    ]);
+
+    // Get today's document status counts
+    const [kycPendingToday, financeLetterPendingToday] = await Promise.all([
+      Booking.countDocuments({
+        ...matchConditions,
+        kycStatus: 'PENDING',
+        createdAt: { $gte: today }
+      }),
+      Booking.countDocuments({
+        ...matchConditions,
+        financeLetterStatus: 'PENDING',
+        'payment.type': 'FINANCE',
+        createdAt: { $gte: today }
+      })
+    ]);
+
+    // Get weekly document status counts
+    const [kycPendingThisWeek, financeLetterPendingThisWeek] = await Promise.all([
+      Booking.countDocuments({
+        ...matchConditions,
+        kycStatus: 'PENDING',
+        createdAt: { $gte: weekStart }
+      }),
+      Booking.countDocuments({
+        ...matchConditions,
+        financeLetterStatus: 'PENDING',
+        'payment.type': 'FINANCE',
+        createdAt: { $gte: weekStart }
+      })
+    ]);
+
+    // Get monthly document status counts
+    const [kycPendingThisMonth, financeLetterPendingThisMonth] = await Promise.all([
+      Booking.countDocuments({
+        ...matchConditions,
+        kycStatus: 'PENDING',
+        createdAt: { $gte: monthStart }
+      }),
+      Booking.countDocuments({
+        ...matchConditions,
+        financeLetterStatus: 'PENDING',
+        'payment.type': 'FINANCE',
+        createdAt: { $gte: monthStart }
+      })
+    ]);
+
+    // For superadmin, get counts grouped by sales executive
+    let salesExecutiveStats = [];
+    if (isSuperAdmin) {
+      salesExecutiveStats = await Booking.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: monthStart }
+          }
+        },
+        {
+          $group: {
+            _id: '$salesExecutive',
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'userDetails'
+          }
+        },
+        {
+          $unwind: '$userDetails'
+        },
+        {
+          $project: {
+            salesExecutiveId: '$_id',
+            salesExecutiveName: '$userDetails.name',
+            salesExecutiveEmail: '$userDetails.email',
+            count: 1,
+            _id: 0
+          }
+        },
+        {
+          $sort: { count: -1 }
+        }
+      ]);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        counts: {
+          today: todayCount,
+          thisWeek: weekCount,
+          thisMonth: monthCount
+        },
+        pendingDocuments: {
+          kyc: {
+            total: kycPending,
+            today: kycPendingToday,
+            thisWeek: kycPendingThisWeek,
+            thisMonth: kycPendingThisMonth
+          },
+          financeLetter: {
+            total: financeLetterPending,
+            today: financeLetterPendingToday,
+            thisWeek: financeLetterPendingThisWeek,
+            thisMonth: financeLetterPendingThisMonth
+          }
+        },
+        salesExecutiveStats: isSuperAdmin ? salesExecutiveStats : undefined
+      }
+    });
+
+  } catch (err) {
+    console.error('Error getting booking stats:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching booking statistics',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
 /**
  * @desc    Get booking form HTML by ID
  * @route   GET /api/v1/bookings/:id/form
@@ -1004,7 +1180,11 @@ exports.getBookingByChassisNumber = async (req, res) => {
       })
       .populate({
         path: 'accessories.accessory',
-        model: 'Accessory'
+        model: 'Accessory',
+        populate: {
+          path: 'category',
+          model: 'AccessoryCategory'
+        }
       })
       .populate({
         path: 'exchangeDetails.broker',
@@ -1032,9 +1212,25 @@ exports.getBookingByChassisNumber = async (req, res) => {
       });
     }
 
+    // Transform the response to include accessory categories
+    const transformedBooking = booking.toObject();
+    
+    // Process accessories to include category details
+    if (transformedBooking.accessories && transformedBooking.accessories.length > 0) {
+      transformedBooking.accessories = transformedBooking.accessories.map(accessory => {
+        if (accessory.accessory && accessory.accessory.category) {
+          return {
+            ...accessory,
+            categoryDetails: accessory.accessory.category
+          };
+        }
+        return accessory;
+      });
+    }
+
     res.status(200).json({
       success: true,
-      data: booking
+      data: transformedBooking
     });
 
   } catch (err) {

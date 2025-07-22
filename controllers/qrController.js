@@ -67,8 +67,10 @@ exports.generateQRCode = async (bookingId) => {
       throw new Error('Booking not found');
     }
 
-    // Generate URL that will point directly to the update form HTML page
-    const qrData = `${process.env.FRONTEND_URL || process.env.BACKEND_URL}api/v1/bookings/${booking._id}/update-form`;
+    // Generate the correct URL for the update form
+    // Fix the baseUrl generation
+    const baseUrl = (process.env.BACKEND_URL || 'http://localhost:5002').replace(/\/$/, '');
+    const qrData = `${baseUrl}/api/v1/bookings/${booking._id}/update-form`;
     
     // Generate QR code as data URL
     const qrCodeDataURL = await QRCode.toDataURL(qrData);
@@ -119,13 +121,23 @@ exports.submitUpdateRequest = async (req, res) => {
       });
     }
 
-    // Just store raw input into pendingUpdate
+    // Check if update was already submitted
+    const existingBooking = await Booking.findById(bookingId);
+    if (existingBooking.updateRequestSubmitted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Update request already submitted for this booking'
+      });
+    }
+
+    // Update the booking
     const booking = await Booking.findByIdAndUpdate(
       bookingId,
       { 
         pendingUpdates: updates,
         updateRequestStatus: 'PENDING',
-        updateRequestedBy: null // Since this is unauthenticated
+        updateRequestedBy: null, // Since this is unauthenticated
+        updateRequestSubmitted: true // Mark as submitted
       },
       { new: true }
     );
@@ -139,7 +151,7 @@ exports.submitUpdateRequest = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Update request submitted successfully. Awaiting approval.',
+      message: 'Update request submitted successfully. It will be reviewed by management.',
       data: booking
     });
   } catch (error) {

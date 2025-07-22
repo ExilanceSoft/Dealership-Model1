@@ -344,6 +344,78 @@ router.post('/',
   logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
+
+/**
+ * @swagger
+ * /api/v1/bookings/stats:
+ *   get:
+ *     summary: Get booking statistics and document counts
+ *     description: |
+ *       Returns counts of bookings (today, this week, this month) and pending document counts.
+ *       SuperAdmin sees all data with sales executive breakdown, others see only their own data.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Booking statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     counts:
+ *                       type: object
+ *                       properties:
+ *                         today:
+ *                           type: number
+ *                           description: Bookings created today
+ *                         thisWeek:
+ *                           type: number
+ *                           description: Bookings created this week
+ *                         thisMonth:
+ *                           type: number
+ *                           description: Bookings created this month
+ *                     pendingDocuments:
+ *                       type: object
+ *                       properties:
+ *                         kyc:
+ *                           type: number
+ *                           description: Count of pending KYC documents
+ *                         financeLetter:
+ *                           type: number
+ *                           description: Count of pending Finance Letters
+ *                     salesExecutiveStats:
+ *                       type: array
+ *                       description: Only shown for SuperAdmin - bookings by sales executive
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           salesExecutiveId:
+ *                             type: string
+ *                           salesExecutiveName:
+ *                             type: string
+ *                           salesExecutiveEmail:
+ *                             type: string
+ *                           count:
+ *                             type: number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get('/stats', 
+  protect,
+  authorize('BOOKING', 'READ'),
+  bookingController.getBookingStats
+);
 /**
  * @swagger
  * /api/v1/bookings/pending-updates:

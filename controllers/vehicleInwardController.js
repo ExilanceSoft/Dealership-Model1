@@ -6,6 +6,8 @@ const AppError = require('../utils/appError');
 const logger = require('../config/logger');
 const mongoose = require('mongoose');
 const QRCode = require('qrcode');
+const User = require('../models/User');
+
 
 // Enhanced population options with error handling
 const populateOptions = [
@@ -124,6 +126,97 @@ exports.createVehicle = async (req, res, next) => {
   }
 };
 
+exports.getVehicleCounts = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).populate('branch');
+    
+    // For superadmin - get counts for all branches
+    if (await user.isSuperAdmin()) {
+      // Get all active branches
+      const branches = await Branch.find({ is_active: true });
+      
+      // Get counts for each branch
+      const branchCounts = await Promise.all(
+        branches.map(async (branch) => {
+          const counts = await Vehicle.aggregate([
+            { $match: { unloadLocation: branch._id } },
+            { $group: { 
+              _id: '$status', 
+              count: { $sum: 1 } 
+            }},
+            { $project: { 
+              status: '$_id', 
+              count: 1, 
+              _id: 0 
+            }}
+          ]);
+          
+          const statusCounts = counts.map(item => ({
+            status: item.status,
+            count: item.count
+          }));
+          
+          const total = statusCounts.reduce((sum, item) => sum + item.count, 0);
+          
+          return {
+            branchId: branch._id,
+            branchName: branch.name,
+            branchCity: branch.city,
+            statusCounts,
+            total
+          };
+        })
+      );
+      
+      return res.status(200).json({
+        status: 'success',
+        data: {
+          counts: branchCounts
+        }
+      });
+    }
+    
+    // For non-superadmin users - get counts for their branch only
+    if (!user.branch) {
+      return next(new AppError('User is not assigned to any branch', 400));
+    }
+    
+    const counts = await Vehicle.aggregate([
+      { $match: { unloadLocation: user.branch._id } },
+      { $group: { 
+        _id: '$status', 
+        count: { $sum: 1 } 
+      }},
+      { $project: { 
+        status: '$_id', 
+        count: 1, 
+        _id: 0 
+      }}
+    ]);
+    
+    const statusCounts = counts.map(item => ({
+      status: item.status,
+      count: item.count
+    }));
+    
+    const total = statusCounts.reduce((sum, item) => sum + item.count, 0);
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        branchId: user.branch._id,
+        branchName: user.branch.name,
+        branchCity: user.branch.city,
+        statusCounts,
+        total
+      }
+    });
+    
+  } catch (err) {
+    logger.error(`Error getting vehicle counts: ${err.message}`);
+    next(new AppError('Server Error', 500));
+  }
+};
 // Get all vehicles with filtering options
 exports.getAllVehicles = async (req, res, next) => {
   try {

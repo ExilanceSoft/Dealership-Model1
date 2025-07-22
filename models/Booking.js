@@ -483,7 +483,12 @@ const bookingSchema = new mongoose.Schema({
   updateRequestNote: {
     type: String,
     default: ''
-  }
+  },
+  // In Booking.js, add this field to the schema
+updateRequestSubmitted: {
+  type: Boolean,
+  default: false
+}
 }, {
   timestamps: true,
   toJSON: { 
