@@ -61,13 +61,35 @@
             text-align: justify;
             margin-top: 20px;
         }
+           @media print {
+            body {
+                margin: 20mm;
+                font-size: 12px;
+                color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .no-print {
+                display: none;
+            }
+            .qr-code-container {
+                position: absolute;
+                top: 15mm;
+                right: 20mm;
+            }
+            .section-title {
+                page-break-after: avoid;
+            }
+            table, tr, td, th {
+                page-break-inside: avoid;
+            }
+        }
     </style>
 </head>
 <body>
       <div class="qr-code-container">
         {{#if qrCode}}
         <img src="{{qrCode}}" width="80" height="80" alt="Booking QR Code">
-        <div class="qr-code-text">Scan to verify booking</div>
+        <div class="qr-code-text">Scan to change Booking Details</div>
         {{/if}}
     </div>
     <!-- Header Section -->
@@ -75,8 +97,7 @@
         <tr>
             <td width="40%"><font size="5"><b>Gandhi TVS</b></font></td>
             <td width="40%" class="text-center"><b><u>Booking Form / Order Form</u></b></td>
-            <td width="20%" class="text-right"><img src="tvs.jpg" alt="tvs" width="150" height="30"></td>
-        </tr>
+<td width="20%" class="text-right"><img src="http://localhost:5002/api/v1/images/logo.png" alt="tvs" width="150" height="80"></td>        </tr>
         <tr>
             <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
             <td class="text-right">Date: {{formatDate createdAt}}</td>

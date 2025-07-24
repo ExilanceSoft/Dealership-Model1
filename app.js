@@ -9,6 +9,7 @@ const connectDB = require('./config/db');
 const { setupSwagger, getLocalIp } = require('./config/swagger');
 const path = require('path');
 const { runDocumentCheck } = require('./jobs/documentDeadlineJob');
+const fs = require('fs'); // Add this line
 
 
 
@@ -72,13 +73,25 @@ const kycRoutes = require('./routes/kycRoutes')
 const FinanceLetterRoutes = require('./routes/financeLetterRoutes');
 const AccessoryCategoryRoutes = require('./routes/accessoryCategoryRoutes');
 const stockTransferRoutes = require('./routes/stockTransferRoutes');
+const bankRoutes = require('./routes/bankRoutes');
+const ledgerRoutes = require('./routes/ledgerRoutes');
+const cashLocationRoutes = require('./routes/cashLocationRoutes');
 
 // Create Express application
 const app = express();
 app.use('/api/v1/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/v1/images', express.static(path.join(__dirname, 'public', 'images')));
 // Middleware to parse JSON bodies
 app.use(express.json());
-
+// Add this test route before your other routes
+app.get('/test-logo', (req, res) => {
+  const logoPath = path.join(__dirname, 'public/images/logo.png');
+  if (fs.existsSync(logoPath)) {
+    res.send(`Logo exists at: ${logoPath}`);
+  } else {
+    res.status(404).send('Logo not found at: ' + logoPath);
+  }
+});
 // Configure CORS
 app.use(cors({
   origin: [
@@ -152,6 +165,10 @@ app.use('/api/v1/kyc',kycRoutes);
 app.use('/api/v1/finance-letters',FinanceLetterRoutes);
 app.use('/api/v1/accessory-categories',AccessoryCategoryRoutes);
 app.use('/api/v1/transfers',stockTransferRoutes);
+app.use('/api/v1/banks',bankRoutes);
+app.use('/api/v1/ledger', ledgerRoutes);
+app.use('/api/v1/cash-locations',cashLocationRoutes);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 

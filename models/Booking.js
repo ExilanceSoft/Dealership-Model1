@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
-// Sub-schemas remain unchanged
+// Sub-schemas
 const exchangeVehicleSchema = new mongoose.Schema({
   broker: {
     type: mongoose.Schema.Types.ObjectId,
@@ -170,7 +170,6 @@ const bookingSchema = new mongoose.Schema({
     ref: 'Color',
     required: [true, 'Color is required']
   },
-  // Vehicle identification fields
   chassisNumber: {
     type: String,
     trim: true,
@@ -208,7 +207,6 @@ const bookingSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
-  // Changed from vehicleDetails to vehicleRef to avoid conflict
   vehicleRef: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vehicle'
@@ -398,6 +396,26 @@ const bookingSchema = new mongoose.Schema({
       message: 'Discounted amount cannot be greater than total amount'
     }
   },
+  receivedAmount: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  balanceAmount: {
+    type: Number,
+    min: 0,
+    default: function() {
+      return this.discountedAmount - (this.receivedAmount || 0);
+    }
+  },
+  receipts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Receipt'
+  }],
+  ledgerEntries: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ledger'
+  }],
   status: {
     type: String,
     enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED', 'PENDING_APPROVAL (Discount_Exceeded)'],
@@ -484,11 +502,10 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  // In Booking.js, add this field to the schema
-updateRequestSubmitted: {
-  type: Boolean,
-  default: false
-}
+  updateRequestSubmitted: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true,
   toJSON: { 
@@ -497,15 +514,12 @@ updateRequestSubmitted: {
       ret.id = ret._id;
       delete ret._id;
       delete ret.__v;
-      
-      // Include vehicle details from either direct fields or populated vehicle
       const vehicle = doc.vehicle || {};
       ret.batteryNumber = doc.batteryNumber || vehicle.batteryNumber || null;
       ret.keyNumber = doc.keyNumber || vehicle.keyNumber || null;
       ret.motorNumber = doc.motorNumber || vehicle.motorNumber || null;
       ret.chargerNumber = doc.chargerNumber || vehicle.chargerNumber || null;
       ret.engineNumber = doc.engineNumber || vehicle.engineNumber || null;
-      
       return ret;
     }
   },
@@ -515,14 +529,12 @@ updateRequestSubmitted: {
       ret.id = ret._id;
       delete ret._id;
       delete ret.__v;
-      
       const vehicle = doc.vehicle || {};
       ret.batteryNumber = doc.batteryNumber || vehicle.batteryNumber || null;
       ret.keyNumber = doc.keyNumber || vehicle.keyNumber || null;
       ret.motorNumber = doc.motorNumber || vehicle.motorNumber || null;
       ret.chargerNumber = doc.chargerNumber || vehicle.chargerNumber || null;
       ret.engineNumber = doc.engineNumber || vehicle.engineNumber || null;
-      
       return ret;
     }
   }
@@ -564,6 +576,11 @@ bookingSchema.pre('save', async function(next) {
         }
       }
     }
+  }
+  
+  // Ensure balance is calculated correctly
+  if (this.isModified('receivedAmount') || this.isModified('discountedAmount')) {
+    this.balanceAmount = this.discountedAmount - this.receivedAmount;
   }
   
   next();

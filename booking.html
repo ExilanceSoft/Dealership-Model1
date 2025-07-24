@@ -1,1668 +1,353 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Permission Management System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="styles.css">
+    <title>Booking Form - {{bookingNumber}}</title>
     <style>
-      body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
-}
-
-.sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 100;
-    padding: 48px 0 0;
-    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
-}
-
-.sidebar .nav-link {
-    font-weight: 500;
-    color: #adb5bd;
-    padding: 0.75rem 1rem;
-    border-radius: 0.25rem;
-    margin: 0.25rem 1rem;
-}
-
-.sidebar .nav-link:hover {
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.sidebar .nav-link.active {
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.2);
-}
-
-.sidebar-heading {
-    font-size: .75rem;
-    text-transform: uppercase;
-    padding: 0 1rem;
-    color: #6c757d;
-}
-
-.main {
-    padding-top: 1rem;
-}
-
-.content-section {
-    display: none;
-}
-
-.content-section.active {
-    display: block;
-}
-
-.permission-category {
-    margin-bottom: 1.5rem;
-    border: 1px solid #dee2e6;
-    border-radius: 0.25rem;
-    padding: 1rem;
-}
-
-.permission-category h6 {
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.permission-item {
-    margin-bottom: 0.5rem;
-}
-
-.table-responsive {
-    overflow-x: auto;
-}
-
-.status-badge {
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 0.25rem;
-}
-
-.badge-active {
-    background-color: #198754;
-    color: white;
-}
-
-.badge-inactive {
-    background-color: #dc3545;
-    color: white;
-}
-
-.action-buttons .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-    line-height: 1.5;
-}
-
-.permission-checkbox {
-    margin-right: 0.5rem;
-}
-
-/* Custom checkbox styling */
-.form-check-input:checked {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-}
-
-/* Responsive adjustments */
-@media (max-width: 767.98px) {
-    .sidebar {
-        position: static;
-        height: auto;
-        padding-top: 1rem;
-    }
-    
-    .main {
-        padding-top: 1rem;
-    }
-}
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin:89px 173px 113px 139px;
+            line-height: 1.5;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+        .header-table {
+            border: none;
+        }
+        .header-table td {
+            border: none;
+            padding: 2px 8px;
+        }
+        .item-table {
+            font-size: 13px;
+        }
+        .item-table td {
+            padding: 3px 5px;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-bold {
+            font-weight: bold;
+        }
+        .section-title {
+            font-weight: bold;
+            margin: 15px 0 5px 0;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3px;
+        }
+        .signature-table {
+            margin-top: 50px;
+        }
+        .signature-table td {
+            border: none;
+            padding-top: 50px;
+            width: 25%;
+        }
+        .declaration {
+            font-size: 10px;
+            text-align: justify;
+            margin-top: 20px;
+        }
+           @media print {
+            body {
+                margin: 20mm;
+                font-size: 12px;
+                color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .no-print {
+                display: none;
+            }
+            .qr-code-container {
+                position: absolute;
+                top: 15mm;
+                right: 20mm;
+            }
+            .section-title {
+                page-break-after: avoid;
+            }
+            table, tr, td, th {
+                page-break-inside: avoid;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
-                <div class="position-sticky pt-3">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link active" href="#" data-section="dashboard">
-                                <i class="bi bi-speedometer2 me-2"></i>Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-section="permissions">
-                                <i class="bi bi-shield-lock me-2"></i>Permissions
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-section="roles">
-                                <i class="bi bi-people me-2"></i>Roles
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-section="users">
-                                <i class="bi bi-person me-2"></i>Users
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-section="audit">
-                                <i class="bi bi-journal-text me-2"></i>Audit Logs
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
-
-            <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">Permission Management</h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle">
-                            <i class="bi bi-calendar"></i> This week
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Dashboard Section -->
-                <section id="dashboard-section" class="content-section">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="card text-white bg-primary mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">Total Permissions</h5>
-                                    <p class="card-text display-4" id="total-permissions">0</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card text-white bg-success mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">Active Roles</h5>
-                                    <p class="card-text display-4" id="total-roles">0</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card text-white bg-info mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">System Users</h5>
-                                    <p class="card-text display-4" id="total-users">0</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Permissions Section -->
-                <section id="permissions-section" class="content-section" style="display: none;">
-                    <div class="d-flex justify-content-between mb-3">
-                        <h3>Permissions</h3>
-                        <button class="btn btn-primary" id="add-permission-btn">
-                            <i class="bi bi-plus-circle"></i> Add Permission
-                        </button>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="permissions-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Description</th>
-                                    <th>Module</th>
-                                    <th>Action</th>
-                                    <th>Category</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="permissions-list">
-                                <!-- Permissions will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <nav aria-label="Permissions pagination">
-                        <ul class="pagination justify-content-center" id="permissions-pagination">
-                            <!-- Pagination will be loaded here -->
-                        </ul>
-                    </nav>
-                </section>
-
-                <!-- Roles Section -->
-                <section id="roles-section" class="content-section" style="display: none;">
-                    <div class="d-flex justify-content-between mb-3">
-                        <h3>Roles</h3>
-                        <button class="btn btn-primary" id="add-role-btn">
-                            <i class="bi bi-plus-circle"></i> Add Role
-                        </button>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="roles-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Description</th>
-                                    <th>Permissions</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="roles-list">
-                                <!-- Roles will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <nav aria-label="Roles pagination">
-                        <ul class="pagination justify-content-center" id="roles-pagination">
-                            <!-- Pagination will be loaded here -->
-                        </ul>
-                    </nav>
-                </section>
-
-                <!-- Users Section -->
-                <section id="users-section" class="content-section" style="display: none;">
-                    <div class="d-flex justify-content-between mb-3">
-                        <h3>Users</h3>
-                        <button class="btn btn-primary" id="add-user-btn">
-                            <i class="bi bi-plus-circle"></i> Add User
-                        </button>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="users-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Mobile</th>
-                                    <th>Roles</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="users-list">
-                                <!-- Users will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <nav aria-label="Users pagination">
-                        <ul class="pagination justify-content-center" id="users-pagination">
-                            <!-- Pagination will be loaded here -->
-                        </ul>
-                    </nav>
-                </section>
-
-                <!-- Audit Logs Section -->
-                <section id="audit-section" class="content-section" style="display: none;">
-                    <div class="d-flex justify-content-between mb-3">
-                        <h3>Audit Logs</h3>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary" id="refresh-audit-btn">
-                                <i class="bi bi-arrow-clockwise"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Action</th>
-                                    <th>Entity</th>
-                                    <th>User</th>
-                                    <th>Timestamp</th>
-                                    <th>Status</th>
-                                    <th>Details</th>
-                                </tr>
-                            </thead>
-                            <tbody id="audit-list">
-                                <!-- Audit logs will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <nav aria-label="Audit logs pagination">
-                        <ul class="pagination justify-content-center" id="audit-pagination">
-                            <!-- Pagination will be loaded here -->
-                        </ul>
-                    </nav>
-                </section>
-            </main>
-        </div>
+      <div class="qr-code-container">
+        {{#if qrCode}}
+        <img src="{{qrCode}}" width="80" height="80" alt="Booking QR Code">
+        <div class="qr-code-text">Scan to verify booking</div>
+        {{/if}}
     </div>
+    <!-- Header Section -->
+    <table class="header-table">
+        <tr>
+            <td width="40%"><font size="5"><b>Gandhi TVS</b></font></td>
+            <td width="40%" class="text-center"><b><u>Booking Form / Order Form</u></b></td>
+            <td width="20%" class="text-right"><img src="public\images\logo.png" alt="tvs" width="150" height="30"></td>
+        </tr>
+        <tr>
+            <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
+            <td class="text-right">Date: {{formatDate createdAt}}</td>
+        </tr>
+        <tr>
+            <td colspan="3">{{branchDetails.name}}</td>
+        </tr>
+    </table>
+    <!-- In your bookingFormTemplate.html -->
+{{#if chassisNumber}}
+<div class="vehicle-details-section">
+  <h3>Vehicle Details</h3>
+  <table>
+    <tr>
+      <td><strong>Chassis Number:</strong></td>
+      <td>{{chassisNumber}}</td>
+    </tr>
+    <tr>
+      <td><strong>Battery Number:</strong></td>
+      <td>{{batteryNumber}}</td>
+    </tr>
+    <tr>
+      <td><strong>Key Number:</strong></td>
+      <td>{{keyNumber}}</td>
+    </tr>
+    {{#if motorNumber}}
+    <tr>
+      <td><strong>Motor Number:</strong></td>
+      <td>{{motorNumber}}</td>
+    </tr>
+    {{/if}}
+    {{#if chargerNumber}}
+    <tr>
+      <td><strong>Charger Number:</strong></td>
+      <td>{{chargerNumber}}</td>
+    </tr>
+    {{/if}}
+    {{#if engineNumber}}
+    <tr>
+      <td><strong>Engine Number:</strong></td>
+      <td>{{engineNumber}}</td>
+    </tr>
+    {{/if}}
+  </table>
+</div>
+{{/if}}
+    <!-- Customer Details -->
+    <div class="section-title">Customer & Vehicle Details</div>
+    <table class="header-table">
+        <tr>
+            <td width="20%"><b>Booking No.:</b></td>
+            <td width="30%">{{bookingNumber}}</td>
+            <td width="20%"><b>GSTIN:</b></td>
+            <td width="30%">{{#if gstin}}{{gstin}}{{else}}N/A{{/if}}</td>
+        </tr>
+        <tr>
+            <td><b>Customer Name:</b></td>
+            <td>{{customerDetails.salutation}} {{customerDetails.name}}</td>
+            <td><b>RTO Type:</b></td>
+            <td>{{rto}}</td>
+        </tr>
+        <tr>
+            <td><b>Address:</b></td>
+            <td colspan="3">{{customerDetails.address}}</td>
+        </tr>
+        <tr>
+            <td><b>Taluka:</b></td>
+            <td>{{customerDetails.taluka}}</td>
+            <td><b>District:</b></td>
+            <td>{{customerDetails.district}}</td>
+        </tr>
+        <tr>
+            <td><b>Pincode:</b></td>
+            <td>{{customerDetails.pincode}}</td>
+            <td><b>Mobile No.:</b></td>
+            <td>{{customerDetails.mobile1}}</td>
+        </tr>
+        <tr>
+            <td><b>D.O.B.:</b></td>
+            <td>{{formatDate customerDetails.dob}}</td>
+            <td><b>Aadhar No.:</b></td>
+            <td>{{#if customerDetails.aadharNumber}}{{customerDetails.aadharNumber}}{{else}}N/A{{/if}}</td>
+        </tr>
+        <tr>
+            <td><b>Exchange Mode:</b></td>
+            <td>{{#if exchange}}YES{{#if exchangeDetails.vehicleNumber}} ({{exchangeDetails.vehicleNumber}}){{/if}}{{else}}NO{{/if}}</td>
+            <td><b>Payment Mode:</b></td>
+            <td>{{payment.type}}{{#if (eq payment.type 'FINANCE')}} ({{payment.financer.name}}){{/if}}</td>
+        </tr>
+        <tr>
+            <td><b>Model:</b></td>
+            <td>{{modelDetails.model_name}}</td>
+            <td><b>Color:</b></td>
+            <td>{{colorDetails.name}}</td>
+        </tr>
+        <tr>
+            <td><b>Sales Rep:</b></td>
+            <td>{{salesExecutiveDetails.name}}</td>
+            <td><b>HPA:</b></td>
+            <td>{{#if hpa}}YES{{else}}NO{{/if}}</td>
+        </tr>
+    </table>
 
-    <!-- Permission Modal -->
-    <div class="modal fade" id="permissionModal" tabindex="-1" aria-labelledby="permissionModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="permissionModalLabel">Add New Permission</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="permission-form">
-                        <input type="hidden" id="permission-id">
-                        <div class="mb-3">
-                            <label for="permission-name" class="form-label">Permission Name</label>
-                            <input type="text" class="form-control" id="permission-name" required>
-                            <div class="form-text">Unique name in uppercase (e.g., MANAGE_USERS)</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="permission-description" class="form-label">Description</label>
-                            <textarea class="form-control" id="permission-description" rows="3" required></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="permission-module" class="form-label">Module</label>
-                                <select class="form-select" id="permission-module" required>
-                                    <option value="">Select Module</option>
-                                    <option value="USERS">Users</option>
-                                    <option value="ROLES">Roles</option>
-                                    <option value="PERMISSIONS">Permissions</option>
-                                    <option value="BOOKINGS">Bookings</option>
-                                    <option value="INVENTORY">Inventory</option>
-                                    <option value="REPORTS">Reports</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="permission-action" class="form-label">Action</label>
-                                <select class="form-select" id="permission-action" required>
-                                    <option value="">Select Action</option>
-                                    <option value="CREATE">Create</option>
-                                    <option value="READ">Read</option>
-                                    <option value="UPDATE">Update</option>
-                                    <option value="DELETE">Delete</option>
-                                    <option value="MANAGE">Manage</option>
-                                    <option value="APPROVE">Approve</option>
-                                    <option value="ALL">All</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="permission-category" class="form-label">Category</label>
-                            <select class="form-select" id="permission-category" required>
-                                <option value="">Select Category</option>
-                                <option value="ADMIN">Admin</option>
-                                <option value="SALES">Sales</option>
-                                <option value="INVENTORY">Inventory</option>
-                                <option value="FINANCE">Finance</option>
-                                <option value="REPORT">Report</option>
-                                <option value="SYSTEM">System</option>
-                            </select>
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="permission-active">
-                            <label class="form-check-label" for="permission-active">Active</label>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="save-permission-btn">Save Permission</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Price Components -->
+    <div class="section-title">Price Breakdown</div>
+    <table class="item-table" border="0.5" frame="box">
+        <thead>
+            <tr>
+                <th width="30%"><b>Particulars</b></th>
+                <th><b>HSN</b></th>
+                <th><b>Unit Cost</b></th>
+                <th><b>Taxable</b></th>
+                <th><b>CGST</b></th>
+                <th><b>CGST AMOUNT</b></th>
+                <th><b>SGST</b></th>
+                <th><b>SGST AMOUNT</b></th>
+                <th><b>DIS.</b></th>
+                <th><b>LINE TOTAL</b></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each priceComponents}}
+            <tr>
+                <td width="25%"><b>{{header.header_key}}</b></td>
+                <td align="right">{{#if header.metadata.hsnCode}}{{header.metadata.hsnCode}}{{else}}{{#if header.metadata.hsn_code}}{{header.metadata.hsn_code}}{{else}}-{{/if}}{{/if}}</td>
+                <td align="right">{{formatCurrency originalValue}}</td>
+                <td align="right">{{formatCurrency discountedValue}}</td>
+                <td align="right">{{#if header.metadata.gstRate}}{{divide header.metadata.gstRate 2}}{{else}}{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}{{/if}}</td>
+                <td align="right">{{#if header.metadata.gstRate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gstRate 2))}}{{else}}{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}{{/if}}</td>
+                <td align="right">{{#if header.metadata.gstRate}}{{divide header.metadata.gstRate 2}}{{else}}{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}{{/if}}</td>
+                <td align="right">{{#if header.metadata.gstRate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gstRate 2))}}{{else}}{{#if header.metadata.gst_rate}}{{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}{{else}}0.00{{/if}}{{/if}}</td>
+                <td align="right">{{formatCurrency (subtract originalValue discountedValue)}}</td>
+                <td align="right">{{formatCurrency discountedValue}}</td>
+            </tr>
+            {{/each}}
+            
+            {{#each accessories}}
+            <tr>
+                <td width="25%"><b>{{#if accessory}}{{accessory.name}}{{else}}Additional Charges{{/if}}</b></td>
+                <td align="right">{{#if accessory}}{{#if accessory.hsnCode}}{{accessory.hsnCode}}{{else}}-{{/if}}{{else}}-{{/if}}</td>
+                <td align="right">{{formatCurrency price}}</td>
+                <td align="right">{{formatCurrency (subtract price discount)}}</td>
+                <td align="right">{{#if accessory}}{{#if accessory.gstRate}}{{divide accessory.gstRate 2}}{{else}}0{{/if}}{{else}}0{{/if}}</td>
+                <td align="right">{{#if accessory}}{{#if accessory.gstRate}}{{formatCurrency (calculateTax (subtract price discount) (divide accessory.gstRate 2))}}{{else}}0.00{{/if}}{{else}}0.00{{/if}}</td>
+                <td align="right">{{#if accessory}}{{#if accessory.gstRate}}{{divide accessory.gstRate 2}}{{else}}0{{/if}}{{else}}0{{/if}}</td>
+                <td align="right">{{#if accessory}}{{#if accessory.gstRate}}{{formatCurrency (calculateTax (subtract price discount) (divide accessory.gstRate 2))}}{{else}}0.00{{/if}}{{else}}0.00{{/if}}</td>
+                <td align="right">{{formatCurrency discount}}</td>
+                <td align="right">{{formatCurrency (subtract price discount)}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
 
-    <!-- Role Modal -->
-    <div class="modal fade" id="roleModal" tabindex="-1" aria-labelledby="roleModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="roleModalLabel">Add New Role</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="role-form">
-                        <input type="hidden" id="role-id">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="role-name" class="form-label">Role Name</label>
-                                <input type="text" class="form-control" id="role-name" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="role-description" class="form-label">Description</label>
-                                <input type="text" class="form-control" id="role-description" required>
-                            </div>
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="role-active">
-                            <label class="form-check-label" for="role-active">Active</label>
-                        </div>
-                        
-                        <h5 class="mt-4">Assign Permissions</h5>
-                        <div class="row" id="permission-categories">
-                            <!-- Permission categories will be loaded here -->
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="save-role-btn">Save Role</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Totals Section -->
+    <table class="header-table">
+        <tr>
+            <td colspan="3"><strong>Total(A)</strong></td>
+            <td width="6%"><strong>{{formatCurrency totalAmount}}</strong></td>
+        </tr>
+    </table>
 
-    <!-- User Modal -->
-    <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="userModalLabel">Add New User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="user-form">
-                        <input type="hidden" id="user-id">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="user-name" class="form-label">Full Name</label>
-                                <input type="text" class="form-control" id="user-name" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="user-email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="user-email" required>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="user-mobile" class="form-label">Mobile</label>
-                                <input type="tel" class="form-control" id="user-mobile" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="user-branch" class="form-label">Branch</label>
-                                <select class="form-select" id="user-branch" required>
-                                    <option value="">Select Branch</option>
-                                    <!-- Branches will be loaded here -->
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="user-active">
-                            <label class="form-check-label" for="user-active">Active</label>
-                        </div>
-                        
-                        <h5 class="mt-4">Assign Roles</h5>
-                        <div class="row" id="role-selection">
-                            <!-- Roles will be loaded here -->
-                        </div>
-                        
-                        <h5 class="mt-4">Direct Permissions</h5>
-                        <div class="row" id="user-permissions">
-                            <!-- Direct permissions will be loaded here -->
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="save-user-btn">Save User</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <header class="clearfix"></header>
+    <table>
+        <tbody>
+            {{#if (gt rtoAmount 0)}}
+            <tr>
+                <td width="80%"><b>RTO TAX,REGISTRATION SMART CARD CHARGES AGENT FEES</b></td>
+                <td align="right">{{formatCurrency rtoAmount}}</td>
+            </tr>
+            {{/if}}
+            
+            {{#if (gt hypothecationCharges 0)}}
+            <tr>
+                <td width="80%"><b>HP CHARGES</b></td>
+                <td align="right">{{formatCurrency hypothecationCharges}}</td>
+            </tr>
+            {{/if}}
+            
+            {{#if (gt accessoriesTotal 0)}}
+            <tr>
+                <td width="80%"><b>Insurance</b></td>
+                <td align="right">{{formatCurrency accessoriesTotal}}</td>
+            </tr>
+            {{/if}}
+        </tbody>
+    </table>
+    
+    <header class="clearfix"></header>
+    <table>
+        <tr>
+            <td colspan="3"><strong>Total(B)</strong></td>
+            <td width="6%"><strong>{{formatCurrency (add rtoAmount hypothecationCharges accessoriesTotal)}}</strong></td>
+        </tr>
+    </table>
+    
+    <table>
+        <tr>
+            <td><strong>GRAND TOTAL(A) + (B)</strong></td>
+            <td width="9%" align="right"><strong>{{formatCurrency (add totalAmount rtoAmount hypothecationCharges accessoriesTotal)}}</strong></td>
+        </tr>
+    </table>
 
-    <!-- Confirmation Modal -->
-    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="confirmationModalLabel">Confirm Action</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="confirmation-message">
-                    Are you sure you want to perform this action?
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirm-action-btn">Confirm</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    {{#if exchange}}
+    <!-- Exchange Details -->
+    <div class="section-title">Exchange Details</div>
+    <table class="header-table">
+        <tr>
+            <td><strong>Ex. Broker/ Sub Dealer:-</strong></td>
+            <td>{{exchangeDetails.broker.name}}</td>
+            <td><strong>Ex. Veh No:-</strong></td>
+            <td>{{exchangeDetails.vehicleNumber}}</td>
+        </tr>
+    </table>
+    {{/if}}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="script.js"></script>
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Bootstrap tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-    
-    // Initialize modals
-    const permissionModal = new bootstrap.Modal(document.getElementById('permissionModal'));
-    const roleModal = new bootstrap.Modal(document.getElementById('roleModal'));
-    const userModal = new bootstrap.Modal(document.getElementById('userModal'));
-    const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-    
-    // Current user data (simulated - in real app, this would come from authentication)
-    const currentUser = {
-        id: '1',
-        name: 'Admin User',
-        email: 'admin@example.com',
-        roles: ['SUPERADMIN'],
-        permissions: ['ALL'],
-        branch: '1'
-    };
-    
-    // State management
-    let state = {
-        permissions: [],
-        roles: [],
-        users: [],
-        branches: [
-            { id: '1', name: 'Main Branch' },
-            { id: '2', name: 'North Branch' },
-            { id: '3', name: 'South Branch' }
-        ],
-        currentPage: {
-            permissions: 1,
-            roles: 1,
-            users: 1,
-            audit: 1
-        },
-        itemsPerPage: 10,
-        selectedPermission: null,
-        selectedRole: null,
-        selectedUser: null,
-        actionToConfirm: null
-    };
-    
-    // DOM Elements
-    const elements = {
-        sidebarLinks: document.querySelectorAll('.nav-link'),
-        contentSections: document.querySelectorAll('.content-section'),
-        dashboardSection: document.getElementById('dashboard-section'),
-        permissionsSection: document.getElementById('permissions-section'),
-        rolesSection: document.getElementById('roles-section'),
-        usersSection: document.getElementById('users-section'),
-        auditSection: document.getElementById('audit-section'),
-        permissionsList: document.getElementById('permissions-list'),
-        rolesList: document.getElementById('roles-list'),
-        usersList: document.getElementById('users-list'),
-        auditList: document.getElementById('audit-list'),
-        addPermissionBtn: document.getElementById('add-permission-btn'),
-        addRoleBtn: document.getElementById('add-role-btn'),
-        addUserBtn: document.getElementById('add-user-btn'),
-        permissionForm: document.getElementById('permission-form'),
-        roleForm: document.getElementById('role-form'),
-        userForm: document.getElementById('user-form'),
-        savePermissionBtn: document.getElementById('save-permission-btn'),
-        saveRoleBtn: document.getElementById('save-role-btn'),
-        saveUserBtn: document.getElementById('save-user-btn'),
-        permissionModalLabel: document.getElementById('permissionModalLabel'),
-        roleModalLabel: document.getElementById('roleModalLabel'),
-        userModalLabel: document.getElementById('userModalLabel'),
-        permissionId: document.getElementById('permission-id'),
-        roleId: document.getElementById('role-id'),
-        userId: document.getElementById('user-id'),
-        permissionName: document.getElementById('permission-name'),
-        permissionDescription: document.getElementById('permission-description'),
-        permissionModule: document.getElementById('permission-module'),
-        permissionAction: document.getElementById('permission-action'),
-        permissionCategory: document.getElementById('permission-category'),
-        permissionActive: document.getElementById('permission-active'),
-        roleName: document.getElementById('role-name'),
-        roleDescription: document.getElementById('role-description'),
-        roleActive: document.getElementById('role-active'),
-        userName: document.getElementById('user-name'),
-        userEmail: document.getElementById('user-email'),
-        userMobile: document.getElementById('user-mobile'),
-        userBranch: document.getElementById('user-branch'),
-        userActive: document.getElementById('user-active'),
-        permissionCategories: document.getElementById('permission-categories'),
-        roleSelection: document.getElementById('role-selection'),
-        userPermissions: document.getElementById('user-permissions'),
-        confirmationMessage: document.getElementById('confirmation-message'),
-        confirmActionBtn: document.getElementById('confirm-action-btn'),
-        totalPermissions: document.getElementById('total-permissions'),
-        totalRoles: document.getElementById('total-roles'),
-        totalUsers: document.getElementById('total-users'),
-        permissionsPagination: document.getElementById('permissions-pagination'),
-        rolesPagination: document.getElementById('roles-pagination'),
-        usersPagination: document.getElementById('users-pagination'),
-        auditPagination: document.getElementById('audit-pagination'),
-        refreshAuditBtn: document.getElementById('refresh-audit-btn')
-    };
-    
-    // Event Listeners
-    elements.sidebarLinks.forEach(link => {
-        link.addEventListener('click', handleSidebarLinkClick);
-    });
-    
-    elements.addPermissionBtn.addEventListener('click', () => openPermissionModal());
-    elements.addRoleBtn.addEventListener('click', () => openRoleModal());
-    elements.addUserBtn.addEventListener('click', () => openUserModal());
-    
-    elements.savePermissionBtn.addEventListener('click', savePermission);
-    elements.saveRoleBtn.addEventListener('click', saveRole);
-    elements.saveUserBtn.addEventListener('click', saveUser);
-    
-    elements.confirmActionBtn.addEventListener('click', confirmAction);
-    elements.refreshAuditBtn.addEventListener('click', loadAuditLogs);
-    
-    // Initialize the app
-    initApp();
-    
-    // Functions
-    function initApp() {
-        // Load initial data
-        loadPermissions();
-        loadRoles();
-        loadUsers();
-        loadAuditLogs();
-        
-        // Show dashboard by default
-        showSection('dashboard');
-    }
-    
-    function handleSidebarLinkClick(e) {
-        e.preventDefault();
-        const section = this.getAttribute('data-section');
-        showSection(section);
-    }
-    
-    function showSection(section) {
-        // Update active link in sidebar
-        elements.sidebarLinks.forEach(link => {
-            link.classList.remove('active');
-            if (link.getAttribute('data-section') === section) {
-                link.classList.add('active');
-            }
-        });
-        
-        // Hide all sections
-        elements.contentSections.forEach(sec => {
-            sec.style.display = 'none';
-        });
-        
-        // Show selected section
-        switch(section) {
-            case 'dashboard':
-                elements.dashboardSection.style.display = 'block';
-                updateDashboardStats();
-                break;
-            case 'permissions':
-                elements.permissionsSection.style.display = 'block';
-                break;
-            case 'roles':
-                elements.rolesSection.style.display = 'block';
-                break;
-            case 'users':
-                elements.usersSection.style.display = 'block';
-                break;
-            case 'audit':
-                elements.auditSection.style.display = 'block';
-                break;
-        }
-    }
-    
-    function updateDashboardStats() {
-        elements.totalPermissions.textContent = state.permissions.length;
-        elements.totalRoles.textContent = state.roles.length;
-        elements.totalUsers.textContent = state.users.length;
-    }
-    
-    // Permission Functions
-    function loadPermissions(page = 1) {
-        // In a real app, this would be an API call
-        // For demo, we'll use mock data
-        const mockPermissions = [
-            {
-                id: '1',
-                name: 'MANAGE_USERS',
-                description: 'Allows full management of user accounts',
-                module: 'USERS',
-                action: 'MANAGE',
-                category: 'ADMIN',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '2',
-                name: 'CREATE_BOOKINGS',
-                description: 'Allows creating new bookings',
-                module: 'BOOKINGS',
-                action: 'CREATE',
-                category: 'SALES',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '3',
-                name: 'READ_BOOKINGS',
-                description: 'Allows viewing bookings',
-                module: 'BOOKINGS',
-                action: 'READ',
-                category: 'SALES',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '4',
-                name: 'UPDATE_BOOKINGS',
-                description: 'Allows updating bookings',
-                module: 'BOOKINGS',
-                action: 'UPDATE',
-                category: 'SALES',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '5',
-                name: 'APPROVE_BOOKINGS',
-                description: 'Allows approving bookings',
-                module: 'BOOKINGS',
-                action: 'APPROVE',
-                category: 'SALES',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '6',
-                name: 'MANAGE_ROLES',
-                description: 'Allows managing roles',
-                module: 'ROLES',
-                action: 'MANAGE',
-                category: 'ADMIN',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '7',
-                name: 'MANAGE_PERMISSIONS',
-                description: 'Allows managing permissions',
-                module: 'PERMISSIONS',
-                action: 'MANAGE',
-                category: 'ADMIN',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '8',
-                name: 'VIEW_REPORTS',
-                description: 'Allows viewing reports',
-                module: 'REPORTS',
-                action: 'READ',
-                category: 'REPORT',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '9',
-                name: 'GENERATE_REPORTS',
-                description: 'Allows generating reports',
-                module: 'REPORTS',
-                action: 'CREATE',
-                category: 'REPORT',
-                is_active: true,
-                createdBy: '1'
-            },
-            {
-                id: '10',
-                name: 'MANAGE_INVENTORY',
-                description: 'Allows managing inventory',
-                module: 'INVENTORY',
-                action: 'MANAGE',
-                category: 'INVENTORY',
-                is_active: true,
-                createdBy: '1'
-            }
-        ];
-        
-        state.permissions = mockPermissions;
-        renderPermissions(page);
-    }
-    
-    function renderPermissions(page = 1) {
-        const startIndex = (page - 1) * state.itemsPerPage;
-        const endIndex = startIndex + state.itemsPerPage;
-        const paginatedPermissions = state.permissions.slice(startIndex, endIndex);
-        
-        elements.permissionsList.innerHTML = '';
-        
-        if (paginatedPermissions.length === 0) {
-            elements.permissionsList.innerHTML = '<tr><td colspan="7" class="text-center">No permissions found</td></tr>';
-            return;
-        }
-        
-        paginatedPermissions.forEach(permission => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${permission.name}</td>
-                <td>${permission.description}</td>
-                <td>${permission.module}</td>
-                <td>${permission.action}</td>
-                <td>${permission.category}</td>
-                <td>
-                    <span class="status-badge ${permission.is_active ? 'badge-active' : 'badge-inactive'}">
-                        ${permission.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td class="action-buttons">
-                    <button class="btn btn-sm btn-outline-primary edit-permission" data-id="${permission.id}">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-permission" data-id="${permission.id}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            `;
-            elements.permissionsList.appendChild(tr);
-        });
-        
-        // Add event listeners to action buttons
-        document.querySelectorAll('.edit-permission').forEach(btn => {
-            btn.addEventListener('click', () => editPermission(btn.getAttribute('data-id')));
-        });
-        
-        document.querySelectorAll('.delete-permission').forEach(btn => {
-            btn.addEventListener('click', () => confirmDeletePermission(btn.getAttribute('data-id')));
-        });
-        
-        // Render pagination
-        renderPagination('permissions', state.permissions.length, page);
-    }
-    
-    function openPermissionModal(permission = null) {
-        if (permission) {
-            elements.permissionModalLabel.textContent = 'Edit Permission';
-            elements.permissionId.value = permission.id;
-            elements.permissionName.value = permission.name;
-            elements.permissionDescription.value = permission.description;
-            elements.permissionModule.value = permission.module;
-            elements.permissionAction.value = permission.action;
-            elements.permissionCategory.value = permission.category;
-            elements.permissionActive.checked = permission.is_active;
-        } else {
-            elements.permissionModalLabel.textContent = 'Add New Permission';
-            elements.permissionForm.reset();
-            elements.permissionId.value = '';
-        }
-        
-        permissionModal.show();
-    }
-    
-    function editPermission(id) {
-        const permission = state.permissions.find(p => p.id === id);
-        if (permission) {
-            openPermissionModal(permission);
-        }
-    }
-    
-    function confirmDeletePermission(id) {
-        const permission = state.permissions.find(p => p.id === id);
-        if (permission) {
-            state.selectedPermission = permission;
-            state.actionToConfirm = 'deletePermission';
-            elements.confirmationMessage.textContent = `Are you sure you want to delete the permission "${permission.name}"?`;
-            confirmationModal.show();
-        }
-    }
-    
-    function savePermission() {
-        const permissionData = {
-            id: elements.permissionId.value,
-            name: elements.permissionName.value.toUpperCase(),
-            description: elements.permissionDescription.value,
-            module: elements.permissionModule.value,
-            action: elements.permissionAction.value,
-            category: elements.permissionCategory.value,
-            is_active: elements.permissionActive.checked,
-            createdBy: currentUser.id
-        };
-        
-        // Validate
-        if (!permissionData.name || !permissionData.description || !permissionData.module || 
-            !permissionData.action || !permissionData.category) {
-            alert('Please fill all required fields');
-            return;
-        }
-        
-        // In a real app, this would be an API call
-        if (permissionData.id) {
-            // Update existing permission
-            const index = state.permissions.findIndex(p => p.id === permissionData.id);
-            if (index !== -1) {
-                state.permissions[index] = permissionData;
-            }
-        } else {
-            // Add new permission
-            permissionData.id = (state.permissions.length + 1).toString();
-            state.permissions.unshift(permissionData);
-        }
-        
-        permissionModal.hide();
-        renderPermissions(state.currentPage.permissions);
-        updateDashboardStats();
-    }
-    
-    function deletePermission() {
-        if (!state.selectedPermission) return;
-        
-        // In a real app, this would be an API call
-        state.permissions = state.permissions.filter(p => p.id !== state.selectedPermission.id);
-        
-        state.selectedPermission = null;
-        renderPermissions(state.currentPage.permissions);
-        updateDashboardStats();
-    }
-    
-    // Role Functions
-    function loadRoles(page = 1) {
-        // In a real app, this would be an API call
-        // For demo, we'll use mock data
-        const mockRoles = [
-            {
-                id: '1',
-                name: 'SUPERADMIN',
-                description: 'System super administrator with all permissions',
-                permissions: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-                is_active: true
-            },
-            {
-                id: '2',
-                name: 'ADMIN',
-                description: 'Branch administrator with most permissions',
-                permissions: ['1', '2', '3', '4', '6', '8', '9'],
-                is_active: true
-            },
-            {
-                id: '3',
-                name: 'MANAGER',
-                description: 'Branch manager with limited administrative permissions',
-                permissions: ['2', '3', '4', '8'],
-                is_active: true
-            },
-            {
-                id: '4',
-                name: 'SALES_EXECUTIVE',
-                description: 'Sales executive with booking-related permissions',
-                permissions: ['2', '3', '8'],
-                is_active: true
-            }
-        ];
-        
-        state.roles = mockRoles;
-        renderRoles(page);
-    }
-    
-    function renderRoles(page = 1) {
-        const startIndex = (page - 1) * state.itemsPerPage;
-        const endIndex = startIndex + state.itemsPerPage;
-        const paginatedRoles = state.roles.slice(startIndex, endIndex);
-        
-        elements.rolesList.innerHTML = '';
-        
-        if (paginatedRoles.length === 0) {
-            elements.rolesList.innerHTML = '<tr><td colspan="5" class="text-center">No roles found</td></tr>';
-            return;
-        }
-        
-        paginatedRoles.forEach(role => {
-            const permissionCount = role.permissions ? role.permissions.length : 0;
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${role.name}</td>
-                <td>${role.description}</td>
-                <td>${permissionCount} permission${permissionCount !== 1 ? 's' : ''}</td>
-                <td>
-                    <span class="status-badge ${role.is_active ? 'badge-active' : 'badge-inactive'}">
-                        ${role.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td class="action-buttons">
-                    <button class="btn btn-sm btn-outline-primary edit-role" data-id="${role.id}">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-role" data-id="${role.id}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            `;
-            elements.rolesList.appendChild(tr);
-        });
-        
-        // Add event listeners to action buttons
-        document.querySelectorAll('.edit-role').forEach(btn => {
-            btn.addEventListener('click', () => editRole(btn.getAttribute('data-id')));
-        });
-        
-        document.querySelectorAll('.delete-role').forEach(btn => {
-            btn.addEventListener('click', () => confirmDeleteRole(btn.getAttribute('data-id')));
-        });
-        
-        // Render pagination
-        renderPagination('roles', state.roles.length, page);
-    }
-    
-    function openRoleModal(role = null) {
-        if (role) {
-            elements.roleModalLabel.textContent = 'Edit Role';
-            elements.roleId.value = role.id;
-            elements.roleName.value = role.name;
-            elements.roleDescription.value = role.description;
-            elements.roleActive.checked = role.is_active;
-        } else {
-            elements.roleModalLabel.textContent = 'Add New Role';
-            elements.roleForm.reset();
-            elements.roleId.value = '';
-        }
-        
-        // Render permission categories with checkboxes
-        renderPermissionCategoriesForRole(role);
-        
-        roleModal.show();
-    }
-    
-    function renderPermissionCategoriesForRole(role = null) {
-        elements.permissionCategories.innerHTML = '';
-        
-        // Group permissions by category
-        const permissionsByCategory = {};
-        state.permissions.forEach(permission => {
-            if (!permissionsByCategory[permission.category]) {
-                permissionsByCategory[permission.category] = [];
-            }
-            permissionsByCategory[permission.category].push(permission);
-        });
-        
-        // Create a section for each category
-        for (const category in permissionsByCategory) {
-            const categoryDiv = document.createElement('div');
-            categoryDiv.className = 'col-md-6 permission-category';
-            
-            let html = `<h6>${category}</h6>`;
-            
-            permissionsByCategory[category].forEach(permission => {
-                const isChecked = role && role.permissions && role.permissions.includes(permission.id);
-                html += `
-                    <div class="form-check permission-item">
-                        <input class="form-check-input permission-checkbox" type="checkbox" 
-                            id="perm-${permission.id}" value="${permission.id}" 
-                            ${isChecked ? 'checked' : ''}>
-                        <label class="form-check-label" for="perm-${permission.id}">
-                            ${permission.name} (${permission.module}:${permission.action})
-                        </label>
-                    </div>
-                `;
-            });
-            
-            categoryDiv.innerHTML = html;
-            elements.permissionCategories.appendChild(categoryDiv);
-        }
-    }
-    
-    function editRole(id) {
-        const role = state.roles.find(r => r.id === id);
-        if (role) {
-            openRoleModal(role);
-        }
-    }
-    
-    function confirmDeleteRole(id) {
-        const role = state.roles.find(r => r.id === id);
-        if (role) {
-            state.selectedRole = role;
-            state.actionToConfirm = 'deleteRole';
-            elements.confirmationMessage.textContent = `Are you sure you want to delete the role "${role.name}"?`;
-            confirmationModal.show();
-        }
-    }
-    
-    function saveRole() {
-        const roleData = {
-            id: elements.roleId.value,
-            name: elements.roleName.value,
-            description: elements.roleDescription.value,
-            is_active: elements.roleActive.checked,
-            permissions: []
-        };
-        
-        // Validate
-        if (!roleData.name || !roleData.description) {
-            alert('Please fill all required fields');
-            return;
-        }
-        
-        // Get selected permissions
-        document.querySelectorAll('.permission-checkbox:checked').forEach(checkbox => {
-            roleData.permissions.push(checkbox.value);
-        });
-        
-        // In a real app, this would be an API call
-        if (roleData.id) {
-            // Update existing role
-            const index = state.roles.findIndex(r => r.id === roleData.id);
-            if (index !== -1) {
-                state.roles[index] = roleData;
-            }
-        } else {
-            // Add new role
-            roleData.id = (state.roles.length + 1).toString();
-            state.roles.unshift(roleData);
-        }
-        
-        roleModal.hide();
-        renderRoles(state.currentPage.roles);
-        updateDashboardStats();
-    }
-    
-    function deleteRole() {
-        if (!state.selectedRole) return;
-        
-        // In a real app, this would be an API call
-        state.roles = state.roles.filter(r => r.id !== state.selectedRole.id);
-        
-        state.selectedRole = null;
-        renderRoles(state.currentPage.roles);
-        updateDashboardStats();
-    }
-    
-    // User Functions
-    function loadUsers(page = 1) {
-        // In a real app, this would be an API call
-        // For demo, we'll use mock data
-        const mockUsers = [
-            {
-                id: '1',
-                name: 'Super Admin',
-                email: 'superadmin@example.com',
-                mobile: '9876543210',
-                roles: ['1'],
-                direct_permissions: [],
-                branch: '1',
-                is_active: true
-            },
-            {
-                id: '2',
-                name: 'Branch Admin',
-                email: 'admin@example.com',
-                mobile: '9876543211',
-                roles: ['2'],
-                direct_permissions: [],
-                branch: '1',
-                is_active: true
-            },
-            {
-                id: '3',
-                name: 'Sales Manager',
-                email: 'manager@example.com',
-                mobile: '9876543212',
-                roles: ['3'],
-                direct_permissions: [],
-                branch: '2',
-                is_active: true
-            },
-            {
-                id: '4',
-                name: 'Sales Executive',
-                email: 'executive@example.com',
-                mobile: '9876543213',
-                roles: ['4'],
-                direct_permissions: [],
-                branch: '2',
-                is_active: true
-            },
-            {
-                id: '5',
-                name: 'Finance Officer',
-                email: 'finance@example.com',
-                mobile: '9876543214',
-                roles: [],
-                direct_permissions: ['8', '9'],
-                branch: '1',
-                is_active: true
-            }
-        ];
-        
-        state.users = mockUsers;
-        renderUsers(page);
-    }
-    
-    function renderUsers(page = 1) {
-        const startIndex = (page - 1) * state.itemsPerPage;
-        const endIndex = startIndex + state.itemsPerPage;
-        const paginatedUsers = state.users.slice(startIndex, endIndex);
-        
-        elements.usersList.innerHTML = '';
-        
-        if (paginatedUsers.length === 0) {
-            elements.usersList.innerHTML = '<tr><td colspan="6" class="text-center">No users found</td></tr>';
-            return;
-        }
-        
-        paginatedUsers.forEach(user => {
-            const roleNames = user.roles.map(roleId => {
-                const role = state.roles.find(r => r.id === roleId);
-                return role ? role.name : '';
-            }).filter(name => name !== '');
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${user.name}</td>
-                <td>${user.email}</td>
-                <td>${user.mobile}</td>
-                <td>${roleNames.join(', ')}</td>
-                <td>
-                    <span class="status-badge ${user.is_active ? 'badge-active' : 'badge-inactive'}">
-                        ${user.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td class="action-buttons">
-                    <button class="btn btn-sm btn-outline-primary edit-user" data-id="${user.id}">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-user" data-id="${user.id}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            `;
-            elements.usersList.appendChild(tr);
-        });
-        
-        // Add event listeners to action buttons
-        document.querySelectorAll('.edit-user').forEach(btn => {
-            btn.addEventListener('click', () => editUser(btn.getAttribute('data-id')));
-        });
-        
-        document.querySelectorAll('.delete-user').forEach(btn => {
-            btn.addEventListener('click', () => confirmDeleteUser(btn.getAttribute('data-id')));
-        });
-        
-        // Render pagination
-        renderPagination('users', state.users.length, page);
-    }
-    
-    function openUserModal(user = null) {
-        if (user) {
-            elements.userModalLabel.textContent = 'Edit User';
-            elements.userId.value = user.id;
-            elements.userName.value = user.name;
-            elements.userEmail.value = user.email;
-            elements.userMobile.value = user.mobile;
-            elements.userBranch.value = user.branch;
-            elements.userActive.checked = user.is_active;
-        } else {
-            elements.userModalLabel.textContent = 'Add New User';
-            elements.userForm.reset();
-            elements.userId.value = '';
-        }
-        
-        // Render branch options
-        renderBranchOptions();
-        
-        // Render role selection
-        renderRoleSelectionForUser(user);
-        
-        // Render direct permissions
-        renderDirectPermissionsForUser(user);
-        
-        userModal.show();
-    }
-    
-    function renderBranchOptions() {
-        elements.userBranch.innerHTML = '<option value="">Select Branch</option>';
-        state.branches.forEach(branch => {
-            const option = document.createElement('option');
-            option.value = branch.id;
-            option.textContent = branch.name;
-            elements.userBranch.appendChild(option);
-        });
-    }
-    
-    function renderRoleSelectionForUser(user = null) {
-        elements.roleSelection.innerHTML = '';
-        
-        if (state.roles.length === 0) {
-            elements.roleSelection.innerHTML = '<p>No roles available</p>';
-            return;
-        }
-        
-        let html = '';
-        state.roles.forEach(role => {
-            const isChecked = user && user.roles && user.roles.includes(role.id);
-            html += `
-                <div class="col-md-6">
-                    <div class="form-check">
-                        <input class="form-check-input role-checkbox" type="checkbox" 
-                            id="role-${role.id}" value="${role.id}" 
-                            ${isChecked ? 'checked' : ''}>
-                        <label class="form-check-label" for="role-${role.id}">
-                            ${role.name}
-                        </label>
-                    </div>
-                </div>
-            `;
-        });
-        
-        elements.roleSelection.innerHTML = html;
-    }
-    
-    function renderDirectPermissionsForUser(user = null) {
-        elements.userPermissions.innerHTML = '';
-        
-        // Group permissions by category
-        const permissionsByCategory = {};
-        state.permissions.forEach(permission => {
-            if (!permissionsByCategory[permission.category]) {
-                permissionsByCategory[permission.category] = [];
-            }
-            permissionsByCategory[permission.category].push(permission);
-        });
-        
-        // Create a section for each category
-        for (const category in permissionsByCategory) {
-            const categoryDiv = document.createElement('div');
-            categoryDiv.className = 'col-md-6 permission-category';
-            
-            let html = `<h6>${category}</h6>`;
-            
-            permissionsByCategory[category].forEach(permission => {
-                const isChecked = user && user.direct_permissions && user.direct_permissions.includes(permission.id);
-                html += `
-                    <div class="form-check permission-item">
-                        <input class="form-check-input direct-permission-checkbox" type="checkbox" 
-                            id="user-perm-${permission.id}" value="${permission.id}" 
-                            ${isChecked ? 'checked' : ''}>
-                        <label class="form-check-label" for="user-perm-${permission.id}">
-                            ${permission.name} (${permission.module}:${permission.action})
-                        </label>
-                    </div>
-                `;
-            });
-            
-            categoryDiv.innerHTML = html;
-            elements.userPermissions.appendChild(categoryDiv);
-        }
-    }
-    
-    function editUser(id) {
-        const user = state.users.find(u => u.id === id);
-        if (user) {
-            openUserModal(user);
-        }
-    }
-    
-    function confirmDeleteUser(id) {
-        const user = state.users.find(u => u.id === id);
-        if (user) {
-            state.selectedUser = user;
-            state.actionToConfirm = 'deleteUser';
-            elements.confirmationMessage.textContent = `Are you sure you want to delete the user "${user.name}"?`;
-            confirmationModal.show();
-        }
-    }
-    
-    function saveUser() {
-        const userData = {
-            id: elements.userId.value,
-            name: elements.userName.value,
-            email: elements.userEmail.value,
-            mobile: elements.userMobile.value,
-            branch: elements.userBranch.value,
-            is_active: elements.userActive.checked,
-            roles: [],
-            direct_permissions: []
-        };
-        
-        // Validate
-        if (!userData.name || !userData.email || !userData.mobile || !userData.branch) {
-            alert('Please fill all required fields');
-            return;
-        }
-        
-        // Get selected roles
-        document.querySelectorAll('.role-checkbox:checked').forEach(checkbox => {
-            userData.roles.push(checkbox.value);
-        });
-        
-        // Get selected direct permissions
-        document.querySelectorAll('.direct-permission-checkbox:checked').forEach(checkbox => {
-            userData.direct_permissions.push(checkbox.value);
-        });
-        
-        // In a real app, this would be an API call
-        if (userData.id) {
-            // Update existing user
-            const index = state.users.findIndex(u => u.id === userData.id);
-            if (index !== -1) {
-                state.users[index] = userData;
-            }
-        } else {
-            // Add new user
-            userData.id = (state.users.length + 1).toString();
-            state.users.unshift(userData);
-        }
-        
-        userModal.hide();
-        renderUsers(state.currentPage.users);
-        updateDashboardStats();
-    }
-    
-    function deleteUser() {
-        if (!state.selectedUser) return;
-        
-        // In a real app, this would be an API call
-        state.users = state.users.filter(u => u.id !== state.selectedUser.id);
-        
-        state.selectedUser = null;
-        renderUsers(state.currentPage.users);
-        updateDashboardStats();
-    }
-    
-    // Audit Log Functions
-    function loadAuditLogs(page = 1) {
-        // In a real app, this would be an API call
-        // For demo, we'll use mock data
-        const mockAuditLogs = [
-            {
-                id: '1',
-                action: 'CREATE',
-                entity: 'Permission',
-                entityId: '10',
-                user: '1',
-                timestamp: '2023-06-15T10:30:00Z',
-                status: 'SUCCESS',
-                metadata: { name: 'MANAGE_INVENTORY' }
-            },
-            {
-                id: '2',
-                action: 'UPDATE',
-                entity: 'Role',
-                entityId: '3',
-                user: '1',
-                timestamp: '2023-06-14T15:45:00Z',
-                status: 'SUCCESS',
-                metadata: { description: 'Updated description' }
-            },
-            {
-                id: '3',
-                action: 'DELETE',
-                entity: 'User',
-                entityId: '5',
-                user: '2',
-                timestamp: '2023-06-13T09:20:00Z',
-                status: 'FAILED',
-                error: 'User not found',
-                metadata: { userId: '5' }
-            },
-            {
-                id: '4',
-                action: 'ASSIGN',
-                entity: 'Role',
-                entityId: '2',
-                user: '1',
-                timestamp: '2023-06-12T14:10:00Z',
-                status: 'SUCCESS',
-                metadata: { userId: '3', roleId: '2' }
-            },
-            {
-                id: '5',
-                action: 'LOGIN',
-                entity: 'User',
-                entityId: '2',
-                user: '2',
-                timestamp: '2023-06-11T08:05:00Z',
-                status: 'SUCCESS',
-                metadata: { ip: '192.168.1.100' }
-            }
-        ];
-        
-        renderAuditLogs(mockAuditLogs, page);
-    }
-    
-    function renderAuditLogs(logs, page = 1) {
-        const startIndex = (page - 1) * state.itemsPerPage;
-        const endIndex = startIndex + state.itemsPerPage;
-        const paginatedLogs = logs.slice(startIndex, endIndex);
-        
-        elements.auditList.innerHTML = '';
-        
-        if (paginatedLogs.length === 0) {
-            elements.auditList.innerHTML = '<tr><td colspan="6" class="text-center">No audit logs found</td></tr>';
-            return;
-        }
-        
-        paginatedLogs.forEach(log => {
-            const user = state.users.find(u => u.id === log.user) || { name: 'Unknown' };
-            const timestamp = new Date(log.timestamp).toLocaleString();
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${log.action}</td>
-                <td>${log.entity}</td>
-                <td>${user.name}</td>
-                <td>${timestamp}</td>
-                <td>
-                    <span class="status-badge ${log.status === 'SUCCESS' ? 'badge-active' : 'badge-inactive'}">
-                        ${log.status}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline-info view-audit-details" data-id="${log.id}">
-                        <i class="bi bi-eye"></i> Details
-                    </button>
-                </td>
-            `;
-            elements.auditList.appendChild(tr);
-        });
-        
-        // Add event listeners to view details buttons
-        document.querySelectorAll('.view-audit-details').forEach(btn => {
-            btn.addEventListener('click', () => viewAuditDetails(btn.getAttribute('data-id')));
-        });
-        
-        // Render pagination
-        renderPagination('audit', logs.length, page);
-    }
-    
-    function viewAuditDetails(id) {
-        // In a real app, this would show detailed audit log information
-        alert(`Viewing details for audit log ${id}`);
-    }
-    
-    // Pagination Functions
-    function renderPagination(type, totalItems, currentPage) {
-        const totalPages = Math.ceil(totalItems / state.itemsPerPage);
-        const paginationContainer = elements[`${type}Pagination`];
-        
-        if (!paginationContainer) return;
-        
-        paginationContainer.innerHTML = '';
-        
-        if (totalPages <= 1) return;
-        
-        // Previous button
-        const prevLi = document.createElement('li');
-        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>`;
-        paginationContainer.appendChild(prevLi);
-        
-        // Page numbers
-        for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
-            paginationContainer.appendChild(li);
-        }
-        
-        // Next button
-        const nextLi = document.createElement('li');
-        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>`;
-        paginationContainer.appendChild(nextLi);
-        
-        // Add event listeners
-        paginationContainer.querySelectorAll('.page-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const page = parseInt(link.getAttribute('data-page'));
-                if (!isNaN(page)) {
-                    state.currentPage[type] = page;
-                    switch(type) {
-                        case 'permissions':
-                            renderPermissions(page);
-                            break;
-                        case 'roles':
-                            renderRoles(page);
-                            break;
-                        case 'users':
-                            renderUsers(page);
-                            break;
-                        case 'audit':
-                            loadAuditLogs(page);
-                            break;
-                    }
-                }
-            });
-        });
-    }
-    
-    // Confirmation Modal Functions
-    function confirmAction() {
-        confirmationModal.hide();
-        
-        switch(state.actionToConfirm) {
-            case 'deletePermission':
-                deletePermission();
-                break;
-            case 'deleteRole':
-                deleteRole();
-                break;
-            case 'deleteUser':
-                deleteUser();
-                break;
-        }
-        
-        state.actionToConfirm = null;
-    }
-});
-    </script>
+    <!-- Notes -->
+    <table>
+        <tr>
+            <td><strong>Notes:-</strong></td>
+            <td colspan="3"></td>
+        </tr>
+    </table>
+
+    <!-- Declaration -->
+    <table>
+        <tr>
+            <td>ACC.DETAILS: {{branchDetails.name}}</td>
+        </tr>
+        <tr>
+            <td class="declaration">
+                <strong>Declaration-</strong> I/We Authorize the Dealer to register the vehicle at RTO in my/our name .2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss. 3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration. 4) Registration Number allotted by RTO will be acceptable to me else I will pre book for choice number at RTO at my own. Dealership has no role in RTO Number allocation 5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same 6) I/We agree that the price at the time of delivery will be applicable. 7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle 9)I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking. 8) Subject to sangamner Jurisdication. I accept that vehicle once sold by dealer shall not be taken back /replaced for any reason.
+            </td>
+        </tr>
+    </table>
+
+    <!-- Signatures -->
+    <table class="signature-table">
+        <tr>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td>Customer's Signature</td>
+            <td>Sales Executive</td>
+            <td>Manager</td>
+            <td>Accountant</td>
+        </tr>
+    </table>
 </body>
 </html>

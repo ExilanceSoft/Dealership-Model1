@@ -58,6 +58,15 @@ Handlebars.registerHelper('gt', function(a, b) {
 Handlebars.registerHelper('divide', function(a, b) {
     return a / b;
 });
+
+Handlebars.registerHelper('formatDate', function(date) {
+  return moment(date).format('DD/MM/YYYY');
+});
+
+Handlebars.registerHelper('formatCurrency', function(amount) {
+  if (amount === undefined || amount === null) return '0.00';
+  return parseFloat(amount).toFixed(2);
+});
 // Load the booking form template
 const templatePath = path.join(__dirname, '../templates/bookingFormTemplate.html');
 const templateHtml = fs.readFileSync(templatePath, 'utf8');

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Payment Receipt</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .logo { max-width: 150px; }
+    .title { font-size: 24px; font-weight: bold; margin: 10px 0; }
+    .receipt-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+    .customer-info { margin-bottom: 20px; }
+    .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .table th { background-color: #f2f2f2; }
+    .total-row { font-weight: bold; }
+    .footer { margin-top: 30px; text-align: right; }
+    .signature { margin-top: 50px; border-top: 1px solid #000; width: 200px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="{{companyLogo}}" alt="Company Logo" class="logo">
+    <div class="title">PAYMENT RECEIPT</div>
+  </div>
+
+  <div class="receipt-info">
+    <div>
+      <strong>Receipt No:</strong> {{receipt.receiptNumber}}<br>
+      <strong>Date:</strong> {{formatDate receipt.createdAt}}
+    </div>
+    <div>
+      <strong>Booking No:</strong> {{receipt.bookingDetails.bookingNumber}}<br>
+      <strong>Customer:</strong> {{receipt.bookingDetails.customerDetails.salutation}} {{receipt.bookingDetails.customerDetails.name}}
+    </div>
+  </div>
+
+  <div class="customer-info">
+    <strong>Vehicle Details:</strong><br>
+    Model: {{receipt.bookingDetails.modelDetails.model_name}}<br>
+    Color: {{receipt.bookingDetails.colorDetails.name}}<br>
+    Chassis No: {{receipt.bookingDetails.chassisNumber}}
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Payment Mode</th>
+        <th>Amount</th>
+        <th>Details</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each receipt.payments}}
+      <tr>
+        <td>{{this.mode}}</td>
+        <td>{{formatCurrency this.amount}}</td>
+        <td>
+          {{#if this.bank}}Bank: {{this.bankDetails.name}} ({{this.bankLocation}}){{/if}}
+          {{#if this.cashLocation}}Location: {{this.cashLocation}}{{/if}}
+          {{#if this.referenceNumber}}Ref: {{this.referenceNumber}}{{/if}}
+        </td>
+        <td>{{formatDate this.date}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div>
+      <strong>Total Amount:</strong> {{formatCurrency receipt.bookingDetails.discountedAmount}}<br>
+      <strong>Received Amount:</strong> {{formatCurrency receipt.receivedAmount}}<br>
+      <strong>Balance Amount:</strong> {{formatCurrency receipt.balanceAmount}}
+    </div>
+    <div style="margin-top: 20px;">
+      <strong>Remarks:</strong> {{receipt.remarks}}
+    </div>
+    <div class="signature">
+      Authorized Signature
+    </div>
+  </div>
+</body>
+</html>
