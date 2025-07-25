@@ -35,13 +35,14 @@ const ledgerSchema = new mongoose.Schema({
       return ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(this.paymentMode);
     }
   },
-  transactionReference: {
-    type: String,
-    trim: true,
-    required: function() {
-      return ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(this.paymentMode);
-    }
-  },
+ transactionReference: {
+  type: String,
+  trim: true,
+  required: function() {
+    // Make this always return false to make it optional
+    return false; 
+  }
+},
   remark: {
     type: String,
     trim: true

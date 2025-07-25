@@ -48,8 +48,8 @@ exports.addReceipt = async (req, res, next) => {
       }
     } 
     else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode)) {
-      if (!bank || !transactionReference) {
-        return next(new AppError('Bank and transaction reference are required for non-cash payments', 400));
+      if (!bank) {
+        return next(new AppError('Bank is required for non-cash payments', 400));
       }
       
       // Validate bank exists
@@ -59,7 +59,7 @@ exports.addReceipt = async (req, res, next) => {
       }
     }
 
-    // Create ledger entry
+    // Create ledger entry (transactionReference is now optional)
     const ledgerEntry = await Ledger.create({
       booking: bookingId,
       paymentMode,
@@ -67,10 +67,11 @@ exports.addReceipt = async (req, res, next) => {
       receivedBy: req.user.id,
       cashLocation: paymentMode === 'Cash' ? cashLocation : undefined,
       bank: ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode) ? bank : undefined,
-      transactionReference: ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode) ? transactionReference : undefined,
+      transactionReference: transactionReference || undefined, // Will be saved if provided, otherwise undefined
       remark
     });
 
+    // Rest of your code remains the same...
     // Generate unique receipt number
     const receiptNumber = `RCPT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -238,10 +239,10 @@ exports.updateLedgerEntry = async (req, res, next) => {
       }
     } 
     else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode)) {
-      if (!bank || !transactionReference) {
+      if (!bank) {
         await session.abortTransaction();
         session.endSession();
-        return next(new AppError('Bank and transaction reference are required for non-cash payments', 400));
+        return next(new AppError('Bank is required for non-cash payments', 400));
       }
       
       // Validate bank exists
@@ -261,7 +262,7 @@ exports.updateLedgerEntry = async (req, res, next) => {
     ledgerEntry.amount = amount || ledgerEntry.amount;
     ledgerEntry.cashLocation = paymentMode === 'Cash' ? cashLocation : undefined;
     ledgerEntry.bank = ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode) ? bank : undefined;
-    ledgerEntry.transactionReference = ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode) ? transactionReference : undefined;
+    ledgerEntry.transactionReference = transactionReference || undefined;
     ledgerEntry.remark = remark || ledgerEntry.remark;
     
     await ledgerEntry.save({ session });
@@ -299,6 +300,7 @@ exports.updateLedgerEntry = async (req, res, next) => {
     next(err);
   }
 };
+
 
 exports.getBankList = async (req, res, next) => {
   try {
@@ -364,6 +366,10 @@ exports.getLedgerReport = async (req, res, next) => {
       .populate('modelDetails', 'name')
       .populate('colorDetails', 'name')
       .populate({
+        path: 'branchDetails',
+        select: 'name address city state pincode phone email gst_number is_active logo1 logo2 createdAt updatedAt'
+      })
+      .populate({
         path: 'payment.financer',
         select: 'name',
         model: 'FinanceProvider'
@@ -373,10 +379,24 @@ exports.getLedgerReport = async (req, res, next) => {
       return next(new AppError('No booking found with that ID', 404));
     }
 
-    // Get all ledger entries for this booking
+    // Get all ledger entries for this booking with full branch details
     const ledgerEntries = await Ledger.find({ booking: bookingId })
-      .populate('bankDetails', 'name ifscCode')
-      .populate('cashLocationDetails', 'name')
+      .populate({
+        path: 'bankDetails',
+        select: 'name ifscCode',
+        populate: {
+          path: 'branchDetails',
+          select: 'name address city state pincode phone email gst_number is_active logo1 logo2 createdAt updatedAt'
+        }
+      })
+      .populate({
+        path: 'cashLocationDetails',
+        select: 'name description',
+        populate: {
+          path: 'branchDetails',
+          select: 'name address city state pincode phone email gst_number is_active logo1 logo2 createdAt updatedAt'
+        }
+      })
       .populate('receivedByDetails', 'name')
       .sort({ createdAt: 1 });
 
@@ -392,7 +412,8 @@ exports.getLedgerReport = async (req, res, next) => {
       status: 'Active',
       credit: 0,
       debit: booking.discountedAmount,
-      balance: balance
+      balance: balance,
+      branch: booking.branchDetails
     });
 
     // Add all payment entries (as credits that reduce the balance)
@@ -400,6 +421,16 @@ exports.getLedgerReport = async (req, res, next) => {
       balance -= entry.amount;
       
       let description = '';
+      let branchDetails = booking.branchDetails;
+
+      // Determine branch for this entry
+      if (entry.paymentMode === 'Cash' && entry.cashLocationDetails?.branchDetails) {
+        branchDetails = entry.cashLocationDetails.branchDetails;
+      } else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(entry.paymentMode) && 
+                 entry.bankDetails?.branchDetails) {
+        branchDetails = entry.bankDetails.branchDetails;
+      }
+
       if (entry.paymentMode === 'Cash') {
         description = `Cash Payment - ${entry.cashLocationDetails?.name || 'N/A'}`;
       } else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(entry.paymentMode)) {
@@ -415,14 +446,10 @@ exports.getLedgerReport = async (req, res, next) => {
         status: 'Active',
         credit: entry.amount,
         debit: 0,
-        balance: balance
+        balance: balance,
+        branch: branchDetails
       });
     });
-
-    // Calculate totals
-    const totalCredit = formattedEntries.reduce((sum, entry) => sum + entry.credit, 0);
-    const totalDebit = formattedEntries.reduce((sum, entry) => sum + entry.debit, 0);
-    const finalBalance = balance;
 
     // Prepare response
     const response = {
@@ -444,13 +471,14 @@ exports.getLedgerReport = async (req, res, next) => {
           ? (booking.payment.financer?.name || 'N/A') 
           : '---Select Financer Name----'
       },
+      branchDetails: booking.branchDetails,
       salesExecutive: booking.salesExecutiveDetails?.name || 'N/A',
       ledgerDate: new Date().toLocaleDateString('en-GB'),
       entries: formattedEntries,
       totals: {
-        totalCredit,
-        totalDebit,
-        finalBalance
+        totalCredit: formattedEntries.reduce((sum, entry) => sum + entry.credit, 0),
+        totalDebit: formattedEntries.reduce((sum, entry) => sum + entry.debit, 0),
+        finalBalance: balance
       }
     };
 
@@ -552,3 +580,253 @@ exports.getBookingTypeCounts = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.getBranchLedgerSummary = async (req, res, next) => {
+  try {
+    // Aggregate all bookings and their ledger entries
+    const branchSummary = await Booking.aggregate([
+      {
+        $lookup: {
+          from: 'ledgers',
+          localField: '_id',
+          foreignField: 'booking',
+          as: 'ledgerEntries'
+        }
+      },
+      {
+        $lookup: {
+          from: 'branches',
+          localField: 'branch',
+          foreignField: '_id',
+          as: 'branchDetails'
+        }
+      },
+      {
+        $unwind: {
+          path: '$branchDetails',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          branchId: '$branch',
+          branchName: '$branchDetails.name',
+          discountedAmount: 1, // This is the debit (vehicle cost)
+          creditAmount: {
+            $sum: '$ledgerEntries.amount' // Sum of all payments (credits)
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$branchId',
+          branchName: { $first: '$branchName' },
+          totalDebit: { $sum: '$discountedAmount' },
+          totalCredit: { $sum: '$creditAmount' }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          branchId: '$_id',
+          branchName: 1,
+          totalDebit: 1,
+          totalCredit: 1,
+          finalBalance: { $subtract: ['$totalDebit', '$totalCredit'] }
+        }
+      },
+      {
+        $sort: { branchName: 1 }
+      }
+    ]);
+
+    // Calculate totals across all branches
+    const allBranchesSummary = {
+      totalDebit: 0,
+      totalCredit: 0,
+      finalBalance: 0
+    };
+
+    branchSummary.forEach(branch => {
+      allBranchesSummary.totalDebit += branch.totalDebit;
+      allBranchesSummary.totalCredit += branch.totalCredit;
+      allBranchesSummary.finalBalance += branch.finalBalance;
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        allBranches: allBranchesSummary,
+        byBranch: branchSummary
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting branch ledger summary: ${err.message}`);
+    next(err);
+  }
+};
+//   try {
+//     const { bookingId } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+//       return next(new AppError('Invalid booking ID format', 400));
+//     }
+
+//     // Get booking details with all necessary population
+//     const booking = await Booking.findById(bookingId)
+//       .populate('customerDetails')
+//       .populate('salesExecutiveDetails', 'name')
+//       .populate('modelDetails', 'name')
+//       .populate('colorDetails', 'name')
+//       .populate('branchDetails', 'name') // Add branch details population
+//       .populate({
+//         path: 'payment.financer',
+//         select: 'name',
+//         model: 'FinanceProvider'
+//       });
+
+//     if (!booking) {
+//       return next(new AppError('No booking found with that ID', 404));
+//     }
+
+//     // Get all ledger entries for this booking
+//     const ledgerEntries = await Ledger.find({ booking: bookingId })
+//       .populate('bankDetails', 'name ifscCode branchDetails')
+//       .populate('cashLocationDetails', 'name branchDetails')
+//       .populate('receivedByDetails', 'name')
+//       .sort({ createdAt: 1 });
+
+//     // Prepare entries with running balance
+//     let balance = booking.discountedAmount;
+//     const formattedEntries = [];
+    
+//     // Branch-wise totals
+//     const branchTotals = {};
+//     let overallTotalCredit = 0;
+//     let overallTotalDebit = 0;
+
+//     // Add initial booking entry (as debit)
+//     formattedEntries.push({
+//       date: booking.createdAt.toLocaleDateString('en-GB'),
+//       description: `${booking.modelDetails?.name || 'N/A'} ${booking.colorDetails?.name || 'N/A'} SALES PRICE AGAINST BOOKING`,
+//       receiptNo: booking.bookingNumber,
+//       status: 'Active',
+//       credit: 0,
+//       debit: booking.discountedAmount,
+//       balance: balance,
+//       branch: booking.branchDetails?.name || 'N/A'
+//     });
+
+//     // Initialize branch totals for the booking branch
+//     const bookingBranchId = booking.branch;
+//     const bookingBranchName = booking.branchDetails?.name || 'N/A';
+//     branchTotals[bookingBranchId] = {
+//       name: bookingBranchName,
+//       totalCredit: 0,
+//       totalDebit: booking.discountedAmount,
+//       finalBalance: booking.discountedAmount
+//     };
+
+//     overallTotalDebit += booking.discountedAmount;
+
+//     // Add all payment entries (as credits that reduce the balance)
+//     ledgerEntries.forEach(entry => {
+//       balance -= entry.amount;
+      
+//       let description = '';
+//       let branchId = bookingBranchId;
+//       let branchName = bookingBranchName;
+
+//       // Determine branch for this entry
+//       if (entry.paymentMode === 'Cash' && entry.cashLocationDetails?.branchDetails) {
+//         branchId = entry.cashLocationDetails.branchDetails._id;
+//         branchName = entry.cashLocationDetails.branchDetails.name;
+//       } else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(entry.paymentMode) && 
+//                  entry.bankDetails?.branchDetails) {
+//         branchId = entry.bankDetails.branchDetails._id;
+//         branchName = entry.bankDetails.branchDetails.name;
+//       }
+
+//       if (entry.paymentMode === 'Cash') {
+//         description = `Cash Payment - ${entry.cashLocationDetails?.name || 'N/A'}`;
+//       } else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(entry.paymentMode)) {
+//         description = `${entry.paymentMode} - ${entry.bankDetails?.name || 'N/A'} (Ref: ${entry.transactionReference})`;
+//       } else {
+//         description = `${entry.paymentMode} Payment`;
+//       }
+
+//       // Initialize branch totals if not exists
+//       if (!branchTotals[branchId]) {
+//         branchTotals[branchId] = {
+//           name: branchName,
+//           totalCredit: 0,
+//           totalDebit: 0,
+//           finalBalance: 0
+//         };
+//       }
+
+//       // Update branch totals
+//       branchTotals[branchId].totalCredit += entry.amount;
+//       branchTotals[branchId].finalBalance = branchTotals[branchId].totalDebit - branchTotals[branchId].totalCredit;
+
+//       // Update overall totals
+//       overallTotalCredit += entry.amount;
+
+//       formattedEntries.push({
+//         date: entry.createdAt.toLocaleDateString('en-GB'),
+//         description: description,
+//         receiptNo: entry._id.toString().slice(-6).toUpperCase(),
+//         status: 'Active',
+//         credit: entry.amount,
+//         debit: 0,
+//         balance: balance,
+//         branch: branchName
+//       });
+//     });
+
+//     // Calculate final overall balance
+//     const finalBalance = balance;
+
+//     // Convert branchTotals object to array
+//     const branchTotalsArray = Object.values(branchTotals);
+
+//     // Prepare response
+//     const response = {
+//       customerDetails: {
+//         name: `${booking.customerDetails.salutation || ''} ${booking.customerDetails.name}`.trim(),
+//         address: `${booking.customerDetails.address}, ${booking.customerDetails.taluka}, ${booking.customerDetails.district}, ${booking.customerDetails.pincode}`,
+//         phone: booking.customerDetails.mobile1,
+//         aadharNo: booking.customerDetails.aadharNumber || 'N/A',
+//         panNo: booking.customerDetails.panNo || 'N/A'
+//       },
+//       vehicleDetails: {
+//         chassisNo: booking.chassisNumber || 'N/A',
+//         engineNo: booking.engineNumber || 'N/A',
+//         model: booking.modelDetails?.name || 'N/A',
+//         color: booking.colorDetails?.name || 'N/A'
+//       },
+//       financeDetails: {
+//         financer: booking.payment.type === 'FINANCE' 
+//           ? (booking.payment.financer?.name || 'N/A') 
+//           : '---Select Financer Name----'
+//       },
+//       salesExecutive: booking.salesExecutiveDetails?.name || 'N/A',
+//       ledgerDate: new Date().toLocaleDateString('en-GB'),
+//       entries: formattedEntries,
+//       branchTotals: branchTotalsArray,
+//       overallTotals: {
+//         totalCredit: overallTotalCredit,
+//         totalDebit: overallTotalDebit,
+//         finalBalance: finalBalance
+//       }
+//     };
+
+//     res.status(200).json({
+//       status: 'success',
+//       data: response
+//     });
+//   } catch (err) {
+//     logger.error(`Error getting ledger report: ${err.message}`);
+//     next(err);
+//   }
+// };

@@ -61,3 +61,6 @@
 {"timestamp":"2025-07-24 16:58:00","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-24 17:01:53","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-24 17:03:28","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-07-24 17:10:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-24 17:29:32","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-24 17:30:01","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}

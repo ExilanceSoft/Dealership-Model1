@@ -782,6 +782,7 @@ exports.createBooking = async (req, res) => {
             rtoAmount: ['BH', 'CRTM'].includes(req.body.rto_type) ? rtoAmount : undefined,
             hpa: req.body.hpa || false,
             hypothecationCharges: hypothecationCharges,
+            insuranceStatus: 'NOT_APPLICABLE',
             customerDetails: {
                 salutation: req.body.customer_details.salutation,
                 name: req.body.customer_details.name,
@@ -1320,6 +1321,7 @@ exports.approveBooking = async (req, res) => {
     // 5. Prepare update
     const updateData = {
       status: 'APPROVED',
+      insuranceStatus: 'AWAITING', 
       approvedBy: req.user.id,
       "discounts.$[].approvedBy": req.user.id,
       "discounts.$[].approvalStatus": 'APPROVED',

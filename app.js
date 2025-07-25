@@ -76,11 +76,13 @@ const stockTransferRoutes = require('./routes/stockTransferRoutes');
 const bankRoutes = require('./routes/bankRoutes');
 const ledgerRoutes = require('./routes/ledgerRoutes');
 const cashLocationRoutes = require('./routes/cashLocationRoutes');
-
+const insuranceRoutes = require('./routes/insuranceRoutes');
+const declarationsRoutes = require('./routes/declarationRoutes');
 // Create Express application
 const app = express();
 app.use('/api/v1/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/v1/images', express.static(path.join(__dirname, 'public', 'images')));
+app.use('/api/v1',express.static(path.join(__dirname, 'templates')));
 // Middleware to parse JSON bodies
 app.use(express.json());
 // Add this test route before your other routes
@@ -168,7 +170,8 @@ app.use('/api/v1/transfers',stockTransferRoutes);
 app.use('/api/v1/banks',bankRoutes);
 app.use('/api/v1/ledger', ledgerRoutes);
 app.use('/api/v1/cash-locations',cashLocationRoutes);
-
+app.use('/api/v1/insurance',insuranceRoutes);
+app.use('/api/v1/declarations',declarationsRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 

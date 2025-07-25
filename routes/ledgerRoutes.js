@@ -235,6 +235,60 @@ router.get(
 
 /**
  * @swagger
+ * /api/v1/ledger/summary/branch:
+ *   get:
+ *     summary: Get ledger summary for all branches
+ *     tags: [Ledger]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Ledger summary by branch
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     allBranches:
+ *                       type: object
+ *                       properties:
+ *                         totalCredit:
+ *                           type: number
+ *                         totalDebit:
+ *                           type: number
+ *                         finalBalance:
+ *                           type: number
+ *                     byBranch:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           branchId:
+ *                             type: string
+ *                           branchName:
+ *                             type: string
+ *                           totalCredit:
+ *                             type: number
+ *                           totalDebit:
+ *                             type: number
+ *                           finalBalance:
+ *                             type: number
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/summary/branch',
+  protect,
+  ledgerController.getBranchLedgerSummary
+);
+/**
+ * @swagger
  * /api/v1/ledger/{bookingId}:
  *   get:
  *     summary: Get all ledger entries for a booking
@@ -429,7 +483,6 @@ router.get(
  */
 router.get(
   '/report/:bookingId',
-  protect,
   ledgerController.getLedgerReport
 );
 

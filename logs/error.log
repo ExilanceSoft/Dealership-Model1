@@ -58,3 +58,14 @@
 {"timestamp":"2025-07-24 16:52:21","level":"\u001b[31MERROR\u001b[39M","message":"Error getting cash locations: CashLocation is not defined","stack":null}
 {"timestamp":"2025-07-24 16:53:15","level":"\u001b[31MERROR\u001b[39M","message":"Error getting cash locations: CashLocation is not defined","stack":null}
 {"timestamp":"2025-07-24 17:03:28","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-07-24 17:29:32","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-24 17:30:01","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-25 09:57:05","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-25 09:57:19","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-25 10:00:41","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-25 12:35:55","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 12:36:02","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 12:39:21","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 12:39:30","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 17:26:51","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}
+{"timestamp":"2025-07-25 17:30:00","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}

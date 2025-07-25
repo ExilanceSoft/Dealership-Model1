@@ -242,11 +242,12 @@ exports.approveUpdateRequest = async (req, res) => {
 };
 
 // Get pending update requests
+// In qrController.js - Update the getPendingUpdateRequests function
 exports.getPendingUpdateRequests = async (branchId = null) => {
   try {
     const query = { 
       updateRequestStatus: 'PENDING',
-      pendingUpdates: { $exists: true, $ne: null } // Ensure pendingUpdates exists and is not null
+      pendingUpdates: { $exists: true, $ne: null }
     };
 
     if (branchId) {
@@ -254,19 +255,31 @@ exports.getPendingUpdateRequests = async (branchId = null) => {
     }
 
     const bookings = await Booking.find(query)
-      .populate('modelDetails', 'model_name') // Only include necessary fields
-      .populate('colorDetails', 'name')
-      .populate('updateRequestedBy', 'name email')
+      .populate({
+        path: 'model',
+        select: 'model_name' // Include model ID by default
+      })
+      .populate({
+        path: 'color',
+        select: 'name'
+      })
+      .populate({
+        path: 'updateRequestedBy',
+        select: 'name email'
+      })
       .sort({ updatedAt: -1 })
-      .lean(); // Convert to plain JS objects
+      .lean();
 
-    // Transform the data to only include relevant pending update information
+    // Transform the data to include model ID and name
     const pendingUpdates = bookings.map(booking => ({
       _id: booking._id,
       bookingNumber: booking.bookingNumber,
-      customerName: booking.customerDetails.name,
-      model: booking.modelDetails?.model_name,
-      color: booking.colorDetails?.name,
+      customerName: `${booking.customerDetails.salutation || ''} ${booking.customerDetails.name || ''}`.trim(),
+      model: {
+        id: booking.model?._id, // Include model ID
+        name: booking.model?.model_name // Include model name
+      },
+      color: booking.color?.name,
       pendingUpdates: booking.pendingUpdates,
       updateRequestStatus: booking.updateRequestStatus,
       updateRequestNote: booking.updateRequestNote,

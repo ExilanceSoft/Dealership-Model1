@@ -1,0 +1,31 @@
+{"timestamp":"2025-07-25 09:42:34","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 09:48:01","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 09:57:05","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-25 09:57:19","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-25 10:00:41","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-07-25 10:13:11","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 10:15:53","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 10:18:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 10:48:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 11:02:38","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 11:06:53","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 11:16:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 11:55:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 11:57:42","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 12:35:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 12:35:55","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 12:36:02","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 12:39:21","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 12:39:30","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
+{"timestamp":"2025-07-25 12:40:38","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 13:39:51","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 14:07:11","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 14:09:27","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 14:13:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 14:23:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 14:42:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 15:09:51","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 15:10:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 17:26:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-25 17:26:51","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}
+{"timestamp":"2025-07-25 17:30:00","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}

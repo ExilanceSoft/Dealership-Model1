@@ -421,6 +421,11 @@ const bookingSchema = new mongoose.Schema({
     enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED', 'PENDING_APPROVAL (Discount_Exceeded)'],
     default: 'DRAFT'
   },
+   insuranceStatus: {
+    type: String,
+    enum: ['NOT_APPLICABLE', 'AWAITING', 'PENDING', 'COMPLETED', 'REJECTED'],
+    default: 'NOT_APPLICABLE'
+  },
   branch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
