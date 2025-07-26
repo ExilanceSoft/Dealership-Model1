@@ -3,6 +3,26 @@ const router = express.Router();
 const insuranceController = require('../controllers/insuranceController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const multer = require('multer');
+const path = require('path');
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/insurance/')
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  }
+});
 
 /**
  * @swagger
@@ -11,581 +31,301 @@ const { logAction } = require('../middlewares/audit');
  *   description: Insurance management endpoints
  */
 
-// /**
-//  * @swagger
-//  * components:
-//  *   schemas:
-//  *     Insurance:
-//  *       type: object
-//  *       required:
-//  *         - booking
-//  *         - insuranceProvider
-//  *         - policyNumber
-//  *         - premiumAmount
-//  *         - validUptoDate
-//  *         - paymentMode
-//  *       properties:
-//  *         id:
-//  *           type: string
-//  *           description: The auto-generated ID of the insurance
-//  *           example: 507f1f77bcf86cd799439011
-//  *         booking:
-//  *           type: string
-//  *           description: ID of the associated booking
-//  *           example: 507f1f77bcf86cd799439012
-//  *         insuranceProvider:
-//  *           type: string
-//  *           description: ID of the insurance provider
-//  *           example: 507f1f77bcf86cd799439013
-//  *         insuranceDate:
-//  *           type: string
-//  *           format: date-time
-//  *           description: Date when insurance was purchased
-//  *           example: "2023-01-01T00:00:00.000Z"
-//  *         policyNumber:
-//  *           type: string
-//  *           description: Insurance policy number
-//  *           example: POL12345678
-//  *         rsaPolicyNumber:
-//  *           type: string
-//  *           description: RSA policy number (if applicable)
-//  *           example: RSA123456
-//  *         cmsPolicyNumber:
-//  *           type: string
-//  *           description: CMS policy number (if applicable)
-//  *           example: CMS123456
-//  *         premiumAmount:
-//  *           type: number
-//  *           description: Insurance premium amount
-//  *           example: 15000
-//  *         validUptoDate:
-//  *           type: string
-//  *           format: date-time
-//  *           description: Date until which insurance is valid
-//  *           example: "2024-01-01T00:00:00.000Z"
-//  *         documents:
-//  *           type: array
-//  *           items:
-//  *             type: object
-//  *             properties:
-//  *               url:
-//  *                 type: string
-//  *               name:
-//  *                 type: string
-//  *               type:
-//  *                 type: string
-//  *           description: Array of document objects
-//  *         paymentMode:
-//  *           type: string
-//  *           enum: [CASH, ONLINE, CHEQUE, OTHER]
-//  *           description: Payment mode for insurance
-//  *           example: ONLINE
-//  *         status:
-//  *           type: string
-//  *           enum: [PENDING, APPROVED, REJECTED]
-//  *           description: Insurance approval status
-//  *           example: PENDING
-//  *         approvedBy:
-//  *           type: string
-//  *           description: ID of user who approved/rejected
-//  *           example: 507f1f77bcf86cd799439014
-//  *         approvalDate:
-//  *           type: string
-//  *           format: date-time
-//  *           description: Date of approval/rejection
-//  *           example: "2023-01-02T00:00:00.000Z"
-//  *         rejectionReason:
-//  *           type: string
-//  *           description: Reason for rejection (if rejected)
-//  *           example: Incomplete documents
-//  *         createdAt:
-//  *           type: string
-//  *           format: date-time
-//  *           description: Creation timestamp
-//  *           example: "2023-01-01T00:00:00.000Z"
-//  *         updatedAt:
-//  *           type: string
-//  *           format: date-time
-//  *           description: Last update timestamp
-//  *           example: "2023-01-02T00:00:00.000Z"
-//  *         bookingDetails:
-//  *           type: object
-//  *           properties:
-//  *             bookingNumber:
-//  *               type: string
-//  *             customerDetails:
-//  *               type: object
-//  *               properties:
-//  *                 name:
-//  *                   type: string
-//  *                 mobile1:
-//  *                   type: string
-//  *             chassisNumber:
-//  *               type: string
-//  *             model:
-//  *               type: object
-//  *               properties:
-//  *                 model_name:
-//  *                   type: string
-//  *             color:
-//  *               type: object
-//  *               properties:
-//  *                 name:
-//  *                   type: string
-//  *         providerDetails:
-//  *           type: object
-//  *           properties:
-//  *             provider_name:
-//  *               type: string
-//  *         approvedByDetails:
-//  *           type: object
-//  *           properties:
-//  *             name:
-//  *               type: string
-//  *             email:
-//  *               type: string
-//  *     InsuranceInput:
-//  *       type: object
-//  *       required:
-//  *         - insuranceProvider
-//  *         - policyNumber
-//  *         - premiumAmount
-//  *         - validUptoDate
-//  *         - paymentMode
-//  *       properties:
-//  *         insuranceProvider:
-//  *           type: string
-//  *           description: ID of the insurance provider
-//  *           example: 507f1f77bcf86cd799439013
-//  *         policyNumber:
-//  *           type: string
-//  *           description: Insurance policy number
-//  *           example: POL12345678
-//  *         rsaPolicyNumber:
-//  *           type: string
-//  *           description: RSA policy number (if applicable)
-//  *           example: RSA123456
-//  *         cmsPolicyNumber:
-//  *           type: string
-//  *           description: CMS policy number (if applicable)
-//  *           example: CMS123456
-//  *         premiumAmount:
-//  *           type: number
-//  *           description: Insurance premium amount
-//  *           example: 15000
-//  *         validUptoDate:
-//  *           type: string
-//  *           format: date-time
-//  *           description: Date until which insurance is valid
-//  *           example: "2024-01-01T00:00:00.000Z"
-//  *         documents:
-//  *           type: array
-//  *           items:
-//  *             type: object
-//  *             properties:
-//  *               url:
-//  *                 type: string
-//  *               name:
-//  *                 type: string
-//  *               type:
-//  *                 type: string
-//  *           description: Array of document objects
-//  *         paymentMode:
-//  *           type: string
-//  *           enum: [CASH, ONLINE, CHEQUE, OTHER]
-//  *           description: Payment mode for insurance
-//  *           example: ONLINE
-//  *     InsuranceStatusInput:
-//  *       type: object
-//  *       required:
-//  *         - status
-//  *       properties:
-//  *         status:
-//  *           type: string
-//  *           enum: [APPROVED, REJECTED]
-//  *           description: New status for insurance
-//  *           example: APPROVED
-//  *         rejectionReason:
-//  *           type: string
-//  *           description: Required if status is REJECTED
-//  *           example: Incomplete documents
-//  */
-
-// /**
-//  * @swagger
-//  * /api/v1/insurance/dashboard:
-//  *   get:
-//  *     summary: Get insurance dashboard counts (Admin+)
-//  *     tags: [Insurance]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     responses:
-//  *       200:
-//  *         description: Insurance dashboard counts
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 success:
-//  *                   type: boolean
-//  *                 data:
-//  *                   type: object
-//  *                   properties:
-//  *                     pendingCount:
-//  *                       type: integer
-//  *                       description: Count of pending insurance requests
-//  *                       example: 5
-//  *                     approvedCount:
-//  *                       type: integer
-//  *                       description: Count of approved insurance requests
-//  *                       example: 12
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden (not Admin+)
-//  *       500:
-//  *         description: Server error
-//  */
-// router.get('/dashboard',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-//   insuranceController.getInsuranceDashboard
-// );
-
-// /**
-//  * @swagger
-//  * /api/v1/insurance/{bookingId}:
-//  *   post:
-//  *     summary: Add insurance details for a booking (Admin+)
-//  *     tags: [Insurance]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     parameters:
-//  *       - in: path
-//  *         name: bookingId
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  *         description: ID of the booking to add insurance for
-//  *     requestBody:
-//  *       required: true
-//  *       content:
-//  *         application/json:
-//  *           schema:
-//  *             $ref: '#/components/schemas/InsuranceInput'
-//  *     responses:
-//  *       201:
-//  *         description: Insurance added successfully
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               $ref: '#/components/schemas/Insurance'
-//  *       400:
-//  *         description: Invalid booking ID or missing required fields
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden (not Admin+)
-//  *       404:
-//  *         description: Booking not found
-//  *       409:
-//  *         description: Insurance already exists for this booking
-//  *       500:
-//  *         description: Server error
-//  */
-// router.post('/:bookingId',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-//   logAction('CREATE', 'Insurance'),
-//   insuranceController.addInsurance
-// );
-
-// /**
-//  * @swagger
-//  * /api/v1/insurance/pending:
-//  *   get:
-//  *     summary: Get all pending insurance bookings (Admin+)
-//  *     tags: [Insurance]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     responses:
-//  *       200:
-//  *         description: List of pending insurance bookings
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 success:
-//  *                   type: boolean
-//  *                 data:
-//  *                   type: array
-//  *                   items:
-//  *                     $ref: '#/components/schemas/Insurance'
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden (not Admin+)
-//  *       500:
-//  *         description: Server error
-//  */
-// router.get('/pending',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-//   insuranceController.getPendingInsurances
-// );
-
-// /**
-//  * @swagger
-//  * /api/v1/insurance/approved:
-//  *   get:
-//  *     summary: Get all approved insurance bookings (Admin+)
-//  *     tags: [Insurance]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     responses:
-//  *       200:
-//  *         description: List of approved insurance bookings
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 success:
-//  *                   type: boolean
-//  *                 data:
-//  *                   type: array
-//  *                   items:
-//  *                     $ref: '#/components/schemas/Insurance'
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden (not Admin+)
-//  *       500:
-//  *         description: Server error
-//  */
-// router.get('/approved',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN', 'SALES_EXECUTIVE'),
-//   insuranceController.getApprovedInsurances
-// );
-
-// /**
-//  * @swagger
-//  * /api/v1/insurance/{bookingId}/status:
-//  *   patch:
-//  *     summary: Update insurance approval status (Admin+)
-//  *     tags: [Insurance]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     parameters:
-//  *       - in: path
-//  *         name: bookingId
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  *         description: ID of the booking to update insurance status for
-//  *     requestBody:
-//  *       required: true
-//  *       content:
-//  *         application/json:
-//  *           schema:
-//  *             $ref: '#/components/schemas/InsuranceStatusInput'
-//  *     responses:
-//  *       200:
-//  *         description: Insurance status updated successfully
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               $ref: '#/components/schemas/Insurance'
-//  *       400:
-//  *         description: Invalid status or missing rejection reason
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden (not Admin+)
-//  *       404:
-//  *         description: Insurance not found for this booking
-//  *       500:
-//  *         description: Server error
-//  */
-// router.patch('/:bookingId/status',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-//   logAction('UPDATE_STATUS', 'Insurance'),
-//   insuranceController.updateInsuranceStatus
-// );
-
-// /**
-//  * @swagger
-//  * /api/v1/insurance:
-//  *   get:
-//  *     summary: Get all insurance details (Admin+)
-//  *     tags: [Insurance]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     responses:
-//  *       200:
-//  *         description: List of all insurance details
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 success:
-//  *                   type: boolean
-//  *                 data:
-//  *                   type: array
-//  *                   items:
-//  *                     type: object
-//  *                     properties:
-//  *                       _id:
-//  *                         type: string
-//  *                       customerName:
-//  *                         type: string
-//  *                       chassisNumber:
-//  *                         type: string
-//  *                       insuranceDate:
-//  *                         type: string
-//  *                         format: date-time
-//  *                       policyNumber:
-//  *                         type: string
-//  *                       rsaPolicyNumber:
-//  *                         type: string
-//  *                       cmsPolicyNumber:
-//  *                         type: string
-//  *                       premiumAmount:
-//  *                         type: number
-//  *                       validUptoDate:
-//  *                         type: string
-//  *                         format: date-time
-//  *                       model:
-//  *                         type: string
-//  *                       vehicleRegNo:
-//  *                         type: string
-//  *                       insuranceCompany:
-//  *                         type: string
-//  *                       mobileNo:
-//  *                         type: string
-//  *                       paymentMode:
-//  *                         type: string
-//  *                       status:
-//  *                         type: string
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden (not Admin+)
-//  *       500:
-//  *         description: Server error
-//  */
-// router.get('/',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-//   insuranceController.getAllInsuranceDetails
-// );
-
-// /**
-//  * @swagger
-//  * /api/v1/insurance/chassis/{chassisNumber}:
-//  *   get:
-//  *     summary: Get insurance details by chassis number (Admin+)
-//  *     tags: [Insurance]
-//  *     security:
-//  *       - bearerAuth: []
-//  *     parameters:
-//  *       - in: path
-//  *         name: chassisNumber
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  *         description: Chassis number to search for
-//  *     responses:
-//  *       200:
-//  *         description: Insurance details for the chassis number
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 success:
-//  *                   type: boolean
-//  *                 data:
-//  *                   type: object
-//  *                   properties:
-//  *                     _id:
-//  *                       type: string
-//  *                     customerName:
-//  *                       type: string
-//  *                     chassisNumber:
-//  *                       type: string
-//  *                     insuranceDate:
-//  *                       type: string
-//  *                       format: date-time
-//  *                     policyNumber:
-//  *                       type: string
-//  *                     rsaPolicyNumber:
-//  *                       type: string
-//  *                     cmsPolicyNumber:
-//  *                       type: string
-//  *                     premiumAmount:
-//  *                       type: number
-//  *                     validUptoDate:
-//  *                       type: string
-//  *                       format: date-time
-//  *                     model:
-//  *                       type: string
-//  *                     vehicleRegNo:
-//  *                       type: string
-//  *                     insuranceCompany:
-//  *                       type: string
-//  *                     mobileNo:
-//  *                       type: string
-//  *                     paymentMode:
-//  *                       type: string
-//  *                     status:
-//  *                       type: string
-//  *                     documents:
-//  *                       type: array
-//  *                       items:
-//  *                         type: object
-//  *                         properties:
-//  *                           url:
-//  *                             type: string
-//  *                           name:
-//  *                             type: string
-//  *                           type:
-//  *                             type: string
-//  *       400:
-//  *         description: Invalid chassis number format
-//  *       401:
-//  *         description: Unauthorized
-//  *       403:
-//  *         description: Forbidden (not Admin+)
-//  *       404:
-//  *         description: Booking or insurance not found
-//  *       500:
-//  *         description: Server error
-//  */
-// router.get('/chassis/:chassisNumber',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN', 'SALES_EXECUTIVE'),
-//   insuranceController.getInsuranceByChassisNumber
-// );
-
+/**
+ * @swagger
+ * /api/v1/insurance/{bookingId}:
+ *   post:
+ *     summary: Add insurance details for a booking (form data)
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the booking to add insurance for
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               insuranceDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Insurance date (YYYY-MM-DD)
+ *               policyNumber:
+ *                 type: string
+ *                 description: Policy number
+ *               rsaPolicyNumber:
+ *                 type: string
+ *                 description: RSA policy number (optional)
+ *               cmsPolicyNumber:
+ *                 type: string
+ *                 description: CMS policy number (optional)
+ *               premiumAmount:
+ *                 type: number
+ *                 description: Premium amount
+ *               validUptoDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Valid until date (YYYY-MM-DD)
+ *               remarks:
+ *                 type: string
+ *                 description: Additional remarks (optional)
+ *               document:
+ *                 type: string
+ *                 format: binary
+ *                 description: Insurance document (PDF/Image)
+ *               document1:
+ *                 type: string
+ *                 format: binary
+ *                 description: Additional insurance document (optional)
+ *               document2:
+ *                 type: string
+ *                 format: binary
+ *                 description: Additional insurance document (optional)
+ *             required:
+ *               - policyNumber
+ *               - premiumAmount
+ *               - validUptoDate
+ *     responses:
+ *       201:
+ *         description: Insurance added successfully
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       409:
+ *         description: Insurance already exists
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/:bookingId',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  upload.fields([
+    { name: 'document', maxCount: 1 },
+    { name: 'document1', maxCount: 1 },
+    { name: 'document2', maxCount: 1 }
+  ]),
+  logAction('CREATE', 'Insurance'),
+  insuranceController.addInsurance
+);
 
 /**
  * @swagger
- * /api/v1/insurance/awaiting-insurance:
+ * /api/v1/insurance/{bookingId}/approve:
+ *   patch:
+ *     summary: Approve or reject insurance
+ *     description: Update insurance status to APPROVED or REJECTED. When approved, booking insuranceStatus becomes COMPLETED.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the booking to update insurance status for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [APPROVED, REJECTED]
+ *                 required: true
+ *               rejectionReason:
+ *                 type: string
+ *                 description: Required when status is REJECTED
+ *             required:
+ *               - status
+ *     responses:
+ *       200:
+ *         description: Insurance status updated successfully
+ *       400:
+ *         description: Invalid status or missing rejection reason
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not Admin/Manager)
+ *       404:
+ *         description: Insurance not found for this booking
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:bookingId/approve',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  logAction('UPDATE_STATUS', 'Insurance'),
+  insuranceController.approveInsurance
+);
+
+/**
+ * @swagger
+ * /api/v1/insurance:
  *   get:
- *     summary: Get all bookings awaiting insurance processing
- *     description: Retrieve a list of bookings that require insurance processing (Admin/Manager/Sales Executive access)
- *     tags: [Bookings]
+ *     summary: Get all insurances with booking details
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *         description: Filter by status
+ *     responses:
+ *       200:
+ *         description: List of insurances with booking details
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getAllInsurances
+);
+
+/**
+ * @swagger
+ * /api/v1/insurance/completed:
+ *   get:
+ *     summary: Get all completed insurances
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of completed insurances
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/completed',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getCompletedInsurances
+);
+
+/**
+ * @swagger
+ * /api/v1/insurance/pending:
+ *   get:
+ *     summary: Get all pending insurances
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of pending insurances
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/pending',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getPendingInsurances
+);
+
+/**
+ * @swagger
+ * /api/v1/insurance/rejected:
+ *   get:
+ *     summary: Get all rejected insurances
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of rejected insurances
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/rejected',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getRejectedInsurances
+);
+
+/**
+ * @swagger
+ * /api/v1/insurance/awaiting:
+ *   get:
+ *     summary: Get all bookings awaiting insurance
+ *     tags: [Insurance]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: List of bookings awaiting insurance
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/awaiting',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getBookingsAwaitingInsurance
+);
+
+/**
+ * @swagger
+ * /api/v1/insurance/{chassisNumber}:
+ *   get:
+ *     summary: Get insurance details by chassis number
+ *     description: Retrieve complete insurance information for a vehicle using its chassis number
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chassisNumber
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vehicle chassis number (case insensitive search)
+ *     responses:
+ *       200:
+ *         description: Insurance details retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -593,78 +333,72 @@ const { logAction } = require('../middlewares/audit');
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
- *                 count:
- *                   type: integer
- *                   description: Number of bookings found
- *                   example: 5
  *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Booking'
+ *                   type: object
+ *                   properties:
+ *                     insuranceId:
+ *                       type: string
+ *                     policyNumber:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       enum: [PENDING, APPROVED, REJECTED]
+ *                     insuranceDate:
+ *                       type: string
+ *                       format: date
+ *                     validUptoDate:
+ *                       type: string
+ *                       format: date
+ *                     premiumAmount:
+ *                       type: number
+ *                     documents:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           url:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                             enum: [POLICY, RECEIPT, FORM, OTHER]
+ *                     bookingDetails:
+ *                       type: object
+ *                       properties:
+ *                         bookingNumber:
+ *                           type: string
+ *                         model:
+ *                           type: string
+ *                         color:
+ *                           type: string
+ *                         customerName:
+ *                           type: string
+ *                         chassisNumber:
+ *                           type: string
+ *                     createdBy:
+ *                       $ref: '#/components/schemas/User'
+ *                     approvedBy:
+ *                       $ref: '#/components/schemas/User'
+ *                     approvalDate:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Invalid chassis number format
  *       401:
- *         description: Unauthorized - Missing or invalid token
+ *         description: Unauthorized
  *       403:
- *         description: Forbidden - User doesn't have required permissions
+ *         description: Forbidden
+ *       404:
+ *         description: No booking or insurance found for this chassis number
  *       500:
- *         description: Internal server error
- * 
- * components:
- *   schemas:
- *     Booking:
- *       type: object
- *       properties:
- *         _id:
- *           type: string
- *           example: 5f8d04b3ab3a1d2a3c4d5e6f
- *         bookingNumber:
- *           type: string
- *           example: "BK-2023-00123"
- *         customer:
- *           type: object
- *           properties:
- *             name:
- *               type: string
- *               example: "John Doe"
- *             mobile1:
- *               type: string
- *               example: "+919876543210"
- *         model:
- *           type: object
- *           properties:
- *             model_name:
- *               type: string
- *               example: "Swift Dzire"
- *         color:
- *           type: object
- *           properties:
- *             name:
- *               type: string
- *               example: "Pearl White"
- *         chassisNumber:
- *           type: string
- *           example: "MA3FHEB1S00123456"
- *         bookingStatus:
- *           type: string
- *           example: "DELIVERED"
- *         insuranceStatus:
- *           type: string
- *           example: "PENDING"
- *         createdAt:
- *           type: string
- *           format: date-time
- *           example: "2023-01-15T10:30:00.000Z"
+ *         description: Server error
  */
-router.get(
-  '/awaiting-insurance',
+router.get('/:chassisNumber',
   protect,
   authorize('ADMIN', 'MANAGER', 'SUPERADMIN', 'SALES_EXECUTIVE'),
-  insuranceController.getBookingsAwaitingInsurance
+  logAction('READ', 'Insurance'),
+  insuranceController.getInsuranceByChassisNumber
 );
 
-// router.get('/chassis/:chassisNumber',
-//   protect,
-//   authorize('ADMIN', 'MANAGER', 'SUPERADMIN', 'SALES_EXECUTIVE'),
-//   insuranceController.getInsuranceByChassisNumber
-// );
- module.exports = router;
+module.exports = router;

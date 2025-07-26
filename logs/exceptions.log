@@ -27,3 +27,73 @@ Require stack:
     at Module.load (node:internal/modules/cjs/loader:1207:32)
     at Module._load (node:internal/modules/cjs/loader:1023:12)
     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:135:12)
+2025-07-26 10:55:53 [[31MERROR[39M]: uncaughtException: path is not defined
+ReferenceError: path is not defined
+    at DiskStorage.filename [as getFilename] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:15:52)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:34:10
+    at DiskStorage.destination [as getDestination] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:11:5)
+    at DiskStorage._handleFile (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:31:8)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:153:17
+    at allowAll (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:8:3)
+    at wrappedFileFilter (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:44:7)
+    at Multipart.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:123:7)
+    at Multipart.emit (node:events:514:28)
+    at HeaderParser.cb (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:358:14)
+    at HeaderParser.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:162:20)
+    at SBMH.ssCb [as _cb] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:394:37)
+    at feed (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:219:14)
+    at SBMH.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:104:16)
+    at Multipart._write (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:567:19)
+    at writeOrBuffer (node:internal/streams/writable:556:12)
+ReferenceError: path is not defined
+    at DiskStorage.filename [as getFilename] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:15:52)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:34:10
+    at DiskStorage.destination [as getDestination] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:11:5)
+    at DiskStorage._handleFile (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:31:8)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:153:17
+    at allowAll (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:8:3)
+    at wrappedFileFilter (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:44:7)
+    at Multipart.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:123:7)
+    at Multipart.emit (node:events:514:28)
+    at HeaderParser.cb (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:358:14)
+    at HeaderParser.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:162:20)
+    at SBMH.ssCb [as _cb] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:394:37)
+    at feed (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:219:14)
+    at SBMH.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:104:16)
+    at Multipart._write (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:567:19)
+    at writeOrBuffer (node:internal/streams/writable:556:12)
+2025-07-26 10:58:16 [[31MERROR[39M]: uncaughtException: path is not defined
+ReferenceError: path is not defined
+    at DiskStorage.filename [as getFilename] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:15:52)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:34:10
+    at DiskStorage.destination [as getDestination] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:11:5)
+    at DiskStorage._handleFile (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:31:8)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:153:17
+    at allowAll (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:8:3)
+    at wrappedFileFilter (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:44:7)
+    at Multipart.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:123:7)
+    at Multipart.emit (node:events:514:28)
+    at HeaderParser.cb (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:358:14)
+    at HeaderParser.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:162:20)
+    at SBMH.ssCb [as _cb] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:394:37)
+    at feed (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:219:14)
+    at SBMH.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:104:16)
+    at Multipart._write (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:567:19)
+    at writeOrBuffer (node:internal/streams/writable:556:12)
+ReferenceError: path is not defined
+    at DiskStorage.filename [as getFilename] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:15:52)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:34:10
+    at DiskStorage.destination [as getDestination] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\routes\insuranceRoutes.js:11:5)
+    at DiskStorage._handleFile (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\storage\disk.js:31:8)
+    at E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:153:17
+    at allowAll (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:8:3)
+    at wrappedFileFilter (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\index.js:44:7)
+    at Multipart.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\multer\lib\make-middleware.js:123:7)
+    at Multipart.emit (node:events:514:28)
+    at HeaderParser.cb (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:358:14)
+    at HeaderParser.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:162:20)
+    at SBMH.ssCb [as _cb] (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:394:37)
+    at feed (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:219:14)
+    at SBMH.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:104:16)
+    at Multipart._write (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:567:19)
+    at writeOrBuffer (node:internal/streams/writable:556:12)

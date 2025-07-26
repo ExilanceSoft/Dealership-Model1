@@ -1,4 +1,3 @@
-// models/Insurance.js
 const mongoose = require('mongoose');
 
 const InsuranceSchema = new mongoose.Schema({
@@ -13,11 +12,6 @@ const InsuranceSchema = new mongoose.Schema({
       },
       message: 'Booking must exist and be in APPROVED status'
     }
-  },
-  insuranceProvider: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'InsuranceProvider',
-    required: true
   },
   insuranceDate: {
     type: Date,
@@ -93,17 +87,6 @@ const InsuranceSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  paymentMode: {
-    type: String,
-    enum: ['CASH', 'ONLINE', 'CHEQUE', 'OTHER'],
-    required: true
-  },
-  paymentDetails: {
-    referenceNumber: String,
-    bankName: String,
-    chequeNumber: String,
-    transactionDate: Date
-  },
   status: {
     type: String,
     enum: ['PENDING', 'APPROVED', 'REJECTED'],
@@ -157,7 +140,6 @@ const InsuranceSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 InsuranceSchema.index({ booking: 1 });
-InsuranceSchema.index({ insuranceProvider: 1 });
 InsuranceSchema.index({ policyNumber: 1 }, { unique: true });
 InsuranceSchema.index({ status: 1 });
 InsuranceSchema.index({ insuranceDate: -1 });
@@ -171,17 +153,7 @@ InsuranceSchema.virtual('bookingDetails', {
   foreignField: '_id',
   justOne: true,
   options: {
-    select: 'bookingNumber model color customerDetails.name customerDetails.mobile1 status insuranceStatus'
-  }
-});
-
-InsuranceSchema.virtual('providerDetails', {
-  ref: 'InsuranceProvider',
-  localField: 'insuranceProvider',
-  foreignField: '_id',
-  justOne: true,
-  options: {
-    select: 'name contactPerson contactNumber email'
+    select: 'bookingNumber customerDetails chassisNumber model color branch insuranceStatus'
   }
 });
 
@@ -225,7 +197,6 @@ InsuranceSchema.pre('save', async function(next) {
       if (booking) {
         let bookingInsuranceStatus;
         
-        // Map insurance status to booking insuranceStatus
         switch(this.status) {
           case 'PENDING':
             bookingInsuranceStatus = 'PENDING';
@@ -240,7 +211,6 @@ InsuranceSchema.pre('save', async function(next) {
             bookingInsuranceStatus = 'AWAITING';
         }
         
-        // Only update if different to prevent infinite loops
         if (booking.insuranceStatus !== bookingInsuranceStatus) {
           booking.insuranceStatus = bookingInsuranceStatus;
           await booking.save();
@@ -259,21 +229,10 @@ InsuranceSchema.pre('save', async function(next) {
   }
 });
 
-// Middleware to validate insurance provider is active
-InsuranceSchema.pre('save', async function(next) {
-  if (this.isModified('insuranceProvider')) {
-    const provider = await mongoose.model('InsuranceProvider').findById(this.insuranceProvider);
-    if (!provider || provider.status !== 'ACTIVE') {
-      throw new Error('Selected insurance provider is not active');
-    }
-  }
-  next();
-});
-
 // Static method to get insurance by booking ID
 InsuranceSchema.statics.findByBookingId = function(bookingId) {
   return this.findOne({ booking: bookingId })
-    .populate('providerDetails')
+    .populate('bookingDetails')
     .populate('approvedByDetails');
 };
 
@@ -281,7 +240,8 @@ InsuranceSchema.statics.findByBookingId = function(bookingId) {
 InsuranceSchema.statics.findByStatus = function(status) {
   return this.find({ status })
     .populate('bookingDetails')
-    .populate('providerDetails');
+    .populate('createdByDetails')
+    .populate('approvedByDetails');
 };
 
 const Insurance = mongoose.model('Insurance', InsuranceSchema);
