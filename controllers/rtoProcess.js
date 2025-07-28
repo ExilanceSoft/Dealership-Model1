@@ -1,4 +1,4 @@
-const RtoProcess = require('../controllers/rtoProcess');
+const RtoProcess = require('../models/RtoProcessModel');
 const AuditLog = require('../models/AuditLog');
 
 // Create RTO Process
