@@ -184,7 +184,7 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
     });
 
     const totalEligible = eligibleComponents.reduce((sum, c) => sum + c.originalValue, 0);
-    let remainingDiscount = discountType === 'PERCENTAGE' 
+    let remainingDiscount = discountType === 'PERCENTAGE'
         ? (totalEligible * discountAmount) / 100 
         : discountAmount;
 
@@ -344,7 +344,6 @@ exports.createBooking = async (req, res) => {
                 });
             }
         }
-
         // Check if current sales executive is frozen (when creating own booking)
         if (isCurrentUserSalesExecutive && currentUser.isFrozen) {
             return res.status(400).json({
@@ -352,7 +351,6 @@ exports.createBooking = async (req, res) => {
                 message: `Your account is frozen due to: ${currentUser.freezeReason}. Please submit pending documents before creating new bookings.`
             });
         }
-
         // Check for pending documents if current user is sales executive
         if (isCurrentUserSalesExecutive) {
             const latestBooking = await Booking.findOne({
@@ -360,7 +358,7 @@ exports.createBooking = async (req, res) => {
                     { createdBy: req.user.id },
                     { salesExecutive: req.user.id }
                 ],
-                status: { $in: ['APPROVED', 'PENDING_APPROVAL'] }
+                status: { $in: ['PENDING_APPROVAL'] }
             }).sort({ createdAt: -1 });
 
             if (latestBooking) {
@@ -372,8 +370,8 @@ exports.createBooking = async (req, res) => {
                 ]);
 
                 const missingDocuments = [];
-                if (!kyc || kyc.status !== 'APPROVED') missingDocuments.push('KYC');
-                if (latestBooking.payment.type === 'FINANCE' && (!financeLetter || financeLetter.status !== 'APPROVED')) {
+                if (!kyc || kyc.status !== 'NOT_SUBMITTED') missingDocuments.push('KYC');
+                if (latestBooking.payment.type === 'FINANCE' && (!financeLetter || financeLetter.status !== 'NOT_SUBMITTED')) {
                     missingDocuments.push('Finance Letter');
                 }
 
@@ -1254,7 +1252,7 @@ exports.getBookingByChassisNumber = async (req, res) => {
 };
 exports.approveBooking = async (req, res) => {
   try {
-    // 1. Validate booking ID
+    // 1. Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ 
         success: false, 
@@ -1262,13 +1260,11 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
-    console.log("🔧 Booking ID Validated:", req.params.id);
-
-    // 2. Validate chassis number if provided
-    if (req.body.chassisNumber && !/^[A-Z0-9]{10,25}$/.test(req.body.chassisNumber)) {
+    // 2. Validate chassis number format if provided (consistent with schema validation)
+    if (req.body.chassisNumber && !/^[A-Z0-9]{17}$/.test(req.body.chassisNumber)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid chassis number format'
+        message: 'Chassis number must be exactly 17 alphanumeric characters'
       });
     }
 
@@ -1285,66 +1281,84 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
-    // 4. Get vehicle if chassis number exists
-    let vehicle = null;
-    let vehicleDetails = {};
-
+    // 4. Check for duplicate chassis number across all bookings
     if (req.body.chassisNumber) {
-      const chassis = req.body.chassisNumber.toUpperCase();
-      console.log("🔎 Looking for vehicle with chassisNumber:", chassis);
+      const chassisNumber = req.body.chassisNumber.toUpperCase();
+      const existingBooking = await Booking.findOne({ 
+        chassisNumber,
+        _id: { $ne: req.params.id } // Exclude current booking from check
+      });
 
-      vehicle = await Vehicle.findOne({ chassisNumber: chassis });
-
-      if (!vehicle) {
-        console.log("❌ No vehicle found for chassisNumber:", chassis);
-      } else {
-        console.log("✅ Vehicle found:", {
-          keyNumber: vehicle.keyNumber,
-          engineNumber: vehicle.engineNumber,
-          batteryNumber: vehicle.batteryNumber,
-          motorNumber: vehicle.motorNumber,
-          chargerNumber: vehicle.chargerNumber,
-          qrCode: vehicle.qrCode
+      if (existingBooking) {
+        return res.status(400).json({
+          success: false,
+          message: 'Chassis number already assigned to another booking'
         });
+      }
+    }
 
+    // 5. Get vehicle details if chassis number exists
+    let vehicleDetails = {};
+    if (req.body.chassisNumber) {
+      const vehicle = await Vehicle.findOne({ 
+        chassisNumber: req.body.chassisNumber.toUpperCase() 
+      });
+
+      if (vehicle) {
         vehicleDetails = {
           batteryNumber: vehicle.batteryNumber || null,
           keyNumber: vehicle.keyNumber || null,
           motorNumber: vehicle.motorNumber || null,
           chargerNumber: vehicle.chargerNumber || null,
           engineNumber: vehicle.engineNumber || null,
-          qrCode: vehicle.qrCode || null
+          qrCode: vehicle.qrCode || null,
+          vehicleRef: vehicle._id
         };
       }
     }
 
-    // 5. Prepare update
+    // 6. Prepare update data
     const updateData = {
       status: 'APPROVED',
-      insuranceStatus: 'AWAITING', 
+      insuranceStatus: 'AWAITING',
       approvedBy: req.user.id,
+      approvedAt: new Date(),
       "discounts.$[].approvedBy": req.user.id,
       "discounts.$[].approvalStatus": 'APPROVED',
       "discounts.$[].approvalNote": req.body.approvalNote || '',
-      ...(req.body.chassisNumber && { chassisNumber: req.body.chassisNumber.toUpperCase() }),
+      ...(req.body.chassisNumber && { 
+        chassisNumber: req.body.chassisNumber.toUpperCase() 
+      }),
       ...vehicleDetails
     };
 
-    console.log("🛠️ Final updateData object:", updateData);
-
-    // 6. Update booking
-    const booking = await Booking.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        status: 'PENDING_APPROVAL'
-      },
-      { $set: updateData },
-      { new: true }
-    )
-      .populate("model", "model_name type")
-      .populate("color", "name code")
-      .populate("branch", "name address")
-      .populate("approvedBy", "name email mobile");
+    // 7. Update booking with duplicate check handling
+    let booking;
+    try {
+      booking = await Booking.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          status: 'PENDING_APPROVAL'
+        },
+        { $set: updateData },
+        { 
+          new: true,
+          runValidators: true 
+        }
+      )
+        .populate("model", "model_name type")
+        .populate("color", "name code")
+        .populate("branch", "name address")
+        .populate("approvedBy", "name email mobile");
+    } catch (err) {
+      if (err.code === 11000 && err.keyPattern && err.keyPattern.chassisNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Chassis number already exists in another booking'
+        });
+      }
+      throw err; // Re-throw other errors
+    }
 
     if (!booking) {
       return res.status(404).json({ 
@@ -1353,7 +1367,7 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
-    // 7. Attach final values in response
+    // 8. Prepare response
     const response = {
       ...booking.toObject(),
       fullCustomerName: `${booking.customerDetails.salutation || ""} ${booking.customerDetails.name || ""}`.trim(),
@@ -1365,19 +1379,20 @@ exports.approveBooking = async (req, res) => {
       qrCode: vehicleDetails.qrCode
     };
 
-    console.log("📦 Final response data to send:", response);
-
-    // 8. Generate booking form (optional)
-    try {
-      const formResult = await generateBookingFormHTML(booking);
-      booking.formPath = formResult.url;
-      booking.formGenerated = true;
-      await booking.save();
-    } catch (err) {
-      console.error("⚠️ Error generating booking form PDF:", err);
+    // 9. Generate booking form (async - don't block response)
+    if (process.env.GENERATE_FORMS === 'true') {
+      generateBookingFormHTML(booking)
+        .then(formResult => {
+          booking.formPath = formResult.url;
+          booking.formGenerated = true;
+          return booking.save();
+        })
+        .catch(err => {
+          console.error("Error generating booking form:", err);
+        });
     }
 
-    // 9. Create audit log
+    // 10. Create audit log (async - don't block response)
     AuditLog.create({
       action: "APPROVE",
       entity: "Booking",
@@ -1386,18 +1401,36 @@ exports.approveBooking = async (req, res) => {
       ip: req.ip,
       metadata: {
         approvalNote: req.body.approvalNote || null,
-        chassisNumber: req.body.chassisNumber || null
+        chassisNumber: req.body.chassisNumber || null,
+        previousStatus: 'PENDING_APPROVAL'
       },
       status: "SUCCESS"
-    }).catch((err) => console.error("Audit Log Error:", err));
+    }).catch(err => console.error("Audit Log Error:", err));
 
+    // 11. Return success response
     res.status(200).json({
       success: true,
-      data: response
+      data: response,
+      message: 'Booking approved successfully'
     });
 
   } catch (err) {
-    console.error("❌ Error approving booking:", err);
+    console.error("Error approving booking:", err);
+    
+    // Create error audit log (async)
+    AuditLog.create({
+      action: "APPROVE",
+      entity: "Booking",
+      entityId: req.params.id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        error: err.message,
+        chassisNumber: req.body?.chassisNumber || null
+      },
+      status: "FAILED"
+    }).catch(auditErr => console.error("Audit Log Error:", auditErr));
+
     res.status(500).json({
       success: false,
       message: "Error approving booking",

@@ -9,32 +9,71 @@ const pdfkit = require('pdfkit');
 const { promisify } = require('util');
 const pipeline = promisify(require('stream').pipeline);
 const FinanceLetter = require('../models/FinanceLetter');
-const User = require('../models/User')
+const User = require('../models/User');
 
-// Helper to generate PDF from images
-const generateKycPdf = async (files, bookingId) => {
+// Helper to generate PDF for a single document
+const generateSingleDocumentPdf = async (file, docType, bookingId) => {
   const uploadDir = path.join(__dirname, '../uploads/kyc', bookingId);
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
-  const pdfPath = path.join(uploadDir, `kyc-documents-${Date.now()}.pdf`);
+  const pdfPath = path.join(uploadDir, `${docType}-${Date.now()}.pdf`);
   const doc = new pdfkit();
   const writeStream = fs.createWriteStream(pdfPath);
 
   doc.pipe(writeStream);
 
-  // Add each image to the PDF
-  for (const [docType, file] of Object.entries(files)) {
-    if (file && file[0]) {
-      doc.text(docType.toUpperCase(), { align: 'center' });
-      doc.moveDown();
-      doc.image(file[0].buffer, {
-        fit: [500, 400],
-        align: 'center',
-        valign: 'center'
-      });
-      doc.addPage();
+  // Add document type as title
+  doc.text(docType.toUpperCase(), { align: 'center' });
+  doc.moveDown();
+
+  // Check if the file is a PDF or image
+  if (file.mimetype === 'application/pdf') {
+    // For PDF files, we can't embed them directly, so we'll just note it
+    doc.text('PDF document - view original file separately');
+  } else {
+    // For images
+    doc.image(file.buffer, {
+      fit: [500, 400],
+      align: 'center',
+      valign: 'center'
+    });
+  }
+
+  doc.end();
+  await new Promise(resolve => writeStream.on('finish', resolve));
+
+  return `/uploads/kyc/${bookingId}/${path.basename(pdfPath)}`;
+};
+
+// Helper to generate combined PDF from all documents
+const generateCombinedKycPdf = async (documentPaths, bookingId) => {
+  const uploadDir = path.join(__dirname, '../uploads/kyc', bookingId);
+  const pdfPath = path.join(uploadDir, `kyc-combined-${Date.now()}.pdf`);
+  const doc = new pdfkit();
+  const writeStream = fs.createWriteStream(pdfPath);
+
+  doc.pipe(writeStream);
+
+  // Add each document to the combined PDF
+  for (const [docType, filePath] of Object.entries(documentPaths)) {
+    if (filePath && !filePath.endsWith('.pdf')) { // Skip PDFs as we can't embed them
+      try {
+        const fullPath = path.join(__dirname, '..', filePath);
+        if (fs.existsSync(fullPath)) {
+          doc.text(docType.toUpperCase(), { align: 'center' });
+          doc.moveDown();
+          doc.image(fullPath, {
+            fit: [500, 400],
+            align: 'center',
+            valign: 'center'
+          });
+          doc.addPage();
+        }
+      } catch (err) {
+        console.error(`Error adding ${docType} to combined PDF:`, err);
+      }
     }
   }
 
@@ -44,7 +83,6 @@ const generateKycPdf = async (files, bookingId) => {
   return `/uploads/kyc/${bookingId}/${path.basename(pdfPath)}`;
 };
 
-// Get KYC Details
 // Get KYC Details
 exports.getKYCDetails = async (req, res) => {
   try {
@@ -71,8 +109,8 @@ exports.getKYCDetails = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        bookingId: bookingId, // Explicitly include booking ID in response
-        ...kyc.toObject() // Spread all other KYC details
+        bookingId: bookingId,
+        ...kyc.toObject()
       }
     });
   } catch (err) {
@@ -86,7 +124,6 @@ exports.getKYCDetails = async (req, res) => {
 };
 
 // Submit KYC
-// Update the submitKYC function in kycController.js
 exports.submitKYC = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -125,72 +162,47 @@ exports.submitKYC = async (req, res) => {
     }
 
     // Create upload directory if it doesn't exist
-    const uploadDir = path.join(__dirname, '../uploads/kyc');
+    const uploadDir = path.join(__dirname, '../uploads/kyc', bookingId);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    // Generate PDF filename
-    const pdfFileName = `kyc-${bookingId}-${Date.now()}.pdf`;
-    const pdfPath = path.join(uploadDir, pdfFileName);
-    const pdfUrl = `/uploads/kyc/${pdfFileName}`;
-
-    // Create PDF document
-    const doc = new pdfkit();
-    const writeStream = fs.createWriteStream(pdfPath);
-    doc.pipe(writeStream);
-
-    // Add each document to the PDF
-    for (const [docType, file] of Object.entries(files)) {
-      if (file && file[0]) {
-        doc.text(docType.toUpperCase(), { align: 'center' });
-        doc.moveDown();
-        
-        // Check if the file is a PDF or image
-        if (file[0].mimetype === 'application/pdf') {
-          // For PDF files, we would need a different approach since pdfkit can't directly embed PDFs
-          // For now, we'll skip PDF files in the combined document
-          doc.text('PDF document - view separately');
-        } else {
-          // For images
-          doc.image(file[0].buffer, {
-            fit: [500, 400],
-            align: 'center',
-            valign: 'center'
-          });
-        }
-        
-        doc.addPage();
-      }
-    }
-
-    doc.end();
-    await new Promise(resolve => writeStream.on('finish', resolve));
-
-    // Save file information for each document
+    // Process each document and generate individual PDFs
     const documentPaths = {};
-    for (const [docType, file] of Object.entries(files)) {
-      if (file && file[0]) {
-        const fileName = `${docType}-${Date.now()}${path.extname(file[0].originalname)}`;
+    const pdfPaths = {};
+
+    for (const [docType, fileArray] of Object.entries(files)) {
+      if (fileArray && fileArray[0]) {
+        const file = fileArray[0];
+        
+        // Save original file
+        const fileName = `${docType}-${Date.now()}${path.extname(file.originalname)}`;
         const filePath = path.join(uploadDir, fileName);
-        await fs.promises.writeFile(filePath, file[0].buffer);
-        documentPaths[docType] = `/uploads/kyc/${fileName}`;
+        await fs.promises.writeFile(filePath, file.buffer);
+        documentPaths[docType] = `/uploads/kyc/${bookingId}/${fileName}`;
+
+        // Generate PDF version
+        const pdfPath = await generateSingleDocumentPdf(file, docType, bookingId);
+        pdfPaths[docType] = pdfPath;
       }
     }
+
+    // Generate combined PDF
+    const combinedPdfPath = await generateCombinedKycPdf(documentPaths, bookingId);
 
     // Prepare KYC data
     const kycData = {
       booking: bookingId,
       customerName: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
       address: booking.customerDetails.address,
-      aadharFront: documentPaths.aadharFront,
-      aadharBack: documentPaths.aadharBack,
-      panCard: documentPaths.panCard,
-      vPhoto: documentPaths.vPhoto,
-      chasisNoPhoto: documentPaths.chasisNoPhoto,
-      addressProof1: documentPaths.addressProof1,
-      addressProof2: documentPaths.addressProof2 || null,
-      documentPdf: pdfUrl,
+      aadharFront: pdfPaths.aadharFront || documentPaths.aadharFront,
+      aadharBack: pdfPaths.aadharBack || documentPaths.aadharBack,
+      panCard: pdfPaths.panCard || documentPaths.panCard,
+      vPhoto: pdfPaths.vPhoto || documentPaths.vPhoto,
+      chasisNoPhoto: pdfPaths.chasisNoPhoto || documentPaths.chasisNoPhoto,
+      addressProof1: pdfPaths.addressProof1 || documentPaths.addressProof1,
+      addressProof2: pdfPaths.addressProof2 || documentPaths.addressProof2 || null,
+      documentPdf: combinedPdfPath,
       submittedBy: userId,
       status: 'PENDING'
     };
@@ -291,100 +303,6 @@ exports.submitKYC = async (req, res) => {
   }
 };
 
-// Verify KYC
-// exports.verifyKYC = async (req, res) => {
-//   try {
-//     const { kycId } = req.params;
-//     const { status, verificationNote } = req.body;
-//     const userId = req.user.id;
-
-//     if (!mongoose.Types.ObjectId.isValid(kycId)) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: 'Invalid KYC ID' 
-//       });
-//     }
-
-//     if (!['APPROVED', 'REJECTED'].includes(status)) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: 'Status must be either APPROVED or REJECTED' 
-//       });
-//     }
-
-//     const kyc = await KYC.findById(kycId);
-//     if (!kyc) {
-//       return res.status(404).json({ 
-//         success: false, 
-//         message: 'KYC not found' 
-//       });
-//     }
-
-//     if (kyc.status !== 'PENDING') {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'KYC has already been processed'
-//       });
-//     }
-
-//     // Update KYC
-//     kyc.status = status;
-//     kyc.verifiedBy = userId;
-//     kyc.verificationNote = verificationNote || '';
-//     kyc.verificationDate = new Date();
-//     await kyc.save();
-
-//     // Update booking status
-//     const booking = await Booking.findById(kyc.booking);
-//     if (booking) {
-//       booking.kycStatus = status;
-//       await booking.save();
-//     }
-
-//     await AuditLog.create({
-//       action: 'KYC_VERIFIED',
-//       entity: 'KYC',
-//       entityId: kyc._id,
-//       user: userId,
-//       ip: req.ip,
-//       metadata: { 
-//         status, 
-//         verificationNote,
-//         bookingId: kyc.booking 
-//       },
-//       status: 'SUCCESS'
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       data: {
-//         kycId: kyc._id,
-//         status: kyc.status,
-//         verifiedBy: userId,
-//         verificationNote: kyc.verificationNote
-//       }
-//     });
-//   } catch (err) {
-//     console.error('Error verifying KYC:', err);
-    
-//     await AuditLog.create({
-//       action: 'KYC_VERIFICATION_FAILED',
-//       entity: 'KYC',
-//       entityId: req.params.kycId,
-//       user: req.user?.id,
-//       ip: req.ip,
-//       status: 'FAILED',
-//       error: err.message
-//     });
-
-//     res.status(500).json({
-//       success: false,
-//       message: 'Error verifying KYC',
-//       error: process.env.NODE_ENV === 'development' ? err.message : undefined
-//     });
-//   }
-// };
-
 // Get KYC Documents
 exports.getKYCDocuments = async (req, res) => {
   try {
@@ -442,11 +360,25 @@ exports.deleteKYC = async (req, res) => {
       });
     }
 
-    // Delete associated PDF file if exists
-    if (kyc.documentPdf) {
-      const filePath = path.join(__dirname, '..', kyc.documentPdf);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    // Get the directory path
+    const uploadDir = path.join(__dirname, '../uploads/kyc', kyc.booking.toString());
+
+    // Delete all files in the directory
+    if (fs.existsSync(uploadDir)) {
+      fs.readdirSync(uploadDir).forEach(file => {
+        const filePath = path.join(uploadDir, file);
+        try {
+          fs.unlinkSync(filePath);
+        } catch (err) {
+          console.error(`Error deleting file ${filePath}:`, err);
+        }
+      });
+
+      // Remove the directory
+      try {
+        fs.rmdirSync(uploadDir);
+      } catch (err) {
+        console.error(`Error deleting directory ${uploadDir}:`, err);
       }
     }
 

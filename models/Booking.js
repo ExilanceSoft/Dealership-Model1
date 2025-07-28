@@ -174,13 +174,15 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     trim: true,
     uppercase: true,
+    unique: true, // Ensures no duplicate chassis numbers
+    sparse: true, // Allows null values but enforces uniqueness for non-null
     validate: {
       validator: function(v) {
-        if (!v) return true;
-        return /^[A-Z0-9]{17}$/.test(v);
+        if (!v) return true; // Allow empty (optional)
+        return /^[A-Z0-9]{17}$/.test(v); // 17 alphanumeric chars
       },
-      message: 'Chassis number must be 17 alphanumeric characters'
-    }
+      message: 'Chassis number must be 17 alphanumeric characters',
+    },
   },
   batteryNumber: {
     type: String,

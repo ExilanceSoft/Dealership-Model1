@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Insurance = require('../models/insuranceModel');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
+const InsuranceProvider = require('../models/InsuranceProvider');
 
 /**
  * @desc    Add insurance details for a booking
@@ -19,7 +20,6 @@ exports.addInsurance = async (req, res) => {
         message: 'Invalid booking ID format'
       });
     }
-
     // Check if booking exists and is approved
     const booking = await Booking.findById(bookingId)
       .populate('model', 'name')
@@ -51,6 +51,8 @@ exports.addInsurance = async (req, res) => {
 
     // Process form data
     const {
+      insuranceProvider,
+      paymentMode,
       insuranceDate,
       policyNumber,
       rsaPolicyNumber,
@@ -59,6 +61,23 @@ exports.addInsurance = async (req, res) => {
       validUptoDate,
       remarks = ''
     } = req.body;
+
+    // Validate required fields
+    if (!insuranceProvider || !paymentMode || !policyNumber || !premiumAmount || !validUptoDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Required fields: insuranceProvider, paymentMode, policyNumber, premiumAmount, validUptoDate'
+      });
+    }
+
+    // Check if insurance provider exists
+    const provider = await InsuranceProvider.findById(insuranceProvider);
+    if (!provider) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid insurance provider'
+      });
+    }
 
     // Process uploaded files
     const documents = [];
@@ -74,17 +93,11 @@ exports.addInsurance = async (req, res) => {
       });
     }
 
-    // Validate required fields
-    if (!policyNumber || !premiumAmount || !validUptoDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Required fields: policyNumber, premiumAmount, validUptoDate'
-      });
-    }
-
     // Create insurance data
     const insuranceData = {
       booking: bookingId,
+      insuranceProvider,
+      paymentMode,
       insuranceDate: insuranceDate ? new Date(insuranceDate) : new Date(),
       policyNumber,
       rsaPolicyNumber: rsaPolicyNumber || '',
@@ -118,6 +131,7 @@ exports.addInsurance = async (req, res) => {
     // Prepare response with booking details
     const response = {
       ...insurance.toObject(),
+      insuranceProviderDetails: provider,
       bookingDetails: {
         bookingNumber: booking.bookingNumber,
         customer: {
@@ -203,7 +217,7 @@ exports.approveInsurance = async (req, res) => {
         updatedBy: req.user.id
       },
       { new: true }
-    );
+    ).populate('insuranceProviderDetails');
 
     if (!insurance) {
       return res.status(404).json({
@@ -311,6 +325,7 @@ exports.getAllInsurances = async (req, res) => {
           { path: 'branch', select: 'name' }
         ]
       })
+      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email')
       .populate('approvedBy', 'name email')
       .sort({ createdAt: -1 });
@@ -355,6 +370,7 @@ exports.getCompletedInsurances = async (req, res) => {
           { path: 'branch', select: 'name' }
         ]
       })
+      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email')
       .populate('approvedBy', 'name email')
       .sort({ createdAt: -1 });
@@ -399,6 +415,7 @@ exports.getPendingInsurances = async (req, res) => {
           { path: 'branch', select: 'name' }
         ]
       })
+      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
 
@@ -442,6 +459,7 @@ exports.getRejectedInsurances = async (req, res) => {
           { path: 'branch', select: 'name' }
         ]
       })
+      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email')
       .populate('approvedBy', 'name email')
       .sort({ createdAt: -1 });
@@ -479,7 +497,7 @@ exports.getBookingsAwaitingInsurance = async (req, res) => {
     }
 
     const bookings = await Booking.find(filter)
-      .populate('model', 'name')
+      .populate('model', 'model_name')
       .populate('color', 'name code')
       .populate('branch', 'name')
       .populate('createdBy', 'name email')
@@ -490,10 +508,12 @@ exports.getBookingsAwaitingInsurance = async (req, res) => {
     const bookingsWithInsurance = await Promise.all(
       bookings.map(async (booking) => {
         const insurance = await Insurance.findOne({ booking: booking._id })
-          .select('status policyNumber premiumAmount validUptoDate');
+          .select('status policyNumber premiumAmount validUptoDate')
+          .populate('insuranceProvider', 'provider_name');
 
         return {
           ...booking.toObject(),
+          modelName: booking.model?.model_name,
           insuranceDetails: insurance || null
         };
       })
@@ -549,7 +569,8 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
     // Find insurance details for this booking
     const insurance = await Insurance.findOne({ booking: booking._id })
       .populate('createdBy', 'name email')
-      .populate('approvedBy', 'name email');
+      .populate('approvedBy', 'name email')
+      .populate('insuranceProvider', 'provider_name');
 
     if (!insurance) {
       return res.status(404).json({
@@ -567,6 +588,8 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
       insuranceDate: insurance.insuranceDate,
       validUptoDate: insurance.validUptoDate,
       premiumAmount: insurance.premiumAmount,
+      paymentMode: insurance.paymentMode,
+      insuranceProvider: insurance.insuranceProvider,
       documents: insurance.documents,
       bookingDetails: {
         bookingNumber: booking.bookingNumber,
@@ -617,6 +640,128 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching insurance details',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Get all bookings with their insurance details
+ * @route   GET /api/v1/insurance/all-combined
+ * @access  Private (Admin/Manager/SuperAdmin)
+ */
+/**
+ * @desc    Get all bookings with their insurance details
+ * @route   GET /api/v1/insurance/all-combined
+ * @access  Private (Admin/Manager/SuperAdmin)
+ */
+exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
+  try {
+    const { status, insuranceStatus } = req.query;
+
+    // Build filters
+    const bookingFilter = {};
+    const insuranceFilter = {};
+
+    if (insuranceStatus) {
+      bookingFilter.insuranceStatus = insuranceStatus;
+    }
+
+    if (status) {
+      insuranceFilter.status = status;
+    }
+
+    // For non-superadmins, filter by branch
+    if (!req.user.roles.some(r => r.isSuperAdmin)) {
+      bookingFilter.branch = req.user.branch;
+    }
+
+    // Get all bookings with basic details and populate model name
+    const bookings = await Booking.find(bookingFilter)
+      .populate({
+        path: 'model',
+        select: 'name model_name' // Include both name and model_name
+      })
+      .populate('color', 'name code')
+      .populate('branch', 'name')
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    // Get all insurances for these bookings
+    const insuranceFilterWithBooking = {
+      ...insuranceFilter,
+      booking: { $in: bookings.map(b => b._id) }
+    };
+
+    const insurances = await Insurance.find(insuranceFilterWithBooking)
+      .populate('insuranceProvider', 'provider_name')
+      .populate('createdBy', 'name email')
+      .populate('approvedBy', 'name email');
+
+    // Create a map of bookingId to insurance for quick lookup
+    const insuranceMap = new Map();
+    insurances.forEach(insurance => {
+      insuranceMap.set(insurance.booking.toString(), insurance);
+    });
+
+    // Combine the data
+    const combinedData = bookings.map(booking => {
+      const bookingResponse = {
+        bookingNumber: booking.bookingNumber,
+        chassisNumber: booking.chassisNumber,
+        customerDetails: {
+          salutation: booking.customerDetails.salutation,
+          name: booking.customerDetails.name,
+          mobile1: booking.customerDetails.mobile1,
+          mobile2: booking.customerDetails.mobile2,
+          email: booking.customerDetails.email,
+          address: booking.customerDetails.address,
+          pincode: booking.customerDetails.pincode
+        },
+        model: {
+          id: booking.model?._id,
+          name: booking.model?.model_name // Include model_name here
+        },
+        color: {
+          id: booking.color?._id,
+          name: booking.color?.name
+        },
+        branch: {
+          id: booking.branch?._id,
+          name: booking.branch?.name
+        },
+        insuranceStatus: booking.insuranceStatus,
+        status: booking.status,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt
+      };
+
+      return {
+        booking: bookingResponse,
+        insurance: insuranceMap.get(booking._id.toString()) || null
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: combinedData
+    });
+
+  } catch (err) {
+    console.error('Error getting combined booking and insurance details:', err);
+    
+    await AuditLog.create({
+      action: 'READ',
+      entity: 'Insurance',
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error getting combined booking and insurance details',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }

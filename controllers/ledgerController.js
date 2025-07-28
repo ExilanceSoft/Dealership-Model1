@@ -175,6 +175,13 @@ exports.getLedgerSummary = async (req, res, next) => {
   }
 };
 
+// exports.getLedgerDataInId =   async (req, res, next) => {
+//   try{
+//     const {id} =model_name
+//     const ledger = await ledger.amount
+//     res.status(200).json
+//   }
+// }
 exports.updateLedgerEntry = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();

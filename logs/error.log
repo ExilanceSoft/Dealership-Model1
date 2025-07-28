@@ -69,3 +69,4 @@
 {"timestamp":"2025-07-25 12:39:30","level":"\u001b[31MERROR\u001b[39M","message":"Error creating declaration: Declaration validation failed: formType: `check` is not a valid enum value for path `formType`.","stack":null}
 {"timestamp":"2025-07-25 17:26:51","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}
 {"timestamp":"2025-07-25 17:30:00","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}
+{"timestamp":"2025-07-26 14:44:28","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: Server selection timed out after 15000 ms","stack":null}

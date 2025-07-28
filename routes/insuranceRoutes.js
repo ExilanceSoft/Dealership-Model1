@@ -30,7 +30,59 @@ const upload = multer({
  *   name: Insurance
  *   description: Insurance management endpoints
  */
-
+/**
+ * @swagger
+ * /api/v1/insurance/all-combined:
+ *   get:
+ *     summary: Get all bookings with their insurance details
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *         description: Filter insurance by status
+ *       - in: query
+ *         name: insuranceStatus
+ *         schema:
+ *           type: string
+ *           enum: [NOT_APPLICABLE, AWAITING, PENDING, COMPLETED, REJECTED]
+ *         description: Filter booking by insurance status
+ *     responses:
+ *       200:
+ *         description: List of all bookings with insurance details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       booking:
+ *                         $ref: '#/components/schemas/Booking'
+ *                       insurance:
+ *                         $ref: '#/components/schemas/Insurance'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/all-combined',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getAllCombinedBookingInsuranceDetails
+);
 /**
  * @swagger
  * /api/v1/insurance/{bookingId}:
@@ -54,6 +106,16 @@ const upload = multer({
  *           schema:
  *             type: object
  *             properties:
+ *               insuranceProvider:
+ *                 type: string
+ *                 description: ID of the insurance provider
+ *               paymentMode:
+ *                 type: string
+ *                 enum: [CASH, BANK, CARD]
+ *                 description: Payment mode for the insurance
+ *               transactionReference:
+ *                 type: string
+ *                 description: Transaction reference number (required for BANK/CARD)
  *               insuranceDate:
  *                 type: string
  *                 format: date
@@ -90,6 +152,8 @@ const upload = multer({
  *                 format: binary
  *                 description: Additional insurance document (optional)
  *             required:
+ *               - insuranceProvider
+ *               - paymentMode
  *               - policyNumber
  *               - premiumAmount
  *               - validUptoDate
@@ -351,6 +415,18 @@ router.get(
  *                       format: date
  *                     premiumAmount:
  *                       type: number
+ *                     paymentMode:
+ *                       type: string
+ *                       enum: [CASH, BANK, CARD]
+ *                     transactionReference:
+ *                       type: string
+ *                     insuranceProvider:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         provider_name:
+ *                           type: string
  *                     documents:
  *                       type: array
  *                       items:
@@ -369,13 +445,22 @@ router.get(
  *                         bookingNumber:
  *                           type: string
  *                         model:
- *                           type: string
+ *                           type: object
  *                         color:
- *                           type: string
- *                         customerName:
- *                           type: string
+ *                           type: object
+ *                         customer:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                             mobile:
+ *                               type: string
+ *                             email:
+ *                               type: string
  *                         chassisNumber:
  *                           type: string
+ *                         branch:
+ *                           type: object
  *                     createdBy:
  *                       $ref: '#/components/schemas/User'
  *                     approvedBy:
@@ -400,5 +485,7 @@ router.get('/:chassisNumber',
   logAction('READ', 'Insurance'),
   insuranceController.getInsuranceByChassisNumber
 );
+
+
 
 module.exports = router;

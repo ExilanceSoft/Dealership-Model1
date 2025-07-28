@@ -13,6 +13,16 @@ const InsuranceSchema = new mongoose.Schema({
       message: 'Booking must exist and be in APPROVED status'
     }
   },
+  insuranceProvider: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'InsuranceProvider',
+    required: true
+  },
+  paymentMode: {
+    type: String,
+    enum: ['CASH', 'BANK', 'CARD'],
+    required: true
+  },
   insuranceDate: {
     type: Date,
     required: true,
@@ -145,6 +155,7 @@ InsuranceSchema.index({ status: 1 });
 InsuranceSchema.index({ insuranceDate: -1 });
 InsuranceSchema.index({ validUptoDate: -1 });
 InsuranceSchema.index({ createdBy: 1 });
+InsuranceSchema.index({ insuranceProvider: 1 });
 
 // Virtual population
 InsuranceSchema.virtual('bookingDetails', {
@@ -154,6 +165,16 @@ InsuranceSchema.virtual('bookingDetails', {
   justOne: true,
   options: {
     select: 'bookingNumber customerDetails chassisNumber model color branch insuranceStatus'
+  }
+});
+
+InsuranceSchema.virtual('insuranceProviderDetails', {
+  ref: 'InsuranceProvider',
+  localField: 'insuranceProvider',
+  foreignField: '_id',
+  justOne: true,
+  options: {
+    select: 'provider_name is_active'
   }
 });
 
@@ -233,6 +254,7 @@ InsuranceSchema.pre('save', async function(next) {
 InsuranceSchema.statics.findByBookingId = function(bookingId) {
   return this.findOne({ booking: bookingId })
     .populate('bookingDetails')
+    .populate('insuranceProviderDetails')
     .populate('approvedByDetails');
 };
 
@@ -240,6 +262,7 @@ InsuranceSchema.statics.findByBookingId = function(bookingId) {
 InsuranceSchema.statics.findByStatus = function(status) {
   return this.find({ status })
     .populate('bookingDetails')
+    .populate('insuranceProviderDetails')
     .populate('createdByDetails')
     .populate('approvedByDetails');
 };
