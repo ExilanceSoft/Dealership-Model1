@@ -20,6 +20,7 @@ exports.addInsurance = async (req, res) => {
         message: 'Invalid booking ID format'
       });
     }
+
     // Check if booking exists and is approved
     const booking = await Booking.findById(bookingId)
       .populate('model', 'name')
@@ -93,7 +94,7 @@ exports.addInsurance = async (req, res) => {
       });
     }
 
-    // Create insurance data
+    // Create insurance data (status is automatically set to COMPLETED)
     const insuranceData = {
       booking: bookingId,
       insuranceProvider,
@@ -106,16 +107,12 @@ exports.addInsurance = async (req, res) => {
       validUptoDate: new Date(validUptoDate),
       documents,
       remarks,
-      status: 'PENDING',
-      createdBy: req.user.id
+      createdBy: req.user.id,
+      approvedBy: req.user.id // Automatically approved by creator
     };
 
     // Create new insurance record
     const insurance = await Insurance.create(insuranceData);
-
-    // Update booking insurance status to PENDING
-    booking.insuranceStatus = 'PENDING';
-    await booking.save();
 
     // Log the action
     await AuditLog.create({
@@ -135,9 +132,9 @@ exports.addInsurance = async (req, res) => {
       bookingDetails: {
         bookingNumber: booking.bookingNumber,
         customer: {
-          name: booking.customerName,
-          mobile: booking.customerMobile,
-          email: booking.customerEmail
+          name: booking.customerDetails.name,
+          mobile: booking.customerDetails.mobile1,
+          email: booking.customerDetails.email
         },
         chassisNumber: booking.chassisNumber,
         model: booking.model,
@@ -173,143 +170,14 @@ exports.addInsurance = async (req, res) => {
 };
 
 /**
- * @desc    Approve or reject insurance
- * @route   PATCH /api/v1/insurance/:bookingId/approve
- * @access  Private (Admin/Manager)
- */
-exports.approveInsurance = async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    const { status, rejectionReason } = req.body;
-
-    // Validate booking ID
-    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid booking ID format'
-      });
-    }
-
-    // Validate status
-    if (!['APPROVED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid status. Must be APPROVED or REJECTED'
-      });
-    }
-
-    // Validate rejection reason if status is REJECTED
-    if (status === 'REJECTED' && !rejectionReason) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rejection reason is required when status is REJECTED'
-      });
-    }
-
-    // Find and update insurance
-    const insurance = await Insurance.findOneAndUpdate(
-      { booking: bookingId },
-      {
-        status,
-        approvedBy: req.user.id,
-        approvalDate: new Date(),
-        rejectionReason: status === 'REJECTED' ? rejectionReason : null,
-        updatedBy: req.user.id
-      },
-      { new: true }
-    ).populate('insuranceProviderDetails');
-
-    if (!insurance) {
-      return res.status(404).json({
-        success: false,
-        message: 'Insurance not found for this booking'
-      });
-    }
-
-    // Find the booking to update insurance status
-    const booking = await Booking.findById(bookingId)
-      .populate('model', 'name')
-      .populate('color', 'name code')
-      .populate('branch', 'name');
-
-    if (booking) {
-      booking.insuranceStatus = status === 'APPROVED' ? 'COMPLETED' : 'REJECTED';
-      await booking.save();
-    }
-
-    // Log the action
-    await AuditLog.create({
-      action: 'UPDATE_STATUS',
-      entity: 'Insurance',
-      entityId: insurance._id,
-      user: req.user.id,
-      ip: req.ip,
-      metadata: {
-        oldStatus: insurance.status,
-        newStatus: status,
-        rejectionReason
-      },
-      status: 'SUCCESS'
-    });
-
-    // Prepare response with booking details
-    const response = {
-      ...insurance.toObject(),
-      bookingDetails: {
-        bookingNumber: booking.bookingNumber,
-        customer: {
-          name: booking.customerName,
-          mobile: booking.customerMobile,
-          email: booking.customerEmail
-        },
-        chassisNumber: booking.chassisNumber,
-        model: booking.model,
-        color: booking.color,
-        branch: booking.branch
-      }
-    };
-
-    res.status(200).json({
-      success: true,
-      data: response
-    });
-
-  } catch (err) {
-    console.error('Error updating insurance status:', err);
-    
-    await AuditLog.create({
-      action: 'UPDATE_STATUS',
-      entity: 'Insurance',
-      user: req.user?.id,
-      ip: req.ip,
-      status: 'FAILED',
-      metadata: req.body,
-      error: err.message
-    });
-
-    res.status(500).json({
-      success: false,
-      message: 'Error updating insurance status',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-
-/**
  * @desc    Get all insurances with booking details
  * @route   GET /api/v1/insurance
  * @access  Private (Admin/Manager)
  */
 exports.getAllInsurances = async (req, res) => {
   try {
-    const { status } = req.query;
-    
-    const filter = {};
-    if (status) {
-      filter.status = status;
-    }
-
     // For non-superadmins, filter by branch
+    const filter = {};
     if (!req.user.roles.some(r => r.isSuperAdmin)) {
       const bookings = await Booking.find({ branch: req.user.branch }).select('_id');
       filter.booking = { $in: bookings.map(b => b._id) };
@@ -318,7 +186,7 @@ exports.getAllInsurances = async (req, res) => {
     const insurances = await Insurance.find(filter)
       .populate({
         path: 'booking',
-        select: 'bookingNumber customerName customerMobile customerEmail chassisNumber model color branch insuranceStatus',
+        select: 'bookingNumber customerDetails chassisNumber model color branch insuranceStatus',
         populate: [
           { path: 'model', select: 'name' },
           { path: 'color', select: 'name code' },
@@ -340,140 +208,6 @@ exports.getAllInsurances = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching insurances',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-
-/**
- * @desc    Get completed insurances
- * @route   GET /api/v1/insurance/completed
- * @access  Private (Admin/Manager)
- */
-exports.getCompletedInsurances = async (req, res) => {
-  try {
-    const filter = { status: 'APPROVED' };
-
-    // For non-superadmins, filter by branch
-    if (!req.user.roles.some(r => r.isSuperAdmin)) {
-      const bookings = await Booking.find({ branch: req.user.branch }).select('_id');
-      filter.booking = { $in: bookings.map(b => b._id) };
-    }
-
-    const insurances = await Insurance.find(filter)
-      .populate({
-        path: 'booking',
-        select: 'bookingNumber customerName customerMobile customerEmail chassisNumber model color branch insuranceStatus',
-        populate: [
-          { path: 'model', select: 'name' },
-          { path: 'color', select: 'name code' },
-          { path: 'branch', select: 'name' }
-        ]
-      })
-      .populate('insuranceProvider', 'provider_name')
-      .populate('createdBy', 'name email')
-      .populate('approvedBy', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: insurances
-    });
-
-  } catch (err) {
-    console.error('Error getting completed insurances:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching completed insurances',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-
-/**
- * @desc    Get pending insurances
- * @route   GET /api/v1/insurance/pending
- * @access  Private (Admin/Manager)
- */
-exports.getPendingInsurances = async (req, res) => {
-  try {
-    const filter = { status: 'PENDING' };
-
-    // For non-superadmins, filter by branch
-    if (!req.user.roles.some(r => r.isSuperAdmin)) {
-      const bookings = await Booking.find({ branch: req.user.branch }).select('_id');
-      filter.booking = { $in: bookings.map(b => b._id) };
-    }
-
-    const insurances = await Insurance.find(filter)
-      .populate({
-        path: 'booking',
-        select: 'bookingNumber customerName customerMobile customerEmail chassisNumber model color branch insuranceStatus',
-        populate: [
-          { path: 'model', select: 'name' },
-          { path: 'color', select: 'name code' },
-          { path: 'branch', select: 'name' }
-        ]
-      })
-      .populate('insuranceProvider', 'provider_name')
-      .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: insurances
-    });
-
-  } catch (err) {
-    console.error('Error getting pending insurances:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching pending insurances',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
-
-/**
- * @desc    Get rejected insurances
- * @route   GET /api/v1/insurance/rejected
- * @access  Private (Admin/Manager)
- */
-exports.getRejectedInsurances = async (req, res) => {
-  try {
-    const filter = { status: 'REJECTED' };
-
-    // For non-superadmins, filter by branch
-    if (!req.user.roles.some(r => r.isSuperAdmin)) {
-      const bookings = await Booking.find({ branch: req.user.branch }).select('_id');
-      filter.booking = { $in: bookings.map(b => b._id) };
-    }
-
-    const insurances = await Insurance.find(filter)
-      .populate({
-        path: 'booking',
-        select: 'bookingNumber customerName customerMobile customerEmail chassisNumber model color branch insuranceStatus',
-        populate: [
-          { path: 'model', select: 'name' },
-          { path: 'color', select: 'name code' },
-          { path: 'branch', select: 'name' }
-        ]
-      })
-      .populate('insuranceProvider', 'provider_name')
-      .populate('createdBy', 'name email')
-      .populate('approvedBy', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: insurances
-    });
-
-  } catch (err) {
-    console.error('Error getting rejected insurances:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching rejected insurances',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
@@ -504,24 +238,9 @@ exports.getBookingsAwaitingInsurance = async (req, res) => {
       .populate('salesExecutive', 'name email')
       .sort({ createdAt: 1 });
 
-    // Get insurance details for each booking
-    const bookingsWithInsurance = await Promise.all(
-      bookings.map(async (booking) => {
-        const insurance = await Insurance.findOne({ booking: booking._id })
-          .select('status policyNumber premiumAmount validUptoDate')
-          .populate('insuranceProvider', 'provider_name');
-
-        return {
-          ...booking.toObject(),
-          modelName: booking.model?.model_name,
-          insuranceDetails: insurance || null
-        };
-      })
-    );
-
     res.status(200).json({
       success: true,
-      data: bookingsWithInsurance
+      data: bookings
     });
 
   } catch (err) {
@@ -596,9 +315,9 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
         model: booking.model,
         color: booking.color,
         customer: {
-          name: booking.customerName,
-          mobile: booking.customerMobile,
-          email: booking.customerEmail
+          name: booking.customerDetails.name,
+          mobile: booking.customerDetails.mobile1,
+          email: booking.customerDetails.email
         },
         chassisNumber: booking.chassisNumber,
         branch: booking.branch
@@ -650,25 +369,14 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
  * @route   GET /api/v1/insurance/all-combined
  * @access  Private (Admin/Manager/SuperAdmin)
  */
-/**
- * @desc    Get all bookings with their insurance details
- * @route   GET /api/v1/insurance/all-combined
- * @access  Private (Admin/Manager/SuperAdmin)
- */
 exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
   try {
-    const { status, insuranceStatus } = req.query;
+    const { insuranceStatus } = req.query;
 
     // Build filters
     const bookingFilter = {};
-    const insuranceFilter = {};
-
     if (insuranceStatus) {
       bookingFilter.insuranceStatus = insuranceStatus;
-    }
-
-    if (status) {
-      insuranceFilter.status = status;
     }
 
     // For non-superadmins, filter by branch
@@ -680,7 +388,7 @@ exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
     const bookings = await Booking.find(bookingFilter)
       .populate({
         path: 'model',
-        select: 'name model_name' // Include both name and model_name
+        select: 'name model_name'
       })
       .populate('color', 'name code')
       .populate('branch', 'name')
@@ -688,12 +396,9 @@ exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
       .sort({ createdAt: -1 });
 
     // Get all insurances for these bookings
-    const insuranceFilterWithBooking = {
-      ...insuranceFilter,
+    const insurances = await Insurance.find({
       booking: { $in: bookings.map(b => b._id) }
-    };
-
-    const insurances = await Insurance.find(insuranceFilterWithBooking)
+    })
       .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email')
       .populate('approvedBy', 'name email');
@@ -720,7 +425,7 @@ exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
         },
         model: {
           id: booking.model?._id,
-          name: booking.model?.model_name // Include model_name here
+          name: booking.model?.model_name
         },
         color: {
           id: booking.color?._id,

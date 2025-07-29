@@ -25,20 +25,42 @@ const generateSingleDocumentPdf = async (file, docType, bookingId) => {
   doc.pipe(writeStream);
 
   // Add document type as title
-  doc.text(docType.toUpperCase(), { align: 'center' });
+  doc.fontSize(16).text(docType.toUpperCase(), { align: 'center' });
   doc.moveDown();
 
   // Check if the file is a PDF or image
   if (file.mimetype === 'application/pdf') {
-    // For PDF files, we can't embed them directly, so we'll just note it
-    doc.text('PDF document - view original file separately');
-  } else {
+    doc.fontSize(12).text('Original PDF Document:', { underline: true });
+    doc.moveDown(0.5);
+    doc.text(`File name: ${file.originalname}`);
+    doc.text(`Saved at: /uploads/kyc/${bookingId}/${file.originalname}`);
+    doc.moveDown();
+    doc.text('View the original PDF file for full details.');
+  } else if (file.mimetype.startsWith('image/')) {
     // For images
-    doc.image(file.buffer, {
-      fit: [500, 400],
-      align: 'center',
-      valign: 'center'
-    });
+    doc.fontSize(12).text('Document Image:', { underline: true });
+    doc.moveDown(0.5);
+    try {
+      doc.image(file.buffer, {
+        fit: [500, 400],
+        align: 'center',
+        valign: 'center'
+      });
+      doc.moveDown();
+      doc.text(`Original file type: ${file.mimetype}`);
+      doc.text(`Original file name: ${file.originalname}`);
+    } catch (err) {
+      doc.text('Error processing image file');
+      console.error(`Error processing image for ${docType}:`, err);
+    }
+  } else {
+    // For other file types
+    doc.fontSize(12).text('Original Document:', { underline: true });
+    doc.moveDown(0.5);
+    doc.text(`File type: ${file.mimetype}`);
+    doc.text(`File name: ${file.originalname}`);
+    doc.moveDown();
+    doc.text('View the original file for full document content.');
   }
 
   doc.end();
@@ -56,23 +78,44 @@ const generateCombinedKycPdf = async (documentPaths, bookingId) => {
 
   doc.pipe(writeStream);
 
+  // Add cover page
+  doc.fontSize(20).text('KYC DOCUMENTS', { align: 'center' });
+  doc.moveDown();
+  doc.fontSize(16).text(`Booking ID: ${bookingId}`, { align: 'center' });
+  doc.addPage();
+
   // Add each document to the combined PDF
-  for (const [docType, filePath] of Object.entries(documentPaths)) {
-    if (filePath && !filePath.endsWith('.pdf')) { // Skip PDFs as we can't embed them
+  for (const [docType, fileInfo] of Object.entries(documentPaths)) {
+    if (fileInfo && fileInfo.originalPath) {
       try {
-        const fullPath = path.join(__dirname, '..', filePath);
-        if (fs.existsSync(fullPath)) {
-          doc.text(docType.toUpperCase(), { align: 'center' });
-          doc.moveDown();
-          doc.image(fullPath, {
-            fit: [500, 400],
-            align: 'center',
-            valign: 'center'
-          });
-          doc.addPage();
+        doc.fontSize(16).text(docType.toUpperCase(), { align: 'center' });
+        doc.moveDown();
+
+        if (fileInfo.mimetype === 'application/pdf') {
+          doc.fontSize(12).text('PDF Document - view original file for details');
+          doc.text(`File name: ${fileInfo.originalname}`);
+        } else if (fileInfo.mimetype.startsWith('image/')) {
+          const fullPath = path.join(__dirname, '..', fileInfo.originalPath);
+          if (fs.existsSync(fullPath)) {
+            doc.image(fullPath, {
+              fit: [500, 400],
+              align: 'center',
+              valign: 'center'
+            });
+          } else {
+            doc.text('Image file not found on server');
+          }
+        } else {
+          doc.text('Document - view original file for details');
+          doc.text(`Type: ${fileInfo.mimetype}`);
+          doc.text(`Name: ${fileInfo.originalname}`);
         }
+
+        doc.addPage();
       } catch (err) {
         console.error(`Error adding ${docType} to combined PDF:`, err);
+        doc.text(`Error processing ${docType} document`);
+        doc.addPage();
       }
     }
   }
@@ -179,7 +222,11 @@ exports.submitKYC = async (req, res) => {
         const fileName = `${docType}-${Date.now()}${path.extname(file.originalname)}`;
         const filePath = path.join(uploadDir, fileName);
         await fs.promises.writeFile(filePath, file.buffer);
-        documentPaths[docType] = `/uploads/kyc/${bookingId}/${fileName}`;
+        documentPaths[docType] = {
+          originalPath: `/uploads/kyc/${bookingId}/${fileName}`,
+          mimetype: file.mimetype,
+          originalname: file.originalname
+        };
 
         // Generate PDF version
         const pdfPath = await generateSingleDocumentPdf(file, docType, bookingId);
@@ -195,13 +242,48 @@ exports.submitKYC = async (req, res) => {
       booking: bookingId,
       customerName: `${booking.customerDetails.salutation} ${booking.customerDetails.name}`,
       address: booking.customerDetails.address,
-      aadharFront: pdfPaths.aadharFront || documentPaths.aadharFront,
-      aadharBack: pdfPaths.aadharBack || documentPaths.aadharBack,
-      panCard: pdfPaths.panCard || documentPaths.panCard,
-      vPhoto: pdfPaths.vPhoto || documentPaths.vPhoto,
-      chasisNoPhoto: pdfPaths.chasisNoPhoto || documentPaths.chasisNoPhoto,
-      addressProof1: pdfPaths.addressProof1 || documentPaths.addressProof1,
-      addressProof2: pdfPaths.addressProof2 || documentPaths.addressProof2 || null,
+      aadharFront: {
+        original: documentPaths.aadharFront.originalPath,
+        pdf: pdfPaths.aadharFront,
+        mimetype: documentPaths.aadharFront.mimetype,
+        originalname: documentPaths.aadharFront.originalname
+      },
+      aadharBack: {
+        original: documentPaths.aadharBack.originalPath,
+        pdf: pdfPaths.aadharBack,
+        mimetype: documentPaths.aadharBack.mimetype,
+        originalname: documentPaths.aadharBack.originalname
+      },
+      panCard: {
+        original: documentPaths.panCard.originalPath,
+        pdf: pdfPaths.panCard,
+        mimetype: documentPaths.panCard.mimetype,
+        originalname: documentPaths.panCard.originalname
+      },
+      vPhoto: {
+        original: documentPaths.vPhoto.originalPath,
+        pdf: pdfPaths.vPhoto,
+        mimetype: documentPaths.vPhoto.mimetype,
+        originalname: documentPaths.vPhoto.originalname
+      },
+      chasisNoPhoto: {
+        original: documentPaths.chasisNoPhoto.originalPath,
+        pdf: pdfPaths.chasisNoPhoto,
+        mimetype: documentPaths.chasisNoPhoto.mimetype,
+        originalname: documentPaths.chasisNoPhoto.originalname
+      },
+      addressProof1: {
+        original: documentPaths.addressProof1.originalPath,
+        pdf: pdfPaths.addressProof1,
+        mimetype: documentPaths.addressProof1.mimetype,
+        originalname: documentPaths.addressProof1.originalname
+      },
+      addressProof2: documentPaths.addressProof2 ? {
+        original: documentPaths.addressProof2.originalPath,
+        pdf: pdfPaths.addressProof2,
+        mimetype: documentPaths.addressProof2.mimetype,
+        originalname: documentPaths.addressProof2.originalname
+      } : null,
       documentPdf: combinedPdfPath,
       submittedBy: userId,
       status: 'PENDING'
@@ -214,13 +296,20 @@ exports.submitKYC = async (req, res) => {
     if (existingKYC) {
       // Delete old files if they exist
       const oldFiles = [
-        existingKYC.aadharFront,
-        existingKYC.aadharBack,
-        existingKYC.panCard,
-        existingKYC.vPhoto,
-        existingKYC.chasisNoPhoto,
-        existingKYC.addressProof1,
-        existingKYC.addressProof2,
+        existingKYC.aadharFront?.original,
+        existingKYC.aadharFront?.pdf,
+        existingKYC.aadharBack?.original,
+        existingKYC.aadharBack?.pdf,
+        existingKYC.panCard?.original,
+        existingKYC.panCard?.pdf,
+        existingKYC.vPhoto?.original,
+        existingKYC.vPhoto?.pdf,
+        existingKYC.chasisNoPhoto?.original,
+        existingKYC.chasisNoPhoto?.pdf,
+        existingKYC.addressProof1?.original,
+        existingKYC.addressProof1?.pdf,
+        existingKYC.addressProof2?.original,
+        existingKYC.addressProof2?.pdf,
         existingKYC.documentPdf
       ].filter(Boolean);
 
@@ -429,6 +518,7 @@ exports.deleteKYC = async (req, res) => {
 exports.verifyKYCByBooking = async (req, res) => {
   try {
     const bookingId = new mongoose.Types.ObjectId(req.params.bookingId);
+    const userId = req.user.id;
 
     const kyc = await KYC.findOne({ booking: bookingId });
 
@@ -441,20 +531,53 @@ exports.verifyKYCByBooking = async (req, res) => {
 
     kyc.status = req.body.status;
     kyc.verificationNote = req.body.verificationNote || '';
+    kyc.verifiedBy = userId;
+    kyc.verificationDate = new Date();
     await kyc.save();
 
-    // Optionally update booking as well
+    // Update booking KYC status
     await Booking.findByIdAndUpdate(bookingId, {
       kycStatus: req.body.status
     });
 
+    // Log the action
+    await AuditLog.create({
+      action: 'KYC_VERIFIED',
+      entity: 'KYC',
+      entityId: kyc._id,
+      user: userId,
+      ip: req.ip,
+      metadata: { 
+        bookingId,
+        status: req.body.status,
+        note: req.body.verificationNote || ''
+      },
+      status: 'SUCCESS'
+    });
+
     return res.status(200).json({
       success: true,
-      message: 'KYC verified successfully'
+      message: 'KYC verified successfully',
+      data: {
+        status: kyc.status,
+        verificationNote: kyc.verificationNote,
+        verifiedBy: userId,
+        verificationDate: kyc.verificationDate
+      }
     });
 
   } catch (err) {
     console.error('Error verifying KYC:', err);
+    
+    await AuditLog.create({
+      action: 'KYC_VERIFICATION_FAILED',
+      entity: 'KYC',
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
     return res.status(500).json({
       success: false,
       message: 'Server Error'
@@ -558,6 +681,63 @@ exports.downloadKYCPdf = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error viewing KYC document',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Download Original Document
+exports.downloadOriginalDocument = async (req, res) => {
+  try {
+    const { bookingId, docType } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid booking ID' 
+      });
+    }
+
+    // Find KYC by booking ID
+    const kyc = await KYC.findOne({ booking: bookingId });
+    if (!kyc) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'KYC not found for this booking' 
+      });
+    }
+
+    const document = kyc[docType];
+    if (!document || !document.original) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Document not found' 
+      });
+    }
+
+    const filePath = path.join(__dirname, '..', document.original);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Document file not found on server' 
+      });
+    }
+
+    // Determine content type
+    const contentType = document.mimetype || 'application/octet-stream';
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename=${document.originalname || docType}`);
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (err) {
+    console.error('Error downloading original document:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error downloading document',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
