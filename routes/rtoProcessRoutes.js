@@ -19,150 +19,86 @@ const { logAction } = require('../middlewares/audit');
  *       type: object
  *       required:
  *         - bookingId
- *         - rtoId
- *         - customerName
- *         - chassisNumber
- *         - modelName
- *         - bookingDate
- *         - mobileNumber
- *         - rtoAmount
+ *         - applicationNumber
+ *         - createdBy
  *       properties:
  *         id:
  *           type: string
- *           description: The auto-generated ID of the RTO process
- *           example: 507f1f77bcf86cd799439011
  *         bookingId:
  *           type: string
- *           description: Unique booking ID
- *           example: BOOK12345
- *         rtoId:
+ *         applicationNumber:
  *           type: string
- *           description: RTO ID
- *           example: RTO123
- *         customerName:
- *           type: string
- *           description: Customer's full name
- *           example: John Doe
- *         chassisNumber:
- *           type: string
- *           description: 17-character vehicle chassis number
- *           example: MA3EDLBS001234567
- *         modelName:
- *           type: string
- *           description: Vehicle model name
- *           example: Honda City
- *         bookingDate:
- *           type: string
- *           format: date-time
- *           description: Booking date
- *           example: "2023-01-01T00:00:00.000Z"
- *         mobileNumber:
- *           type: string
- *           description: Customer's mobile number
- *           example: "9876543210"
  *         rtoStatus:
  *           type: string
- *           enum: ["Pending", "Completed", "Rejected", "In Progress"]
- *           description: Current RTO status
- *           example: Pending
- *         contactNumber:
- *           type: string
- *           description: Alternate contact number
- *           example: "9876543210"
+ *           enum: ['pending', 'completed']
  *         rtoPaperStatus:
  *           type: string
- *           enum: ["Not Submitted", "Submitted", "Verified", "Rejected"]
- *           description: Paper submission status
- *           example: Not Submitted
+ *           enum: ['Not Submitted', 'Submitted', 'Verified', 'Rejected']
  *         rtoAmount:
  *           type: number
- *           description: RTO fees amount
- *           example: 15000
  *         numberPlate:
  *           type: string
- *           description: Vehicle number plate
- *           example: MH01AB1234
  *         receiptNumber:
  *           type: string
- *           description: RTO receipt number
- *           example: RCPT12345
  *         rtoPendingTaxStatus:
  *           type: string
- *           enum: ["Paid", "Unpaid", "N/A"]
- *           description: Tax payment status
- *           example: N/A
+ *           enum: ['Paid', 'Unpaid', 'N/A']
  *         hsrbOrdering:
  *           type: boolean
- *           description: HSRB ordering status
- *           example: false
  *         hsrbInstallation:
  *           type: boolean
- *           description: HSRB installation status
- *           example: false
  *         rcConfirmation:
  *           type: boolean
- *           description: RC confirmation status
- *           example: false
+ *         rtoNumber:
+ *           type: string
+ *         rtoDate:
+ *           type: string
+ *           format: date-time
+ *         rtoProcess:
+ *           type: boolean
  *         createdBy:
  *           type: string
- *           description: ID of the user who created the record
- *           example: 507f1f77bcf86cd799439012
+ *         updatedBy:
+ *           type: string
  *         createdAt:
  *           type: string
  *           format: date-time
- *           description: The date the record was created
- *           example: "2023-01-01T00:00:00.000Z"
  *         updatedAt:
  *           type: string
  *           format: date-time
- *           description: The date the record was last updated
- *           example: "2023-01-01T00:00:00.000Z"
+ *
  *     RtoProcessInput:
  *       type: object
  *       required:
  *         - bookingId
- *         - rtoId
- *         - customerName
- *         - chassisNumber
- *         - modelName
- *         - bookingDate
- *         - mobileNumber
- *         - rtoAmount
+ *         - applicationNumber
+ *         - createdBy
  *       properties:
  *         bookingId:
  *           type: string
- *           example: BOOK12345
- *         rtoId:
+ *         applicationNumber:
  *           type: string
- *           example: RTO123
- *         customerName:
- *           type: string
- *           example: John Doe
- *         chassisNumber:
- *           type: string
- *           example: MA3EDLBS001234567
- *         modelName:
- *           type: string
- *           example: Honda City
- *         bookingDate:
- *           type: string
- *           format: date-time
- *           example: "2023-01-01T00:00:00.000Z"
- *         mobileNumber:
- *           type: string
- *           example: "9876543210"
  *         rtoAmount:
  *           type: number
- *           example: 15000
- *         contactNumber:
- *           type: string
- *           example: "9876543210"
  *         numberPlate:
  *           type: string
- *           example: MH01AB1234
  *         receiptNumber:
  *           type: string
- *           example: RCPT12345
+ *         rtoPendingTaxStatus:
+ *           type: string
+ *           enum: ['Paid', 'Unpaid', 'N/A']
+ *         hsrbOrdering:
+ *           type: boolean
+ *         hsrbInstallation:
+ *           type: boolean
+ *         rcConfirmation:
+ *           type: boolean
+ *         rtoNumber:
+ *           type: string
+ *         createdBy:
+ *           type: string
+ *         updatedBy:
+ *           type: string
  */
 
 /**
@@ -181,21 +117,14 @@ const { logAction } = require('../middlewares/audit');
  *             $ref: '#/components/schemas/RtoProcessInput'
  *     responses:
  *       201:
- *         description: RTO process created successfully
+ *         description: Created
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/RtoProcess'
- *       400:
- *         description: Validation error or missing required fields
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       500:
- *         description: Server error
  */
-router.post("/",
+router.post(
+  "/",
   protect,
   authorize('SUPERADMIN', 'ADMIN'),
   logAction('CREATE', 'RtoProcess'),
@@ -204,9 +133,80 @@ router.post("/",
 
 /**
  * @swagger
+ * /api/v1/rtoProcess/with-application-numbers:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/with-application-numbers', rtoController.getRtoProcessesWithApplicationNumbers);
+
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/with-rtotax:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/with-rtotax', rtoController.getRtoProcessesWithRtoTaxCompleted);
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/with-rtopaper:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/with-rtopaper', rtoController.getRtoProcessesWithRtoPaperStatus);
+
+
+/**
+ * @swagger
  * /api/v1/rtoProcess:
  *   get:
- *     summary: Get all RTO processes (Admin+)
+ *     summary: Get all RTO processes
  *     tags: [RTO Processes]
  *     security:
  *       - bearerAuth: []
@@ -215,43 +215,33 @@ router.post("/",
  *         name: rtoStatus
  *         schema:
  *           type: string
- *           enum: ["Pending", "Completed", "Rejected", "In Progress"]
- *         description: Filter by RTO status
+ *           enum: ['pending', 'completed']
  *       - in: query
  *         name: rtoPaperStatus
  *         schema:
  *           type: string
- *           enum: ["Not Submitted", "Submitted", "Verified", "Rejected"]
- *         description: Filter by paper status
+ *           enum: ['Not Submitted', 'Submitted', 'Verified', 'Rejected']
  *       - in: query
  *         name: search
  *         schema:
  *           type: string
- *         description: Search by customer name or booking ID
  *     responses:
  *       200:
- *         description: List of RTO processes
+ *         description: Successful
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 status:
- *                   type: string
  *                 count:
  *                   type: integer
  *                 data:
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       500:
- *         description: Server error
  */
-router.get("/",
+router.get(
+  "/",
   protect,
   authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
   rtoController.getAllRtoProcesses
@@ -261,7 +251,7 @@ router.get("/",
  * @swagger
  * /api/v1/rtoProcess/{id}:
  *   get:
- *     summary: Get RTO process by ID (Admin+)
+ *     summary: Get RTO process by ID
  *     tags: [RTO Processes]
  *     security:
  *       - bearerAuth: []
@@ -271,24 +261,16 @@ router.get("/",
  *         required: true
  *         schema:
  *           type: string
- *         description: RTO process ID
  *     responses:
  *       200:
- *         description: RTO process details
+ *         description: Found
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/RtoProcess'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Not found
- *       500:
- *         description: Server error
  */
-router.get("/:id",
+router.get(
+  "/:id",
   protect,
   authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
   rtoController.getRtoProcessById
@@ -298,7 +280,7 @@ router.get("/:id",
  * @swagger
  * /api/v1/rtoProcess/{id}:
  *   patch:
- *     summary: Update RTO process fields (Admin+)
+ *     summary: Update an RTO process
  *     tags: [RTO Processes]
  *     security:
  *       - bearerAuth: []
@@ -308,7 +290,6 @@ router.get("/:id",
  *         required: true
  *         schema:
  *           type: string
- *         description: RTO process ID
  *     requestBody:
  *       required: true
  *       content:
@@ -318,17 +299,17 @@ router.get("/:id",
  *             properties:
  *               rtoStatus:
  *                 type: string
- *                 enum: ["Pending", "Completed", "Rejected", "In Progress"]
+ *                 enum: ['pending', 'completed']
  *               rtoPaperStatus:
  *                 type: string
- *                 enum: ["Not Submitted", "Submitted", "Verified", "Rejected"]
+ *                 enum: ['Not Submitted', 'Submitted', 'Verified', 'Rejected']
  *               numberPlate:
  *                 type: string
  *               receiptNumber:
  *                 type: string
  *               rtoPendingTaxStatus:
  *                 type: string
- *                 enum: ["Paid", "Unpaid", "N/A"]
+ *                 enum: ['Paid', 'Unpaid', 'N/A']
  *               hsrbOrdering:
  *                 type: boolean
  *               hsrbInstallation:
@@ -337,23 +318,14 @@ router.get("/:id",
  *                 type: boolean
  *     responses:
  *       200:
- *         description: RTO process updated
+ *         description: Updated
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/RtoProcess'
- *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Not found
- *       500:
- *         description: Server error
  */
-router.patch("/:id",
+router.patch(
+  "/:id",
   protect,
   authorize('SUPERADMIN', 'ADMIN'),
   logAction('UPDATE', 'RtoProcess'),
@@ -364,7 +336,7 @@ router.patch("/:id",
  * @swagger
  * /api/v1/rtoProcess/{id}:
  *   delete:
- *     summary: Delete RTO process (SuperAdmin only)
+ *     summary: Delete RTO process
  *     tags: [RTO Processes]
  *     security:
  *       - bearerAuth: []
@@ -374,20 +346,12 @@ router.patch("/:id",
  *         required: true
  *         schema:
  *           type: string
- *         description: RTO process ID
  *     responses:
  *       200:
- *         description: Deleted successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not SuperAdmin)
- *       404:
- *         description: Not found
- *       500:
- *         description: Server error
+ *         description: Deleted
  */
-router.delete("/:id",
+router.delete(
+  "/:id",
   protect,
   authorize('SUPERADMIN'),
   logAction('DELETE', 'RtoProcess'),

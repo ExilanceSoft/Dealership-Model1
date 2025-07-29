@@ -302,6 +302,86 @@ const Vehicle = require('../models/vehicleInwardModel');
  *           description: "Detailed error stack (only in development)"
  */
 
+
+/**
+ * @swagger
+ * /api/v1/bookings/pfbookings:
+ *   get:
+ *     summary: Get all fully paid bookings with pending RTO status
+ *     description: Returns bookings where balanceAmount is 0 and rtoStatus is 'pending'
+ *     tags:
+ *       - Bookings
+ *     responses:
+ *       200:
+ *         description: List of fully paid bookings with pending RTO status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 2
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: 64cb5c2f6f8ef21a3819a7b2
+ *                       bookingId:
+ *                         type: string
+ *                         example: BK20250729
+ *                       customerName:
+ *                         type: string
+ *                         example: Rutik Jadhav
+ *                       chassisNumber:
+ *                         type: string
+ *                         example: CH123456789
+ *                       balanceAmount:
+ *                         type: number
+ *                         example: 0
+ *                       rtoStatus:
+ *                         type: string
+ *                         example: pending
+ *                       model:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Activa 6G
+ *                       color:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Red
+ *                       branch:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Hadapsar Branch
+ *                       salesExecutive:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Raj Patel
+ *                           email:
+ *                             type: string
+ *                             example: raj.patel@example.com
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: 2025-07-28T10:20:00Z
+ */
+router.get('/pfbookings', bookingController.getFullyPaidPendingRTOBookings);
+
 /**
  * @swagger
  * /api/v1/bookings:
@@ -1745,4 +1825,7 @@ router.get('/:id/pending-update',
     }
   }
 );
+
+
+
 module.exports = router;

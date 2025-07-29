@@ -7,72 +7,35 @@ const RtoProcessSchema = new mongoose.Schema({
     unique: true,
     trim: true,
   },
-  rtoId: {
+  applicationNumber: {
     type: String,
     required: true,
     trim: true,
-  },
-  customerName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  chassisNumber: {
-    type: String,
-    required: true,
-    uppercase: true,
-    trim: true,
-    validate: {
-      validator: v => /^[A-Z0-9]{17}$/.test(v),
-      message: 'Chassis number must be 17 alphanumeric characters',
-    },
-  },
-  modelName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  bookingDate: {
-    type: Date,
-    required: true,
-  },
-  mobileNumber: {
-    type: String,
-    required: true,
-    validate: {
-      validator: v => /^[6-9]\d{9}$/.test(v),
-      message: 'Invalid mobile number',
-    },
-  },
-  contactNumber: {
-    type: String,
-    validate: {
-      validator: v => /^[6-9]\d{9}$/.test(v),
-      message: 'Invalid contact number',
-    },
   },
   rtoStatus: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'rejected'],
+    enum: ['pending', 'completed'],
     default: 'pending',
   },
   rtoPaperStatus: {
     type: String,
-    enum: ['Not Submitted', 'Submitted', 'Verified', 'Rejected'],
+    enum: ['Not Submitted', 'Submitted'],
     default: 'Not Submitted',
   },
   rtoAmount: {
     type: Number,
     min: 0,
-    required: true,
+    default: 0, 
   },
   numberPlate: {
     type: String,
     trim: true,
+    default: '', 
   },
   receiptNumber: {
     type: String,
     trim: true,
+    default: '', 
   },
   rtoPendingTaxStatus: {
     type: String,
@@ -94,9 +57,11 @@ const RtoProcessSchema = new mongoose.Schema({
   rtoNumber: {
     type: String,
     trim: true,
+    default: '',
   },
   rtoDate: {
     type: Date,
+    default: Date.now, 
   },
   rtoProcess: {
     type: Boolean,
@@ -108,6 +73,7 @@ const RtoProcessSchema = new mongoose.Schema({
   },
   updatedBy: {
     type: String,
+    default: '', 
   },
 }, {
   timestamps: true,

@@ -3031,3 +3031,19 @@ exports.getUpdateForm = async (req, res) => {
     });
   }
 };
+
+exports.getFullyPaidPendingRTOBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      balanceAmount: 0,
+      rtoStatus: 'pending'
+    }).lean();
+
+    res.status(200).json({ success: true, count: bookings.length, data: bookings });
+  } catch (error) {
+    console.error('Error fetching fully paid & pending RTO bookings:', error);
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};
+
+

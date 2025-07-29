@@ -242,6 +242,11 @@ const bookingSchema = new mongoose.Schema({
     enum: ['MH', 'BH', 'CRTM'],
     required: [true, 'RTO is required']
   },
+   rtoStatus: {
+    type: String,
+    enum: ['pending', 'completed'],
+    default: 'pending',
+  },
   rtoAmount: {
     type: Number,
     min: 0,
