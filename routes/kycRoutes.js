@@ -145,6 +145,7 @@ router.post('/:bookingId/submit',
   logAction('SUBMIT_KYC', 'KYC'),
   kycController.submitKYC
 );
+
 /**
  * @swagger
  * /api/v1/kyc/{bookingId}/verify:

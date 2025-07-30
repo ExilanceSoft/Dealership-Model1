@@ -76,7 +76,17 @@ exports.createRtoProcess = async (req, res) => {
 
 exports.getAllRtoProcesses = async (req, res) => {
   try {
-    const rtos = await RtoProcess.find().sort({ createdAt: -1 });
+    const rtos = await RtoProcess.find()
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "bookingId",
+        select:
+          "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+        populate: {
+          path: "model",
+          select: "name",
+        },
+      });
     res.status(200).json({ success: true, count: rtos.length, data: rtos });
   } catch (err) {
     console.error("Error fetching RTOs:", err);
@@ -86,23 +96,60 @@ exports.getAllRtoProcesses = async (req, res) => {
   }
 };
 
-
 exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      applicationNumber: { $ne: null, $ne: '' } 
+      applicationNumber: { $ne: null, $ne: "" },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
     });
 
     res.status(200).json({
       success: true,
-      data: rtoProcesses
+      data: rtoProcesses,
     });
   } catch (error) {
-    console.error('Error fetching RTO records:', error);
+    console.error("Error fetching RTO records:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getRtoProcessesWithRtoTaxPending = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      $and: [
+        { rtoPendingTaxStatus: { $ne: "Paid" } },
+      ],
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rtoProcesses,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO tax pending records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
     });
   }
 };
@@ -110,40 +157,86 @@ exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
 exports.getRtoProcessesWithRtoTaxCompleted = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      rtoPendingTaxStatus: { $ne: 'Unpaid', $ne: 'N/A' } 
+      $and: [
+        { rtoPendingTaxStatus: { $ne: "Unpaid" } },
+        { rtoPendingTaxStatus: { $ne: "N/A" } },
+      ],
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
     });
 
     res.status(200).json({
       success: true,
-      data: rtoProcesses
+      data: rtoProcesses,
     });
   } catch (error) {
-    console.error('Error fetching RTO records:', error);
+    console.error("Error fetching RTO tax completed records:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 };
 
-
 exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      rtoPendingTaxStatus: { $ne:'Not Submitted', $ne: 'N/A' } 
+      rtoPaperStatus: { $ne: "Not Submitted", $ne: "N/A" },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
     });
 
     res.status(200).json({
       success: true,
-      data: rtoProcesses
+      data: rtoProcesses,
     });
   } catch (error) {
-    console.error('Error fetching RTO records:', error);
+    console.error("Error fetching RTO records:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getRtoProcessesWithRtoPaperStatusAsNotSubmitted = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      rtoPaperStatus: "Not Submitted",
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rtoProcesses,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
     });
   }
 };
@@ -151,47 +244,182 @@ exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
 exports.getRtoProcessesWithHsrpOrderedStatus = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      hsrbOrdering: { $ne: false, $ne: 'N/A' } 
+      hsrbOrdering: { $ne: false },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
     });
 
     res.status(200).json({
       success: true,
-      data: rtoProcesses
+      data: rtoProcesses,
     });
   } catch (error) {
-    console.error('Error fetching RTO records:', error);
+    console.error("Error fetching RTO records:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 };
 
-
 exports.getRtoProcessesWithHsrpInstallationStatus = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      hsrbInstallation: { $ne:false, $ne: 'N/A' } 
+      hsrbInstallation: { $ne: false },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
     });
 
     res.status(200).json({
       success: true,
-      data: rtoProcesses
+      data: rtoProcesses,
     });
   } catch (error) {
-    console.error('Error fetching RTO records:', error);
+    console.error("Error fetching RTO records:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getRtoProcessesWithHsrpOrderedStatusIsfalse = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      hsrbOrdering: { $ne: true },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rtoProcesses,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getRtoProcessesWithHsrpInstallationStatusIsfalse = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      hsrbInstallation: { $ne: true },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rtoProcesses,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getRtoProcessesWithRcConfirmationStatus = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      rcConfirmation: { $ne: false },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rtoProcesses,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getRtoProcessesWithRcConfirmationStatusIsfalse = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      rcConfirmation: { $ne: true },
+    }).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rtoProcesses,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
     });
   }
 };
 
 exports.getRtoProcessById = async (req, res) => {
   try {
-    const rto = await RtoProcess.findById(req.params.id);
+    const rto = await RtoProcess.findById(req.params.id).populate({
+      path: "bookingId",
+      select:
+        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "name",
+      },
+    });
     if (!rto) {
       return res.status(404).json({ success: false, message: "RTO not found" });
     }

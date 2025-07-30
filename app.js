@@ -82,6 +82,7 @@ const expenseAccountsRoutes = require('./routes/expenseAccountRoutes');
 const rtoProcessRoutes = require('./routes/rtoProcessRoutes');
 const cashVoucherRoutes = require("./routes/cashVouchersRoutes");
 const contraVoucherRoutes = require('./routes/contraVoucherRoutes');
+const insuranceReciptRoutes = require('./routes/insuranceReciptRoutes');
 
 // Create Express application
 const app = express();
@@ -181,6 +182,8 @@ app.use('/api/v1/expense-accounts',expenseAccountsRoutes);
 app.use('/api/v1/rtoProcess',rtoProcessRoutes)
 app.use("/api/v1/cash-vouchers", cashVoucherRoutes);
 app.use('/api/v1/contra-vouchers', contraVoucherRoutes);
+app.use('/api/v1/insurance-recipt', insuranceReciptRoutes);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 

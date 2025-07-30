@@ -2,10 +2,10 @@ const mongoose = require('mongoose');
 
 const RtoProcessSchema = new mongoose.Schema({
   bookingId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking',
     required: true,
-    unique: true,
-    trim: true,
+    unique: true
   },
   applicationNumber: {
     type: String,
@@ -25,17 +25,17 @@ const RtoProcessSchema = new mongoose.Schema({
   rtoAmount: {
     type: Number,
     min: 0,
-    default: 0, 
+    default: 0,
   },
   numberPlate: {
     type: String,
     trim: true,
-    default: '', 
+    default: '',
   },
   receiptNumber: {
     type: String,
     trim: true,
-    default: '', 
+    default: '',
   },
   rtoPendingTaxStatus: {
     type: String,
@@ -61,7 +61,7 @@ const RtoProcessSchema = new mongoose.Schema({
   },
   rtoDate: {
     type: Date,
-    default: Date.now, 
+    default: Date.now,
   },
   rtoProcess: {
     type: Boolean,
@@ -73,7 +73,7 @@ const RtoProcessSchema = new mongoose.Schema({
   },
   updatedBy: {
     type: String,
-    default: '', 
+    default: '',
   },
 }, {
   timestamps: true,

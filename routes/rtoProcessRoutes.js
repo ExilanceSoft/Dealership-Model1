@@ -133,7 +133,7 @@ router.post(
 
 /**
  * @swagger
- * /api/v1/rtoProcess/with-application-numbers:
+ * /api/v1/rtoProcess/application-numbers:
  *   get:
  *     summary: Get RTO processes with application numbers
  *     tags: [RTO Processes]
@@ -152,12 +152,12 @@ router.post(
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/with-application-numbers', rtoController.getRtoProcessesWithApplicationNumbers);
+router.get('/application-numbers', rtoController.getRtoProcessesWithApplicationNumbers);
 
 
 /**
  * @swagger
- * /api/v1/rtoProcess/with-rtotax:
+ * /api/v1/rtoProcess/rtotaxpending:
  *   get:
  *     summary: Get RTO processes with application numbers
  *     tags: [RTO Processes]
@@ -176,11 +176,11 @@ router.get('/with-application-numbers', rtoController.getRtoProcessesWithApplica
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/with-rtotax', rtoController.getRtoProcessesWithRtoTaxCompleted);
+router.get('/rtotaxpending', rtoController.getRtoProcessesWithRtoTaxPending);
 
 /**
  * @swagger
- * /api/v1/rtoProcess/with-rtopaper:
+ * /api/v1/rtoProcess/rtotaxcompleted:
  *   get:
  *     summary: Get RTO processes with application numbers
  *     tags: [RTO Processes]
@@ -199,11 +199,11 @@ router.get('/with-rtotax', rtoController.getRtoProcessesWithRtoTaxCompleted);
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/with-rtopaper', rtoController.getRtoProcessesWithRtoPaperStatus);
+router.get('/rtotaxcompleted', rtoController.getRtoProcessesWithRtoTaxCompleted);
 
 /**
  * @swagger
- * /api/v1/rtoProcess/with-hsrpordered:
+ * /api/v1/rtoProcess/rtopaperapproved:
  *   get:
  *     summary: Get RTO processes with application numbers
  *     tags: [RTO Processes]
@@ -222,11 +222,11 @@ router.get('/with-rtopaper', rtoController.getRtoProcessesWithRtoPaperStatus);
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/with-hsrpordered', rtoController.getRtoProcessesWithHsrpOrderedStatus);
+router.get('/rtopaperapproved', rtoController.getRtoProcessesWithRtoPaperStatus);
 
 /**
  * @swagger
- * /api/v1/rtoProcess/with-hsrpinstallation:
+ * /api/v1/rtoProcess/rtopaperspending:
  *   get:
  *     summary: Get RTO processes with application numbers
  *     tags: [RTO Processes]
@@ -245,7 +245,147 @@ router.get('/with-hsrpordered', rtoController.getRtoProcessesWithHsrpOrderedStat
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/with-hsrpinstallation', rtoController.getRtoProcessesWithHsrpInstallationStatus);
+router.get('/rtopaperspending', rtoController.getRtoProcessesWithRtoPaperStatusAsNotSubmitted);
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/hsrpordered:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/hsrpordered', rtoController.getRtoProcessesWithHsrpOrderedStatus);
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/hsrpinstallation:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/hsrpinstallation', rtoController.getRtoProcessesWithHsrpInstallationStatus);
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/hsrporderedpending:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/hsrporderedpending', rtoController.getRtoProcessesWithHsrpOrderedStatusIsfalse);
+
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/rcpending:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/rcpending', rtoController.getRtoProcessesWithRcConfirmationStatusIsfalse);
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/rccompleted:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/rccompleted', rtoController.getRtoProcessesWithRcConfirmationStatus);
+
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/hsrpinstallationpending:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/hsrpinstallationpending', rtoController.getRtoProcessesWithHsrpInstallationStatusIsfalse);
 
 
 /**
