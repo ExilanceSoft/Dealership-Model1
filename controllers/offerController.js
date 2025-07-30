@@ -11,7 +11,6 @@ const fs = require('fs');
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, '../public/uploads/offers');
-    // Create directory if it doesn't exist
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -37,45 +36,44 @@ const upload = multer({
 
 exports.uploadOfferImage = upload.single('image');
 
-// Helper function to validate ObjectIds
 const validateObjectIds = (ids) => {
   return ids.every(id => mongoose.Types.ObjectId.isValid(id));
 };
 
 exports.createOffer = async (req, res, next) => {
   try {
-    // For form-data, req.body fields can be strings or arrays
     const isActive = req.body.isActive === 'true';
     const applyToAllModels = req.body.applyToAllModels === 'true';
 
-    // Handle applicableModels - can be string, array of strings, or array from multiple form fields
     let applicableModels = [];
     if (req.body.applicableModels) {
-      // Case 1: Multiple form fields with same name (comes as array)
       if (Array.isArray(req.body.applicableModels)) {
         applicableModels = req.body.applicableModels;
-      }
-      // Case 2: JSON string array
-      else if (typeof req.body.applicableModels === 'string' && 
-               req.body.applicableModels.startsWith('[')) {
+      } else if (typeof req.body.applicableModels === 'string' && 
+                req.body.applicableModels.startsWith('[')) {
         try {
           applicableModels = JSON.parse(req.body.applicableModels);
         } catch (err) {
           return next(new AppError('Invalid format for applicableModels', 400));
         }
-      }
-      // Case 3: Single ID string
-      else {
+      } else {
         applicableModels = [req.body.applicableModels];
       }
     }
 
-    // Basic validation
-    if (!req.body.title || !req.body.description) {
-      return next(new AppError('Title and description are required', 400));
+    if (!req.body.title || !req.body.description || !req.body.offerLanguage || !req.body.priority) {
+      return next(new AppError('Title, description, language and priority are required', 400));
     }
 
-    // Validate applicable models if not applying to all
+    if (!['English', 'Marathi'].includes(req.body.offerLanguage)) {
+      return next(new AppError('Language must be either English or Marathi', 400));
+    }
+
+    const priority = parseInt(req.body.priority);
+    if (isNaN(priority) || priority < 1) {
+      return next(new AppError('Priority must be a number and at least 1', 400));
+    }
+
     if (!applyToAllModels) {
       if (!applicableModels || applicableModels.length === 0) {
         return next(new AppError('You must specify applicable models or select "apply to all"', 400));
@@ -85,7 +83,6 @@ exports.createOffer = async (req, res, next) => {
         return next(new AppError('Invalid model IDs provided', 400));
       }
 
-      // Check if models exist
       const existingModels = await Model.countDocuments({ 
         _id: { $in: applicableModels } 
       });
@@ -95,7 +92,6 @@ exports.createOffer = async (req, res, next) => {
       }
     }
 
-    // Handle image path
     let imagePath = '';
     if (req.file) {
       imagePath = `/uploads/offers/${req.file.filename}`;
@@ -108,7 +104,9 @@ exports.createOffer = async (req, res, next) => {
       image: imagePath,
       isActive,
       applyToAllModels,
-      applicableModels: applyToAllModels ? [] : applicableModels
+      applicableModels: applyToAllModels ? [] : applicableModels,
+      offerLanguage: req.body.offerLanguage,
+      priority: priority
     });
 
     res.status(201).json({
@@ -125,14 +123,16 @@ exports.createOffer = async (req, res, next) => {
 
 exports.getAllOffers = async (req, res, next) => {
   try {
-    // Filtering
     const queryObj = { ...req.query };
     const excludedFields = ['page', 'sort', 'limit', 'fields', 'search'];
     excludedFields.forEach(el => delete queryObj[el]);
 
+    if (req.query.offerLanguage) {
+      queryObj.offerLanguage = req.query.offerLanguage;
+    }
+
     let query = Offer.find(queryObj);
 
-    // Search functionality
     if (req.query.search) {
       query = query.find({
         $text: {
@@ -141,37 +141,32 @@ exports.getAllOffers = async (req, res, next) => {
       });
     }
 
-    // Sorting
     if (req.query.sort) {
       const sortBy = req.query.sort.split(',').join(' ');
       query = query.sort(sortBy);
     } else {
-      query = query.sort('-createdAt');
+      query = query.sort('-priority -createdAt');
     }
 
-    // Field limiting
     if (req.query.fields) {
       const fields = req.query.fields.split(',').join(' ');
       query = query.select(fields);
     }
 
-    // Pagination
     const page = req.query.page * 1 || 1;
     const limit = req.query.limit * 1 || 20;
     const skip = (page - 1) * limit;
 
     query = query.skip(skip).limit(limit);
 
-    // Populate applicableModels with model_name
     query = query.populate({
       path: 'applicableModels',
       select: 'model_name',
-      model: 'Model' // Explicitly specify the model to populate from
+      model: 'Model'
     });
 
     const offers = await query;
 
-    // Format the response
     const formattedOffers = offers.map(offer => {
       const formattedOffer = {
         _id: offer._id,
@@ -181,12 +176,13 @@ exports.getAllOffers = async (req, res, next) => {
         image: offer.image,
         isActive: offer.isActive,
         applyToAllModels: offer.applyToAllModels,
+        offerLanguage: offer.offerLanguage,
+        priority: offer.priority,
         createdAt: offer.createdAt,
         updatedAt: offer.updatedAt,
         applicableModels: []
       };
 
-      // Only populate applicableModels if not applying to all models
       if (!offer.applyToAllModels && offer.applicableModels) {
         formattedOffer.applicableModels = offer.applicableModels.map(model => ({
           _id: model._id,
@@ -209,6 +205,7 @@ exports.getAllOffers = async (req, res, next) => {
     next(err);
   }
 };
+
 exports.getOfferById = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -238,42 +235,49 @@ exports.getOfferById = async (req, res, next) => {
     next(err);
   }
 };
+
 exports.updateOffer = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return next(new AppError('Invalid offer ID format', 400));
     }
 
-    // Check if offer exists
     const existingOffer = await Offer.findById(req.params.id);
     if (!existingOffer) {
       return next(new AppError('No offer found with that ID', 404));
     }
 
-    // Parse boolean fields
     const isActive = req.body.isActive === 'true' || req.body.isActive === true;
     const applyToAllModels = req.body.applyToAllModels === 'true' || req.body.applyToAllModels === true;
 
-    // Handle applicableModels - similar to createOffer
-    let applicableModels = existingOffer.applicableModels; // Default to existing models
+    let applicableModels = existingOffer.applicableModels;
     if (req.body.applicableModels !== undefined) {
       if (Array.isArray(req.body.applicableModels)) {
         applicableModels = req.body.applicableModels;
-      }
-      else if (typeof req.body.applicableModels === 'string' && 
-               req.body.applicableModels.startsWith('[')) {
+      } else if (typeof req.body.applicableModels === 'string' && 
+                req.body.applicableModels.startsWith('[')) {
         try {
           applicableModels = JSON.parse(req.body.applicableModels);
         } catch (err) {
           return next(new AppError('Invalid format for applicableModels', 400));
         }
-      }
-      else if (req.body.applicableModels) {
+      } else if (req.body.applicableModels) {
         applicableModels = [req.body.applicableModels];
       }
     }
 
-    // Validate applicable models if not applying to all
+    if (req.body.offerLanguage && !['English', 'Marathi'].includes(req.body.offerLanguage)) {
+      return next(new AppError('Language must be either English or Marathi', 400));
+    }
+
+    let priority = existingOffer.priority;
+    if (req.body.priority) {
+      priority = parseInt(req.body.priority);
+      if (isNaN(priority) || priority < 1) {
+        return next(new AppError('Priority must be a number and at least 1', 400));
+      }
+    }
+
     if (!applyToAllModels) {
       if (!applicableModels || applicableModels.length === 0) {
         return next(new AppError('You must specify applicable models or select "apply to all"', 400));
@@ -283,7 +287,6 @@ exports.updateOffer = async (req, res, next) => {
         return next(new AppError('Invalid model IDs provided', 400));
       }
 
-      // Check if models exist
       const existingModels = await Model.countDocuments({ 
         _id: { $in: applicableModels } 
       });
@@ -293,7 +296,6 @@ exports.updateOffer = async (req, res, next) => {
       }
     }
 
-    // Handle image update
     let updateData = {
       title: req.body.title || existingOffer.title,
       description: req.body.description || existingOffer.description,
@@ -301,11 +303,12 @@ exports.updateOffer = async (req, res, next) => {
       isActive,
       applyToAllModels,
       applicableModels: applyToAllModels ? [] : applicableModels,
+      offerLanguage: req.body.offerLanguage || existingOffer.offerLanguage,
+      priority: priority,
       updatedAt: new Date()
     };
 
     if (req.file) {
-      // Delete old image if it exists
       if (existingOffer.image) {
         const oldImagePath = path.join(__dirname, '../public', existingOffer.image);
         if (fs.existsSync(oldImagePath)) {
@@ -348,7 +351,6 @@ exports.deleteOffer = async (req, res, next) => {
       return next(new AppError('No offer found with that ID', 404));
     }
 
-    // Delete associated image if it exists
     if (offer.image) {
       const imagePath = path.join(__dirname, '../public', offer.image);
       if (fs.existsSync(imagePath)) {
@@ -367,26 +369,25 @@ exports.deleteOffer = async (req, res, next) => {
     next(err);
   }
 };
+
 exports.getOffersForModel = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.modelId)) {
       return next(new AppError('Invalid model ID format', 400));
     }
 
-    // Check if model exists
     const modelExists = await Model.exists({ _id: req.params.modelId });
     if (!modelExists) {
       return next(new AppError('No model found with that ID', 404));
     }
 
-    // Get offers that either apply to all models or include this specific model
     const offers = await Offer.find({
       isActive: true,
       $or: [
         { applyToAllModels: true },
         { applicableModels: req.params.modelId }
       ]
-    }).select('title description createdAt');
+    }).select('title description createdAt language priority');
 
     res.status(200).json({
       status: 'success',

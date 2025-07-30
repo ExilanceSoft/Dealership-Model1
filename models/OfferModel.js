@@ -16,7 +16,7 @@ const offerSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
-  url:{
+  url: {
     type: String,
     default: '',
     trim: true,
@@ -33,6 +33,18 @@ const offerSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Model'
   }],
+  offerLanguage: {
+    type: String,
+    required: [true, 'Language is required'],
+    enum: ['English', 'Marathi'],
+    default: 'English'
+  },
+  priority: {
+    type: Number,
+    required: [true, 'Priority number is required'],
+    min: [1, 'Priority must be at least 1'],
+    default: 1
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -56,6 +68,8 @@ offerSchema.pre('save', function(next) {
 offerSchema.index({ title: 'text' });
 offerSchema.index({ isActive: 1 });
 offerSchema.index({ applyToAllModels: 1 });
+offerSchema.index({ offerLanguage: 1 });
+offerSchema.index({ priority: 1 });
 
 const Offer = mongoose.model('Offer', offerSchema);
 

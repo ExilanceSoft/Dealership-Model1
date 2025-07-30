@@ -70,3 +70,11 @@
 {"timestamp":"2025-07-25 17:26:51","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}
 {"timestamp":"2025-07-25 17:30:00","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: transactionReference: Path `transactionReference` is required.","stack":null}
 {"timestamp":"2025-07-26 14:44:28","level":"\u001b[31MERROR\u001b[39M","message":"Database connection error: Server selection timed out after 15000 ms","stack":null}
+{"timestamp":"2025-07-30 15:40:08","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 15:47:05","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Cannot populate path `role_id` because it is not in your schema. Set the `strictPopulate` option to false to override.","stack":null}
+{"timestamp":"2025-07-30 16:10:03","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 16:10:42","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 16:12:21","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 16:51:49","level":"\u001b[31MERROR\u001b[39M","message":"Error creating offer: language override unsupported: Marathi","stack":null}
+{"timestamp":"2025-07-30 16:57:20","level":"\u001b[31MERROR\u001b[39M","message":"File upload error: File too large","stack":null}
+{"timestamp":"2025-07-30 17:40:00","level":"\u001b[31MERROR\u001b[39M","message":"Error sending WhatsApp message: Request failed with status code 401","stack":null}

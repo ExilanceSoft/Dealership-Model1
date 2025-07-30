@@ -1,4 +1,3 @@
-
 const Quotation = require('../models/QuotationModel');
 const Customer = require('../models/CustomerModel');
 const Model = require('../models/ModelModel');
@@ -16,7 +15,7 @@ const path = require('path');
 const fs = require('fs');
 const Attachment = require('../models/AttachmentModel');
 const ExcelJS = require('exceljs');
-
+const axios = require('axios');
 
 const getUniqueAttachmentsForModels = async (modelIds) => {
   const attachments = await Attachment.find({
@@ -87,6 +86,7 @@ const getQuotationDetails = async (quotationId) => {
       }
     });
 };
+
 exports.createQuotation = async (req, res, next) => {
   try {
     const {
@@ -102,6 +102,7 @@ exports.createQuotation = async (req, res, next) => {
       return next(new AppError('Missing required fields or invalid data format', 400));
     }
 
+    // Validate and find/create customer
     let customer;
     if (customerDetails._id) {
       customer = await Customer.findById(customerDetails._id);
@@ -124,9 +125,22 @@ exports.createQuotation = async (req, res, next) => {
       });
     }
 
+    // Get branch from user
+    const branchId = creator.branch;
+    if (!branchId) {
+      return next(new AppError('User must be assigned to a branch to create quotations', 400));
+    }
+
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+      return next(new AppError('Branch not found', 404));
+    }
+
+    // Fetch required documents
     const financeDocuments = await FinanceDocument.find({}).sort({ createdAt: 1 });
     const termsConditions = await TermsCondition.find({ isActive: true }).sort({ order: 1 });
 
+    // Validate models
     const models = await Model.find({
       _id: { $in: selectedModels.map(m => m.model_id) }
     }).populate({
@@ -141,16 +155,7 @@ exports.createQuotation = async (req, res, next) => {
     const modelIds = models.map(model => model._id);
     const attachments = await getUniqueAttachmentsForModels(modelIds);
 
-    const branchId = creator.branch_id?._id;
-    if (!branchId) {
-      return next(new AppError('User must be assigned to a branch to create quotations', 400));
-    }
-
-    const branch = await Branch.findById(branchId);
-    if (!branch) {
-      return next(new AppError('Branch not found', 404));
-    }
-
+    // Filter prices for the user's branch
     const modelsWithBranchPrices = models.map(model => {
       const filteredPrices = model.prices.filter(price =>
         price.branch_id && price.branch_id.equals(branchId)
@@ -161,12 +166,14 @@ exports.createQuotation = async (req, res, next) => {
       };
     });
 
+    // Get ex-showroom header
     const headers = await Header.find();
     const exShowroomHeader = headers.find(h =>
-      h.header_key.toLowerCase().includes('ex-showroom') ||
-      h.category_key.toLowerCase().includes('ex-showroom')
+      h.header_key?.toLowerCase().includes('ex-showroom') ||
+      h.category_key?.toLowerCase().includes('ex-showroom')
     );
 
+    // Get all applicable offers
     const allOffers = await Offer.find({
       isActive: true,
       $or: [
@@ -183,6 +190,7 @@ exports.createQuotation = async (req, res, next) => {
     });
     const uniqueOffers = Array.from(uniqueOffersMap.values());
 
+    // Process models with branch-specific prices
     const allModels = [];
     const responseModels = await Promise.all(modelsWithBranchPrices.map(async model => {
       const exShowroomPrice = exShowroomHeader
@@ -238,12 +246,11 @@ exports.createQuotation = async (req, res, next) => {
       }
 
       const modelOffers = uniqueOffers
-        .filter(offer => 
+        .filter(offer =>
           offer.applyToAllModels ||
-          (offer.applicableModels && offer.applicableModels.some(appModel => 
+          (offer.applicableModels && offer.applicableModels.some(appModel =>
             appModel && appModel._id && appModel._id.equals(model._id)
-          ))
-        )
+          )))
         .map(offer => ({
           _id: offer._id,
           title: offer.title,
@@ -274,6 +281,7 @@ exports.createQuotation = async (req, res, next) => {
       };
     }));
 
+    // Determine base model
     let finalBaseModel = null;
     const allSelectedAreBaseModels = responseModels.every(m => m.selected_model.is_base_model);
 
@@ -301,6 +309,7 @@ exports.createQuotation = async (req, res, next) => {
       }
     }
 
+    // Prepare all models data
     const completeAllModels = [];
 
     if (finalBaseModel) {
@@ -348,7 +357,10 @@ exports.createQuotation = async (req, res, next) => {
       is_base_model: model.selected_model.is_base_model
     })));
 
-    // Create the quotation first
+    // Get creator with populated roles
+    const creatorWithRole = await User.findById(creator._id).populate('roles');
+
+    // Create the quotation
     const quotation = await Quotation.create({
       customer_id: customer._id,
       customerDetails: {
@@ -395,9 +407,10 @@ exports.createQuotation = async (req, res, next) => {
           gst_number: branch.gst_number,
           is_active: branch.is_active
         } : null,
-        role: creator.role_id ? {
-          _id: creator.role_id._id,
-          name: creator.role_id.name,
+        // Corrected role handling - using the first role if available
+        role: creatorWithRole.roles && creatorWithRole.roles.length > 0 ? {
+          _id: creatorWithRole.roles[0]._id,
+          name: creatorWithRole.roles[0].name
         } : null
       },
       AllModels: completeAllModels,
@@ -446,7 +459,7 @@ exports.createQuotation = async (req, res, next) => {
       status: 'draft'
     });
 
-    // Now generate PDF with the created quotation
+    // Generate PDF
     const pdfFileName = `quotation_${quotation.quotation_number}_${Date.now()}.pdf`;
     const pdfDir = path.join(__dirname, '../public/quotations');
     const pdfUrl = `/quotations/${pdfFileName}`;
@@ -511,7 +524,7 @@ exports.getAllQuotations = async (req, res, next) => {
     let query = {};
 
     // If user is not super admin, only show their own quotations
-    if (req.user.role_id?.name !== 'SUPERADMIN') {
+    if (req.user.role_id?.name !== 'super_admin') {
       query.createdBy = req.user._id;
     }
 
@@ -977,7 +990,7 @@ exports.getTodaysQuotationCount = async (req, res, next) => {
     };
 
     // If user is not super admin, only count their own quotations
-    if (req.user.role_id.name !== 'SUPERADMIN') {
+    if (req.user.role_id.name !== 'super_admin') {
       query.createdBy = req.user._id;
     }
 
@@ -1011,7 +1024,7 @@ exports.getThisMonthQuotationCount = async (req, res, next) => {
     };
 
     // If user is not super admin, only count their own quotations
-    if (req.user.role_id.name !== 'SUPERADMIN') {
+    if (req.user.role_id.name !== 'super_admin') {
       query.createdBy = req.user._id;
     }
 
@@ -1031,29 +1044,58 @@ exports.getThisMonthQuotationCount = async (req, res, next) => {
 exports.exportQuotationsToExcel = async (req, res, next) => {
   try {
     // Extract and validate query parameters
-    const { startDate, endDate } = req.query;
-    if (startDate && isNaN(new Date(startDate).getTime())) {
+    const { startDate, endDate, branchId } = req.query;
+    
+    // Helper function to parse date in YYYY-MM-DD format and set to start of day in local time
+    const parseStartDate = (dateString) => {
+      if (!dateString) return null;
+      const parts = dateString.split('-');
+      if (parts.length !== 3) return null;
+      return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+    };
+
+    // Helper function to parse date in YYYY-MM-DD format and set to end of day in local time
+    const parseEndDate = (dateString) => {
+      if (!dateString) return null;
+      const parts = dateString.split('-');
+      if (parts.length !== 3) return null;
+      return new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+    };
+
+    const startDateObj = parseStartDate(startDate);
+    const endDateObj = parseEndDate(endDate);
+
+    if (startDate && !startDateObj) {
       return next(new AppError('Invalid start date format. Use YYYY-MM-DD.', 400));
     }
-    if (endDate && isNaN(new Date(endDate).getTime())) {
+    if (endDate && !endDateObj) {
       return next(new AppError('Invalid end date format. Use YYYY-MM-DD.', 400));
     }
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    if (startDateObj && endDateObj && startDateObj > endDateObj) {
       return next(new AppError('Start date cannot be after end date', 400));
+    }
+    if (branchId && !mongoose.Types.ObjectId.isValid(branchId)) {
+      return next(new AppError('Invalid branch ID', 400));
     }
 
     // Build query
     let query = {};
-    if (startDate || endDate) {
+    
+    // Date range filter
+    if (startDateObj || endDateObj) {
       query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = endOfDay;
-      }
+      if (startDateObj) query.createdAt.$gte = startDateObj;
+      if (endDateObj) query.createdAt.$lte = endDateObj;
     }
-    if (req.user.role_id?.name !== 'SUPERADMIN') {
+    
+    // Branch filter
+    if (branchId) {
+      // Find users in this branch
+      const branchUsers = await User.find({ branch_id: branchId }).select('_id');
+      const userIds = branchUsers.map(user => user._id);
+      query.createdBy = { $in: userIds };
+    } else if (req.user.role_id?.name !== 'super_admin') {
+      // Non-admin users can only see their own quotations
       query.createdBy = req.user._id;
     }
 
@@ -1072,16 +1114,25 @@ exports.exportQuotationsToExcel = async (req, res, next) => {
       return next(new AppError('No quotations found', 404));
     }
 
+    // Get branch name for filename if branch filter is applied
+    let branchName = '';
+    if (branchId) {
+      const branch = await Branch.findById(branchId).select('name');
+      branchName = branch ? `_${branch.name.replace(/\s+/g, '_')}` : '';
+    }
+
     // Generate filename
     let filename = 'quotations';
+    if (branchName) filename += branchName;
     if (startDate && endDate) {
-      filename += `_${new Date(startDate).toISOString().split('T')[0]}_to_${new Date(endDate).toISOString().split('T')[0]}`;
+      filename += `_${startDate}_to_${endDate}`;
     } else if (startDate) {
-      filename += `_from_${new Date(startDate).toISOString().split('T')[0]}`;
+      filename += `_from_${startDate}`;
     } else if (endDate) {
-      filename += `_until_${new Date(endDate).toISOString().split('T')[0]}`;
+      filename += `_until_${endDate}`;
     } else {
-      filename += `_all_${new Date().toISOString().split('T')[0]}`;
+      const today = new Date();
+      filename += `_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     }
 
     // Create Excel workbook
@@ -1239,8 +1290,10 @@ exports.exportQuotationsToExcel = async (req, res, next) => {
       });
       column.width = Math.min(Math.max(maxLength + 2, column.header.length + 2), 50);
     });
+
     // Freeze header row
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
     // Set response headers
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=${filename}.xlsx`);
@@ -1252,5 +1305,95 @@ exports.exportQuotationsToExcel = async (req, res, next) => {
   } catch (err) {
     logger.error(`Excel export error: ${err.message}`, { stack: err.stack });
     next(new AppError('Failed to generate export. Please try again.', 500));
+  }
+};
+
+exports.sendQuotationViaWhatsApp = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { phoneNumber } = req.body;
+
+    if (!phoneNumber || !phoneNumber.match(/^\d{10,15}$/)) {
+      return next(new AppError('Please provide a valid phone number with country code', 400));
+    }
+
+    // Get quotation details
+    const quotation = await Quotation.findById(id);
+    if (!quotation) {
+      return next(new AppError('Quotation not found', 404));
+    }
+
+    if (!quotation.pdfUrl) {
+      return next(new AppError('PDF not generated for this quotation', 400));
+    }
+
+    // Construct the full PDF URL
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const pdfFullUrl = `${baseUrl}${quotation.pdfUrl}`;
+
+    // Prepare WhatsApp API request
+    const whatsappPayload = {
+      to: phoneNumber,
+      recipient_type: "individual",
+      type: "template",
+      template: {
+        language: {
+          policy: "deterministic",
+          code: "en"
+        },
+        name: "change5",
+        components: [
+          {
+            type: "header",
+            parameters: [
+              {
+                type: "document",
+                document: {
+                  link: pdfFullUrl
+                }
+              }
+            ]
+          }
+        ]
+      }
+    };
+
+    // Get access token from your system (you mentioned you have it)
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN; // Store this in your environment variables
+
+    // Send request to WhatsApp API
+    const response = await axios.post(
+      'https://crmapi.digidonar.in/api/meta/v19.0/692849710580259',
+      whatsappPayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    // Update quotation status to 'sent'
+    quotation.status = 'sent';
+    await quotation.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Quotation sent via WhatsApp successfully',
+      data: {
+        messageId: response.data.messages[0].id
+      }
+    });
+
+  } catch (err) {
+    logger.error(`Error sending WhatsApp message: ${err.message}`);
+    
+    // Handle specific WhatsApp API errors
+    if (err.response) {
+      logger.error(`WhatsApp API error: ${JSON.stringify(err.response.data)}`);
+      return next(new AppError(`WhatsApp API error: ${err.response.data.error.message}`, err.response.status));
+    }
+    
+    next(err);
   }
 };
