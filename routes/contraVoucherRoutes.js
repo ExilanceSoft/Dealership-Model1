@@ -20,20 +20,7 @@ const contraVoucherController = require('../controllers/contraController');
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               receipantName:
- *                 type: string
- *               contraType:
- *                 type: string
- *               amount:
- *                 type: number
- *               remark:
- *                 type: string
- *               bankName:
- *                 type: string
- *               status:
- *                 type: string
+ *             $ref: '#/components/schemas/ContraVoucher'
  *     responses:
  *       201:
  *         description: Contra voucher created
@@ -51,6 +38,42 @@ router.post('/', contraVoucherController.createContraVoucher);
  *         description: List of contra vouchers
  */
 router.get('/', contraVoucherController.getAllContraVouchers);
+
+/**
+ * @swagger
+ * /api/v1/contra-vouchers/pending:
+ *   get:
+ *     summary: Get all pending contra vouchers
+ *     tags: [ContraVouchers]
+ *     responses:
+ *       200:
+ *         description: List of pending vouchers
+ */
+router.get('/pending', contraVoucherController.getPendingContraVouchers);
+
+/**
+ * @swagger
+ * /api/v1/contra-vouchers/approved:
+ *   get:
+ *     summary: Get all approved contra vouchers
+ *     tags: [ContraVouchers]
+ *     responses:
+ *       200:
+ *         description: List of approved vouchers
+ */
+router.get('/approved', contraVoucherController.getApprovedContraVouchers);
+
+/**
+ * @swagger
+ * /api/v1/contra-vouchers/rejected:
+ *   get:
+ *     summary: Get all rejected contra vouchers
+ *     tags: [ContraVouchers]
+ *     responses:
+ *       200:
+ *         description: List of rejected vouchers
+ */
+router.get('/rejected', contraVoucherController.getRejectedContraVouchers);
 
 /**
  * @swagger
@@ -91,20 +114,7 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               receipantName:
- *                 type: string
- *               contraType:
- *                 type: string
- *               amount:
- *                 type: number
- *               remark:
- *                 type: string
- *               bankName:
- *                 type: string
- *               status:
- *                 type: string
+ *             $ref: '#/components/schemas/ContraVoucher'
  *     responses:
  *       200:
  *         description: Contra voucher updated

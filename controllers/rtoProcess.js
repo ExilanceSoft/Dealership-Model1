@@ -148,10 +148,31 @@ exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
   }
 };
 
+exports.getRtoProcessesWithHsrpOrderedStatus = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      hsrbOrdering: { $ne: false, $ne: 'N/A' } 
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rtoProcesses
+    });
+  } catch (error) {
+    console.error('Error fetching RTO records:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+
 exports.getRtoProcessesWithHsrpInstallationStatus = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      rtoPendingTaxStatus: { $ne:'Not Submitted', $ne: 'N/A' } 
+      hsrbInstallation: { $ne:false, $ne: 'N/A' } 
     });
 
     res.status(200).json({

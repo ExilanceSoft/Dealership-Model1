@@ -21,6 +21,16 @@ exports.getAllContraVouchers = async (req, res) => {
   }
 };
 
+// ✅ Get all pending contra vouchers
+exports.getPendingContraVouchers = async (req, res) => {
+  try {
+    const pendingVouchers = await ContraVoucher.find({ status: 'pending' });
+    res.status(200).json({ success: true, data: pendingVouchers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Get contra voucher by ID
 exports.getContraVoucherById = async (req, res) => {
   try {
@@ -33,6 +43,27 @@ exports.getContraVoucherById = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Get all approved contra vouchers
+exports.getApprovedContraVouchers = async (req, res) => {
+  try {
+    const vouchers = await ContraVoucher.find({ status: 'approved' });
+    res.status(200).json(vouchers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get all rejected contra vouchers
+exports.getRejectedContraVouchers = async (req, res) => {
+  try {
+    const vouchers = await ContraVoucher.find({ status: 'rejected' });
+    res.status(200).json(vouchers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 // Update contra voucher by ID
 exports.updateContraVoucher = async (req, res) => {

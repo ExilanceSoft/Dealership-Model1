@@ -1,5 +1,24 @@
 const mongoose = require('mongoose');
 
+const DocumentSchema = new mongoose.Schema({
+  original: {
+    type: String,
+    required: true
+  },
+  pdf: {
+    type: String,
+    required: true
+  },
+  mimetype: {
+    type: String,
+    required: true
+  },
+  originalname: {
+    type: String,
+    required: true
+  }
+}, { _id: false });
+
 const KYCSchema = new mongoose.Schema({
   booking: {
     type: mongoose.Schema.Types.ObjectId,
@@ -16,31 +35,31 @@ const KYCSchema = new mongoose.Schema({
     required: true
   },
   aadharFront: {
-    type: String,
+    type: DocumentSchema,
     required: true
   },
   aadharBack: {
-    type: String,
+    type: DocumentSchema,
     required: true
   },
   panCard: {
-    type: String,
+    type: DocumentSchema,
     required: true
   },
   vPhoto: {
-    type: String,
+    type: DocumentSchema,
     required: true
   },
   chasisNoPhoto: {
-    type: String,
+    type: DocumentSchema,
     required: true
   },
   addressProof1: {
-    type: String,
+    type: DocumentSchema,
     required: true
   },
   addressProof2: {
-    type: String,
+    type: DocumentSchema,
     required: false
   },
   documentPdf: {

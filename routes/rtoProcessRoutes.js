@@ -201,6 +201,52 @@ router.get('/with-rtotax', rtoController.getRtoProcessesWithRtoTaxCompleted);
  */
 router.get('/with-rtopaper', rtoController.getRtoProcessesWithRtoPaperStatus);
 
+/**
+ * @swagger
+ * /api/v1/rtoProcess/with-hsrpordered:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/with-hsrpordered', rtoController.getRtoProcessesWithHsrpOrderedStatus);
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/with-hsrpinstallation:
+ *   get:
+ *     summary: Get RTO processes with application numbers
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ */
+router.get('/with-hsrpinstallation', rtoController.getRtoProcessesWithHsrpInstallationStatus);
+
 
 /**
  * @swagger

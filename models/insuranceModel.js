@@ -99,19 +99,16 @@ const InsuranceSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['PENDING', 'APPROVED', 'REJECTED'],
-    default: 'PENDING'
+    enum: ['COMPLETED'], // Removed 'PENDING' and 'REJECTED'
+    default: 'COMPLETED' // Directly set to COMPLETED when created
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
   approvalDate: {
-    type: Date
-  },
-  rejectionReason: {
-    type: String,
-    trim: true
+    type: Date,
+    default: Date.now // Set approval date automatically
   },
   remarks: {
     type: String,
@@ -148,10 +145,9 @@ const InsuranceSchema = new mongoose.Schema({
   }
 });
 
-// Indexes for better query performance
+// Indexes
 InsuranceSchema.index({ booking: 1 });
 InsuranceSchema.index({ policyNumber: 1 }, { unique: true });
-InsuranceSchema.index({ status: 1 });
 InsuranceSchema.index({ insuranceDate: -1 });
 InsuranceSchema.index({ validUptoDate: -1 });
 InsuranceSchema.index({ createdBy: 1 });
@@ -211,32 +207,16 @@ InsuranceSchema.virtual('updatedByDetails', {
 // Middleware to sync insurance status with booking
 InsuranceSchema.pre('save', async function(next) {
   try {
-    // Only proceed if status is modified
-    if (this.isModified('status')) {
-      const booking = await mongoose.model('Booking').findById(this.booking);
-      
-      if (booking) {
-        let bookingInsuranceStatus;
-        
-        switch(this.status) {
-          case 'PENDING':
-            bookingInsuranceStatus = 'PENDING';
-            break;
-          case 'APPROVED':
-            bookingInsuranceStatus = 'COMPLETED';
-            break;
-          case 'REJECTED':
-            bookingInsuranceStatus = 'REJECTED';
-            break;
-          default:
-            bookingInsuranceStatus = 'AWAITING';
-        }
-        
-        if (booking.insuranceStatus !== bookingInsuranceStatus) {
-          booking.insuranceStatus = bookingInsuranceStatus;
-          await booking.save();
-        }
-      }
+    // Automatically set approvedBy to createdBy if not set
+    if (this.isNew && !this.approvedBy) {
+      this.approvedBy = this.createdBy;
+    }
+
+    // Update booking insurance status to COMPLETED
+    const booking = await mongoose.model('Booking').findById(this.booking);
+    if (booking && booking.insuranceStatus !== 'COMPLETED') {
+      booking.insuranceStatus = 'COMPLETED';
+      await booking.save();
     }
     
     // Set updatedBy if not set
@@ -258,9 +238,9 @@ InsuranceSchema.statics.findByBookingId = function(bookingId) {
     .populate('approvedByDetails');
 };
 
-// Static method to get all insurances by status
-InsuranceSchema.statics.findByStatus = function(status) {
-  return this.find({ status })
+// Static method to get all insurances
+InsuranceSchema.statics.findAllInsurances = function() {
+  return this.find()
     .populate('bookingDetails')
     .populate('insuranceProviderDetails')
     .populate('createdByDetails')

@@ -30,6 +30,7 @@ const upload = multer({
  *   name: Insurance
  *   description: Insurance management endpoints
  */
+
 /**
  * @swagger
  * /api/v1/insurance/all-combined:
@@ -40,16 +41,10 @@ const upload = multer({
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [PENDING, APPROVED, REJECTED]
- *         description: Filter insurance by status
- *       - in: query
  *         name: insuranceStatus
  *         schema:
  *           type: string
- *           enum: [NOT_APPLICABLE, AWAITING, PENDING, COMPLETED, REJECTED]
+ *           enum: [NOT_APPLICABLE, AWAITING, COMPLETED]
  *         description: Filter booking by insurance status
  *     responses:
  *       200:
@@ -83,6 +78,7 @@ router.get(
   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
   insuranceController.getAllCombinedBookingInsuranceDetails
 );
+
 /**
  * @swagger
  * /api/v1/insurance/{bookingId}:
@@ -113,9 +109,6 @@ router.get(
  *                 type: string
  *                 enum: [CASH, BANK, CARD]
  *                 description: Payment mode for the insurance
- *               transactionReference:
- *                 type: string
- *                 description: Transaction reference number (required for BANK/CARD)
  *               insuranceDate:
  *                 type: string
  *                 format: date
@@ -188,72 +181,12 @@ router.post(
 
 /**
  * @swagger
- * /api/v1/insurance/{bookingId}/approve:
- *   patch:
- *     summary: Approve or reject insurance
- *     description: Update insurance status to APPROVED or REJECTED. When approved, booking insuranceStatus becomes COMPLETED.
- *     tags: [Insurance]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: bookingId
- *         required: true
- *         schema:
- *           type: string
- *         description: ID of the booking to update insurance status for
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [APPROVED, REJECTED]
- *                 required: true
- *               rejectionReason:
- *                 type: string
- *                 description: Required when status is REJECTED
- *             required:
- *               - status
- *     responses:
- *       200:
- *         description: Insurance status updated successfully
- *       400:
- *         description: Invalid status or missing rejection reason
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin/Manager)
- *       404:
- *         description: Insurance not found for this booking
- *       500:
- *         description: Server error
- */
-router.patch('/:bookingId/approve',
-  protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-  logAction('UPDATE_STATUS', 'Insurance'),
-  insuranceController.approveInsurance
-);
-
-/**
- * @swagger
  * /api/v1/insurance:
  *   get:
  *     summary: Get all insurances with booking details
  *     tags: [Insurance]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [PENDING, APPROVED, REJECTED]
- *         description: Filter by status
  *     responses:
  *       200:
  *         description: List of insurances with booking details
@@ -269,81 +202,6 @@ router.get(
   protect,
   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
   insuranceController.getAllInsurances
-);
-
-/**
- * @swagger
- * /api/v1/insurance/completed:
- *   get:
- *     summary: Get all completed insurances
- *     tags: [Insurance]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of completed insurances
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.get(
-  '/completed',
-  protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-  insuranceController.getCompletedInsurances
-);
-
-/**
- * @swagger
- * /api/v1/insurance/pending:
- *   get:
- *     summary: Get all pending insurances
- *     tags: [Insurance]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of pending insurances
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.get(
-  '/pending',
-  protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-  insuranceController.getPendingInsurances
-);
-
-/**
- * @swagger
- * /api/v1/insurance/rejected:
- *   get:
- *     summary: Get all rejected insurances
- *     tags: [Insurance]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of rejected insurances
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.get(
-  '/rejected',
-  protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-  insuranceController.getRejectedInsurances
 );
 
 /**
@@ -406,7 +264,7 @@ router.get(
  *                       type: string
  *                     status:
  *                       type: string
- *                       enum: [PENDING, APPROVED, REJECTED]
+ *                       enum: [COMPLETED]
  *                     insuranceDate:
  *                       type: string
  *                       format: date
@@ -418,8 +276,6 @@ router.get(
  *                     paymentMode:
  *                       type: string
  *                       enum: [CASH, BANK, CARD]
- *                     transactionReference:
- *                       type: string
  *                     insuranceProvider:
  *                       type: object
  *                       properties:
@@ -485,7 +341,5 @@ router.get('/:chassisNumber',
   logAction('READ', 'Insurance'),
   insuranceController.getInsuranceByChassisNumber
 );
-
-
 
 module.exports = router;
