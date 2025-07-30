@@ -84,17 +84,21 @@ exports.getAllRtoProcesses = async (req, res) => {
           "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
         populate: {
           path: "model",
-          select: "name",
+          select: "model_name type",
         },
       });
+
     res.status(200).json({ success: true, count: rtos.length, data: rtos });
   } catch (err) {
     console.error("Error fetching RTOs:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
+
 
 exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
   try {
@@ -106,7 +110,7 @@ exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+         select: "model_name type",
       },
     });
 
@@ -136,7 +140,7 @@ exports.getRtoProcessesWithRtoTaxPending = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -167,7 +171,7 @@ exports.getRtoProcessesWithRtoTaxCompleted = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -195,7 +199,7 @@ exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -223,7 +227,7 @@ exports.getRtoProcessesWithRtoPaperStatusAsNotSubmitted = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -251,7 +255,7 @@ exports.getRtoProcessesWithHsrpOrderedStatus = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -279,7 +283,7 @@ exports.getRtoProcessesWithHsrpInstallationStatus = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -307,7 +311,7 @@ exports.getRtoProcessesWithHsrpOrderedStatusIsfalse = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -335,7 +339,7 @@ exports.getRtoProcessesWithHsrpInstallationStatusIsfalse = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -363,7 +367,7 @@ exports.getRtoProcessesWithRcConfirmationStatus = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -391,7 +395,7 @@ exports.getRtoProcessesWithRcConfirmationStatusIsfalse = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
 
@@ -417,7 +421,7 @@ exports.getRtoProcessById = async (req, res) => {
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-        select: "name",
+        select: "model_name type",
       },
     });
     if (!rto) {
