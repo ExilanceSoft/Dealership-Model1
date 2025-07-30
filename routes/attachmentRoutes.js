@@ -3,49 +3,130 @@ const router = express.Router();
 const attachmentController = require('../controllers/attachmentController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
-const multer = require('multer');
 
-// Use the same upload configuration as in the controller
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../public/uploads/attachments');
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `attch-${Date.now()}-${Math.random().toString(36).substring(7)}${ext}`);
-  }
-});
+/**
+ * @swagger
+ * tags:
+ *   name: Attachments
+ *   description: API endpoints for managing attachments (images, videos, documents, etc.)
+ */
 
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/quicktime', 'application/pdf'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type'), false);
-  }
-};
-
-const upload = multer({
-  storage,
-  fileFilter,
-}).fields([
-  { name: 'images', maxCount: 10 },
-  { name: 'videos', maxCount: 5 },
-  { name: 'documents', maxCount: 5 }
-]);
+/**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *   schemas:
+ *     Attachment:
+ *       type: object
+ *       required:
+ *         - title
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The auto-generated ID
+ *           example: 507f1f77bcf86cd799439011
+ *         title:
+ *           type: string
+ *           description: Attachment title
+ *           example: Product Catalog
+ *         description:
+ *           type: string
+ *           description: Optional description
+ *           example: Summer 2023 collection
+ *         attachments:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/AttachmentItem'
+ *         isForAllModels:
+ *           type: boolean
+ *           default: true
+ *         applicableModels:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Model IDs this attachment applies to
+ *         createdBy:
+ *           type: string
+ *           description: User ID who created this
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *     AttachmentItem:
+ *       type: object
+ *       properties:
+ *         type:
+ *           type: string
+ *           enum: [image, video, youtube, document, text]
+ *         url:
+ *           type: string
+ *         content:
+ *           type: string
+ *         thumbnail:
+ *           type: string
+ *     AttachmentInput:
+ *       type: object
+ *       required:
+ *         - title
+ *       properties:
+ *         title:
+ *           type: string
+ *         description:
+ *           type: string
+ *         isForAllModels:
+ *           type: boolean
+ *         applicableModels:
+ *           type: array
+ *           items:
+ *             type: string
+ *         youtubeUrls:
+ *           type: array
+ *           items:
+ *             type: string
+ *         textContents:
+ *           type: array
+ *           items:
+ *             type: string
+ *     WhatsAppShareRequest:
+ *       type: object
+ *       required:
+ *         - quotationId
+ *         - phoneNumber
+ *       properties:
+ *         quotationId:
+ *           type: string
+ *         phoneNumber:
+ *           type: string
+ *         attachmentIds:
+ *           type: array
+ *           items:
+ *             type: string
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *         error:
+ *           type: string
+ */
 
 /**
  * @swagger
  * /api/v1/attachments:
  *   post:
- *     summary: Create a new attachment (Admin+)
+ *     summary: Create a new attachment (Admin only)
  *     tags: [Attachments]
  *     security:
  *       - bearerAuth: []
- *     consumes:
- *       - multipart/form-data
  *     requestBody:
  *       required: true
  *       content:
@@ -55,40 +136,40 @@ const upload = multer({
  *             properties:
  *               title:
  *                 type: string
- *                 description: Title of the attachment
+ *                 example: Product Images
  *               description:
  *                 type: string
- *                 description: Description of the attachment
+ *                 example: High quality product images
  *               isForAllModels:
- *                 type: string
- *                 description: 'Whether the attachment applies to all models (send as "true" or "false")'
+ *                 type: boolean
+ *                 example: true
  *               applicableModels:
  *                 type: string
- *                 description: 'Must be a JSON string array like ["modelId1","modelId2"]'
+ *                 description: JSON string array of model IDs
+ *                 example: '["modelId1", "modelId2"]'
  *               youtubeUrls:
  *                 type: string
- *                 description: 'Must be a JSON string array like ["url1","url2"]'
+ *                 description: JSON string array of YouTube URLs
+ *                 example: '["https://youtube.com/watch?v=abc123"]'
  *               textContents:
  *                 type: string
- *                 description: 'Must be a JSON string array like ["text1","text2"]'
+ *                 description: JSON string array of text contents
+ *                 example: '["Important product details"]'
  *               images:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: Image files (max 10)
  *               videos:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: Video files (max 5)
  *               documents:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: Document files (max 5)
  *     responses:
  *       201:
  *         description: Attachment created successfully
@@ -97,46 +178,31 @@ const upload = multer({
  *             schema:
  *               $ref: '#/components/schemas/Attachment'
  *       400:
- *         description: Invalid file type or missing required fields
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden (Admin access required)
  *       500:
  *         description: Server error
  */
 router.post('/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('SUPERADMIN', 'ADMIN'),
   logAction('CREATE', 'Attachment'),
-  (req, res, next) => {
-    // Ensure the fields are properly formatted before passing to controller
-    try {
-      if (req.body.applicableModels && typeof req.body.applicableModels === 'string') {
-        req.body.applicableModels = JSON.parse(req.body.applicableModels);
-      }
-      if (req.body.youtubeUrls && typeof req.body.youtubeUrls === 'string') {
-        req.body.youtubeUrls = JSON.parse(req.body.youtubeUrls);
-      }
-      if (req.body.textContents && typeof req.body.textContents === 'string') {
-        req.body.textContents = JSON.parse(req.body.textContents);
-      }
-      next();
-    } catch (err) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid JSON format in one of the fields'
-      });
-    }
-  },
   attachmentController.uploadAttachmentFile,
   attachmentController.createAttachment
 );
+
 /**
  * @swagger
  * /api/v1/attachments:
  *   get:
- *     summary: Get all attachments (Admin+)
+ *     summary: Get all attachments
  *     tags: [Attachments]
  *     security:
  *       - bearerAuth: []
@@ -150,6 +216,7 @@ router.post('/',
  *               properties:
  *                 status:
  *                   type: string
+ *                   example: success
  *                 data:
  *                   type: object
  *                   properties:
@@ -159,67 +226,19 @@ router.post('/',
  *                         $ref: '#/components/schemas/Attachment'
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
  *       500:
  *         description: Server error
  */
 router.get('/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
   attachmentController.getAllAttachments
-);
-
-/**
- * @swagger
- * /api/v1/attachments/{id}:
- *   get:
- *     summary: Get attachment by ID (Admin+)
- *     tags: [Attachments]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Attachment ID
- *     responses:
- *       200:
- *         description: Attachment details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     attachment:
- *                       $ref: '#/components/schemas/Attachment'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Attachment not found
- *       500:
- *         description: Server error
- */
-router.get('/:id',
-  protect,
-  authorize('ADMIN', 'SUPERADMIN'),
-  attachmentController.getAttachmentById
 );
 
 /**
  * @swagger
  * /api/v1/attachments/model/{modelId}:
  *   get:
- *     summary: Get attachments for a specific model (Admin+)
+ *     summary: Get attachments for specific model
  *     tags: [Attachments]
  *     security:
  *       - bearerAuth: []
@@ -229,7 +248,8 @@ router.get('/:id',
  *         required: true
  *         schema:
  *           type: string
- *         description: Model ID
+ *         description: Model ID to filter attachments
+ *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       200:
  *         description: List of attachments for the model
@@ -240,6 +260,7 @@ router.get('/:id',
  *               properties:
  *                 status:
  *                   type: string
+ *                   example: success
  *                 data:
  *                   type: object
  *                   properties:
@@ -249,27 +270,24 @@ router.get('/:id',
  *                         $ref: '#/components/schemas/Attachment'
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
+ *       404:
+ *         description: Model not found
  *       500:
  *         description: Server error
  */
 router.get('/model/:modelId',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
   attachmentController.getAttachmentsForModel
 );
 
 /**
  * @swagger
  * /api/v1/attachments/{id}:
- *   put:
- *     summary: Update an attachment (Admin+)
+ *   get:
+ *     summary: Get single attachment by ID
  *     tags: [Attachments]
  *     security:
  *       - bearerAuth: []
- *     consumes:
- *       - multipart/form-data
  *     parameters:
  *       - in: path
  *         name: id
@@ -277,6 +295,51 @@ router.get('/model/:modelId',
  *         schema:
  *           type: string
  *         description: Attachment ID
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: Attachment data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     attachment:
+ *                       $ref: '#/components/schemas/Attachment'
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Attachment not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id',
+  protect,
+  attachmentController.getAttachmentById
+);
+
+/**
+ * @swagger
+ * /api/v1/attachments/{id}:
+ *   put:
+ *     summary: Update an attachment (Admin only)
+ *     tags: [Attachments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Attachment ID to update
+ *         example: 507f1f77bcf86cd799439011
  *     requestBody:
  *       required: true
  *       content:
@@ -286,19 +349,25 @@ router.get('/model/:modelId',
  *             properties:
  *               title:
  *                 type: string
+ *                 example: Updated Product Images
  *               description:
  *                 type: string
+ *                 example: Updated product images
  *               isForAllModels:
  *                 type: boolean
+ *                 example: false
  *               applicableModels:
  *                 type: string
  *                 description: JSON string array of model IDs
+ *                 example: '["modelId1", "modelId2"]'
  *               youtubeUrls:
  *                 type: string
  *                 description: JSON string array of YouTube URLs
+ *                 example: '["https://youtube.com/watch?v=abc123"]'
  *               textContents:
  *                 type: string
  *                 description: JSON string array of text contents
+ *                 example: '["Updated product details"]'
  *               images:
  *                 type: array
  *                 items:
@@ -316,25 +385,17 @@ router.get('/model/:modelId',
  *                   format: binary
  *     responses:
  *       200:
- *         description: Attachment updated successfully
+ *         description: Updated attachment
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     attachment:
- *                       $ref: '#/components/schemas/Attachment'
+ *               $ref: '#/components/schemas/Attachment'
  *       400:
- *         description: Invalid input or file upload failed
+ *         description: Bad request
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden (Admin access required)
  *       404:
  *         description: Attachment not found
  *       500:
@@ -342,7 +403,7 @@ router.get('/model/:modelId',
  */
 router.put('/:id',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('SUPERADMIN', 'ADMIN'),
   logAction('UPDATE', 'Attachment'),
   attachmentController.uploadAttachmentFile,
   attachmentController.updateAttachment
@@ -352,7 +413,7 @@ router.put('/:id',
  * @swagger
  * /api/v1/attachments/{id}:
  *   delete:
- *     summary: Delete an attachment (Admin+)
+ *     summary: Delete an attachment (SuperAdmin only)
  *     tags: [Attachments]
  *     security:
  *       - bearerAuth: []
@@ -362,14 +423,15 @@ router.put('/:id',
  *         required: true
  *         schema:
  *           type: string
- *         description: Attachment ID
+ *         description: Attachment ID to delete
+ *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       204:
  *         description: Attachment deleted successfully
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden (SuperAdmin access required)
  *       404:
  *         description: Attachment not found
  *       500:
@@ -377,9 +439,122 @@ router.put('/:id',
  */
 router.delete('/:id',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  authorize('SUPERADMIN'),
   logAction('DELETE', 'Attachment'),
   attachmentController.deleteAttachment
+);
+
+/**
+ * @swagger
+ * /api/v1/attachments/whatsapp/{id}:
+ *   get:
+ *     summary: Generate WhatsApp share data for quotation
+ *     tags: [Attachments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Quotation ID
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: WhatsApp share data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     pdfUrl:
+ *                       type: string
+ *                     attachments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           title:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                           items:
+ *                             type: array
+ *                             items:
+ *                               $ref: '#/components/schemas/AttachmentItem'
+ *                     numbers:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     quotationNumber:
+ *                       type: string
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Quotation not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/whatsapp/:id',
+  protect,
+  attachmentController.generateWhatsAppLink
+);
+
+/**
+ * @swagger
+ * /api/v1/attachments/whatsapp/share:
+ *   post:
+ *     summary: Share quotation via WhatsApp
+ *     tags: [Attachments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/WhatsAppShareRequest'
+ *     responses:
+ *       200:
+ *         description: WhatsApp message sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     messageId:
+ *                       type: string
+ *                     timestamp:
+ *                       type: string
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Quotation not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/whatsapp/share',
+  protect,
+  attachmentController.shareOnWhatsApp
 );
 
 module.exports = router;

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {"timestamp":"2025-07-30 09:42:45","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-30 10:03:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-30 10:41:02","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
@@ -33,3 +34,30 @@
 {"timestamp":"2025-07-30 18:12:24","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-30 18:13:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-07-30 18:14:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+=======
+{"timestamp":"2025-07-30 10:37:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 10:57:49","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 11:11:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 11:37:05","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 15:00:32","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 15:18:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 15:40:00","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 15:40:08","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 15:46:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 15:47:05","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Cannot populate path `role_id` because it is not in your schema. Set the `strictPopulate` option to false to override.","stack":null}
+{"timestamp":"2025-07-30 15:55:53","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 16:10:03","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 16:10:37","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 16:10:42","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 16:11:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 16:12:21","level":"\u001b[31MERROR\u001b[39M","message":"Error in quotation preparation: Quotation validation failed: userDetails.role._id: Path `userDetails.role._id` is required.","stack":null}
+{"timestamp":"2025-07-30 16:18:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 16:49:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 16:51:49","level":"\u001b[31MERROR\u001b[39M","message":"Error creating offer: language override unsupported: Marathi","stack":null}
+{"timestamp":"2025-07-30 16:57:20","level":"\u001b[31MERROR\u001b[39M","message":"File upload error: File too large","stack":null}
+{"timestamp":"2025-07-30 17:00:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 17:06:03","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 17:35:28","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 17:38:28","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-07-30 17:40:00","level":"\u001b[31MERROR\u001b[39M","message":"Error sending WhatsApp message: Request failed with status code 401","stack":null}
+>>>>>>> ef7ec890a40346e0127ccfebd0d6faa4e5a61252

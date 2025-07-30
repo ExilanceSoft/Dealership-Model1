@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const DocumentSchema = new mongoose.Schema({
   original: {
     type: String,

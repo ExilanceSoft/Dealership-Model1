@@ -2,13 +2,13 @@ const express = require('express');
 const router = express.Router();
 const offerController = require('../controllers/offerController');
 const { protect, authorize } = require('../middlewares/auth');
-const upload = require('../middlewares/upload');
+const { logAction } = require('../middlewares/audit');
 
 /**
  * @swagger
  * tags:
  *   name: Offers
- *   description: Special offers and promotions management
+ *   description: Offer management endpoints
  */
 
 /**
@@ -20,6 +20,8 @@ const upload = require('../middlewares/upload');
  *       required:
  *         - title
  *         - description
+ *         - offerLanguage
+ *         - priority
  *       properties:
  *         id:
  *           type: string
@@ -27,115 +29,120 @@ const upload = require('../middlewares/upload');
  *           example: 507f1f77bcf86cd799439011
  *         title:
  *           type: string
- *           description: Title of the offer
+ *           description: The offer title
  *           example: Summer Special Discount
  *         description:
  *           type: string
- *           description: Detailed description of the offer
- *           example: Get 10% off on all EV models this summer
- *         url:
- *           type: string
- *           description: Optional URL for more details
- *           example: https://example.com/summer-sale
+ *           description: Detailed offer description
+ *           example: Get 20% off on all models this summer
  *         image:
  *           type: string
  *           description: Path to offer image
- *           example: /uploads/offers/offer-12345.jpg
+ *           example: /uploads/offers/summer-special.jpg
+ *         url:
+ *           type: string
+ *           description: Optional URL for the offer
+ *           example: https://example.com/summer-sale
  *         isActive:
  *           type: boolean
  *           description: Whether the offer is currently active
- *           example: true
+ *           default: true
  *         applyToAllModels:
  *           type: boolean
  *           description: Whether the offer applies to all models
- *           example: false
+ *           default: false
  *         applicableModels:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/ModelReference'
- *           description: List of models this offer applies to
+ *             type: string
+ *           description: Array of model IDs this offer applies to
+ *         offerLanguage:
+ *           type: string
+ *           enum: [English, Marathi]
+ *           description: offerLanguage of the offer
+ *           example: English
+ *         priority:
+ *           type: integer
+ *           minimum: 1
+ *           description: Priority number for ordering offers
+ *           example: 1
  *         createdAt:
  *           type: string
  *           format: date-time
- *           description: Creation timestamp
+ *           description: The date the offer was created
  *         updatedAt:
  *           type: string
  *           format: date-time
- *           description: Last update timestamp
- * 
- *     ModelReference:
+ *           description: The date the offer was last updated
+ *     OfferInput:
  *       type: object
+ *       required:
+ *         - title
+ *         - description
+ *         - offerLanguage
+ *         - priority
  *       properties:
- *         id:
+ *         title:
  *           type: string
- *           description: Model ID
- *         model_name:
+ *         description:
  *           type: string
- *           description: Model name
+ *         image:
+ *           type: string
+ *           format: binary
+ *         url:
+ *           type: string
+ *         isActive:
+ *           type: boolean
+ *         applyToAllModels:
+ *           type: boolean
+ *         applicableModels:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: JSON string array of model IDs
+ *         offerLanguage:
+ *           type: string
+ *           enum: [English, Marathi]
+ *         priority:
+ *           type: integer
+ *           minimum: 1
  */
 
 /**
  * @swagger
  * /api/v1/offers:
  *   post:
- *     summary: Create a new offer (Admin only)
+ *     summary: Create a new offer (Admin+)
  *     tags: [Offers]
  *     security:
  *       - bearerAuth: []
- *     consumes:
- *       - multipart/form-data
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               url:
- *                 type: string
- *               image:
- *                 type: string
- *                 format: binary
- *               isActive:
- *                 type: boolean
- *               applyToAllModels:
- *                 type: boolean
- *               applicableModels:
- *                 type: array
- *                 items:
- *                   type: string
+ *             $ref: '#/components/schemas/OfferInput'
  *     responses:
  *       201:
  *         description: Offer created successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     offer:
- *                       $ref: '#/components/schemas/Offer'
+ *               $ref: '#/components/schemas/Offer'
  *       400:
- *         description: Missing required fields or invalid data
+ *         description: Validation error or missing required fields
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin)
+ *         description: Forbidden (not Admin+)
  *       500:
  *         description: Server error
  */
 router.post('/',
   protect,
-  authorize('ADMIN','SALES_EXECUTIVE'),
-  upload.single('image'),
+  authorize('SUPERADMIN', 'ADMIN'),
+  logAction('CREATE', 'Offer'),
+  offerController.uploadOfferImage,
   offerController.createOffer
 );
 
@@ -143,7 +150,7 @@ router.post('/',
  * @swagger
  * /api/v1/offers:
  *   get:
- *     summary: Get all offers with filtering and pagination
+ *     summary: Get all offers
  *     tags: [Offers]
  *     parameters:
  *       - in: query
@@ -157,16 +164,22 @@ router.post('/',
  *           type: boolean
  *         description: Filter by whether offer applies to all models
  *       - in: query
+ *         name: offerLanguage
+ *         schema:
+ *           type: string
+ *           enum: [English, Marathi]
+ *         description: Filter by offerLanguage
+ *       - in: query
  *         name: search
  *         schema:
  *           type: string
- *         description: Search text in title and description
+ *         description: Search offers by title or description
  *       - in: query
  *         name: sort
  *         schema:
  *           type: string
  *         description: Sort by field (prefix with - for descending)
- *         example: -createdAt
+ *         example: -priority,-createdAt
  *       - in: query
  *         name: limit
  *         schema:
@@ -201,13 +214,15 @@ router.post('/',
  *       500:
  *         description: Server error
  */
-router.get('/', offerController.getAllOffers);
+router.get('/',
+  offerController.getAllOffers
+);
 
 /**
  * @swagger
  * /api/v1/offers/{id}:
  *   get:
- *     summary: Get a single offer by ID
+ *     summary: Get a specific offer by ID
  *     tags: [Offers]
  *     parameters:
  *       - in: path
@@ -215,27 +230,19 @@ router.get('/', offerController.getAllOffers);
  *         required: true
  *         schema:
  *           type: string
- *         description: Offer ID
+ *         description: ID of the offer to get
  *       - in: query
  *         name: populate
  *         schema:
  *           type: boolean
- *         description: Whether to populate applicable models
+ *         description: Whether to populate applicableModels
  *     responses:
  *       200:
  *         description: Offer details
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     offer:
- *                       $ref: '#/components/schemas/Offer'
+ *               $ref: '#/components/schemas/Offer'
  *       400:
  *         description: Invalid ID format
  *       404:
@@ -243,70 +250,44 @@ router.get('/', offerController.getAllOffers);
  *       500:
  *         description: Server error
  */
-router.get('/:id', offerController.getOfferById);
+router.get('/:id',
+  offerController.getOfferById
+);
 
 /**
  * @swagger
  * /api/v1/offers/{id}:
  *   put:
- *     summary: Update an offer (Admin only)
+ *     summary: Update an offer (Admin+)
  *     tags: [Offers]
  *     security:
  *       - bearerAuth: []
- *     consumes:
- *       - multipart/form-data
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: Offer ID
+ *         description: ID of the offer to update
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               url:
- *                 type: string
- *               image:
- *                 type: string
- *                 format: binary
- *               isActive:
- *                 type: boolean
- *               applyToAllModels:
- *                 type: boolean
- *               applicableModels:
- *                 type: array
- *                 items:
- *                   type: string
+ *             $ref: '#/components/schemas/OfferInput'
  *     responses:
  *       200:
  *         description: Offer updated successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     offer:
- *                       $ref: '#/components/schemas/Offer'
+ *               $ref: '#/components/schemas/Offer'
  *       400:
- *         description: Invalid ID format or data
+ *         description: Validation error
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin)
+ *         description: Forbidden (not Admin+)
  *       404:
  *         description: Offer not found
  *       500:
@@ -314,8 +295,9 @@ router.get('/:id', offerController.getOfferById);
  */
 router.put('/:id',
   protect,
-  authorize('ADMIN','SALES_EXECUTIVE'),
-  upload.single('image'),
+  authorize('SUPERADMIN', 'ADMIN'),
+  logAction('UPDATE', 'Offer'),
+  offerController.uploadOfferImage,
   offerController.updateOffer
 );
 
@@ -323,7 +305,7 @@ router.put('/:id',
  * @swagger
  * /api/v1/offers/{id}:
  *   delete:
- *     summary: Delete an offer (Admin only)
+ *     summary: Delete an offer (SuperAdmin only)
  *     tags: [Offers]
  *     security:
  *       - bearerAuth: []
@@ -333,16 +315,14 @@ router.put('/:id',
  *         required: true
  *         schema:
  *           type: string
- *         description: Offer ID
+ *         description: ID of the offer to delete
  *     responses:
  *       204:
  *         description: Offer deleted successfully
- *       400:
- *         description: Invalid ID format
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin)
+ *         description: Forbidden (not SuperAdmin)
  *       404:
  *         description: Offer not found
  *       500:
@@ -350,7 +330,8 @@ router.put('/:id',
  */
 router.delete('/:id',
   protect,
-  authorize('ADMIN','SALES_EXECUTIVE'),
+  authorize('SUPERADMIN'),
+  logAction('DELETE', 'Offer'),
   offerController.deleteOffer
 );
 
@@ -366,7 +347,7 @@ router.delete('/:id',
  *         required: true
  *         schema:
  *           type: string
- *         description: Model ID
+ *         description: ID of the model to get offers for
  *     responses:
  *       200:
  *         description: List of active offers for the model
@@ -385,15 +366,7 @@ router.delete('/:id',
  *                     offers:
  *                       type: array
  *                       items:
- *                         type: object
- *                         properties:
- *                           title:
- *                             type: string
- *                           description:
- *                             type: string
- *                           createdAt:
- *                             type: string
- *                             format: date-time
+ *                         $ref: '#/components/schemas/Offer'
  *       400:
  *         description: Invalid model ID format
  *       404:
@@ -401,6 +374,8 @@ router.delete('/:id',
  *       500:
  *         description: Server error
  */
-router.get('/model/:modelId', offerController.getOffersForModel);
+router.get('/model/:modelId',
+  offerController.getOffersForModel
+);
 
 module.exports = router;
