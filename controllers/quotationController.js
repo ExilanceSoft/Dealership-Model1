@@ -136,11 +136,9 @@ exports.createQuotation = async (req, res, next) => {
       return next(new AppError('Branch not found', 404));
     }
 
-    // Fetch required documents
     const financeDocuments = await FinanceDocument.find({}).sort({ createdAt: 1 });
     const termsConditions = await TermsCondition.find({ isActive: true }).sort({ order: 1 });
 
-    // Validate models
     const models = await Model.find({
       _id: { $in: selectedModels.map(m => m.model_id) }
     }).populate({
@@ -1317,7 +1315,6 @@ exports.sendQuotationViaWhatsApp = async (req, res, next) => {
       return next(new AppError('Please provide a valid phone number with country code', 400));
     }
 
-    // Get quotation details
     const quotation = await Quotation.findById(id);
     if (!quotation) {
       return next(new AppError('Quotation not found', 404));
@@ -1327,11 +1324,9 @@ exports.sendQuotationViaWhatsApp = async (req, res, next) => {
       return next(new AppError('PDF not generated for this quotation', 400));
     }
 
-    // Construct the full PDF URL
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const pdfFullUrl = `${baseUrl}${quotation.pdfUrl}`;
 
-    // Prepare WhatsApp API request
     const whatsappPayload = {
       to: phoneNumber,
       recipient_type: "individual",
@@ -1388,7 +1383,6 @@ exports.sendQuotationViaWhatsApp = async (req, res, next) => {
   } catch (err) {
     logger.error(`Error sending WhatsApp message: ${err.message}`);
     
-    // Handle specific WhatsApp API errors
     if (err.response) {
       logger.error(`WhatsApp API error: ${JSON.stringify(err.response.data)}`);
       return next(new AppError(`WhatsApp API error: ${err.response.data.error.message}`, err.response.status));

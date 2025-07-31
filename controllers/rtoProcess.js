@@ -2,12 +2,12 @@ const RtoProcess = require("../models/RtoProcessModel");
 const AuditLog = require("../models/AuditLog");
 const Booking = require("../models/Booking");
 
-// Create RTO Process
+
 exports.createRtoProcess = async (req, res) => {
   try {
     const { bookingId, applicationNumber } = req.body;
 
-    // Validate required fields
+    
     if (!bookingId || !applicationNumber) {
       return res.status(400).json({
         success: false,
@@ -15,7 +15,7 @@ exports.createRtoProcess = async (req, res) => {
       });
     }
 
-    // Validate application number format
+    
     const appNumberRegex = /^[A-Za-z0-9\-\/]+$/;
     if (!appNumberRegex.test(applicationNumber)) {
       return res.status(400).json({
@@ -76,7 +76,7 @@ exports.createRtoProcess = async (req, res) => {
 
 exports.getAllRtoProcesses = async (req, res) => {
   try {
-    const rtos = await RtoProcess.find()
+    let rtos = await RtoProcess.find()
       .sort({ createdAt: -1 })
       .populate({
         path: "bookingId",
@@ -88,7 +88,39 @@ exports.getAllRtoProcesses = async (req, res) => {
         },
       });
 
-    res.status(200).json({ success: true, count: rtos.length, data: rtos });
+    rtos = rtos.map((item) => {
+      const itemObj = item.toObject();
+      const booking = itemObj.bookingId;
+
+      if (booking) {
+        itemObj.bookingId = {
+          id: booking.id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name || '',
+          customerMobile: booking.customerDetails?.mobile1 || '',
+          model: booking.model ? {
+            model_name: booking.model.model_name,
+            type: booking.model.type,
+          } : null
+        };
+      }
+
+     
+      delete itemObj.batteryNumber;
+      delete itemObj.keyNumber;
+      delete itemObj.motorNumber;
+      delete itemObj.chargerNumber;
+      delete itemObj.engineNumber;
+
+      return itemObj;
+    });
+
+    res.status(200).json({
+      success: true,
+      count: rtos.length,
+      data: rtos,
+    });
   } catch (err) {
     console.error("Error fetching RTOs:", err);
     res.status(500).json({
@@ -102,16 +134,37 @@ exports.getAllRtoProcesses = async (req, res) => {
 
 exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
   try {
-    const rtoProcesses = await RtoProcess.find({
-      applicationNumber: { $ne: null, $ne: "" },
+    let rtoProcesses = await RtoProcess.find({
+      applicationNumber: { $ne: null, $nin: [""] }, // shorter syntax
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
-         select: "model_name type",
+        select: "model_name type",
       },
+    });
+
+    // Clean and flatten data
+    rtoProcesses = rtoProcesses.map((item) => {
+      const itemObj = item.toObject(); // convert mongoose doc to plain JS
+      const booking = itemObj.bookingId;
+
+      if (booking) {
+        itemObj.bookingId = {
+          id: booking.id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name || '',
+          customerMobile: booking.customerDetails?.mobile1 || '',
+          model: booking.model ? {
+            model_name: booking.model.model_name,
+            type: booking.model.type,
+          } : null
+        };
+      }
+
+      return itemObj;
     });
 
     res.status(200).json({
@@ -128,12 +181,11 @@ exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
   }
 };
 
+
 exports.getRtoProcessesWithRtoTaxPending = async (req, res) => {
   try {
-    const rtoProcesses = await RtoProcess.find({
-      $and: [
-        { rtoPendingTaxStatus: { $ne: "Paid" } },
-      ],
+    let rtoProcesses = await RtoProcess.find({
+      rtoPendingTaxStatus: false,
     }).populate({
       path: "bookingId",
       select:
@@ -142,6 +194,28 @@ exports.getRtoProcessesWithRtoTaxPending = async (req, res) => {
         path: "model",
         select: "model_name type",
       },
+    });
+
+    
+    rtoProcesses = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        
+        const flattenedBooking = {
+          id: booking.id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        item = item.toObject();
+        item.bookingId = flattenedBooking;
+      }
+
+      return item;
     });
 
     res.status(200).json({
@@ -161,10 +235,7 @@ exports.getRtoProcessesWithRtoTaxPending = async (req, res) => {
 exports.getRtoProcessesWithRtoTaxCompleted = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      $and: [
-        { rtoPendingTaxStatus: { $ne: "Unpaid" } },
-        { rtoPendingTaxStatus: { $ne: "N/A" } },
-      ],
+      rtoPendingTaxStatus: true,
     }).populate({
       path: "bookingId",
       select:
@@ -175,9 +246,30 @@ exports.getRtoProcessesWithRtoTaxCompleted = async (req, res) => {
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item; // in case booking is null
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO tax completed records:", error);
@@ -192,20 +284,40 @@ exports.getRtoProcessesWithRtoTaxCompleted = async (req, res) => {
 exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
-      rtoPaperStatus: { $ne: "Not Submitted", $ne: "N/A" },
+      rtoPaperStatus: { $nin: ["Not Submitted", "N/A"] },
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); // Still convert it to a plain object
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -217,23 +329,44 @@ exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
   }
 };
 
+
 exports.getRtoProcessesWithRtoPaperStatusAsNotSubmitted = async (req, res) => {
   try {
     const rtoProcesses = await RtoProcess.find({
       rtoPaperStatus: "Not Submitted",
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -251,17 +384,37 @@ exports.getRtoProcessesWithHsrpOrderedStatus = async (req, res) => {
       hsrbOrdering: { $ne: false },
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -279,17 +432,37 @@ exports.getRtoProcessesWithHsrpInstallationStatus = async (req, res) => {
       hsrbInstallation: { $ne: false },
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -307,17 +480,36 @@ exports.getRtoProcessesWithHsrpOrderedStatusIsfalse = async (req, res) => {
       hsrbOrdering: { $ne: true },
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -335,17 +527,37 @@ exports.getRtoProcessesWithHsrpInstallationStatusIsfalse = async (req, res) => {
       hsrbInstallation: { $ne: true },
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -363,17 +575,37 @@ exports.getRtoProcessesWithRcConfirmationStatus = async (req, res) => {
       rcConfirmation: { $ne: false },
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -391,17 +623,37 @@ exports.getRtoProcessesWithRcConfirmationStatusIsfalse = async (req, res) => {
       rcConfirmation: { $ne: true },
     }).populate({
       path: "bookingId",
-      select:
-        "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
       populate: {
         path: "model",
         select: "model_name type",
       },
     });
 
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
     res.status(200).json({
       success: true,
-      data: rtoProcesses,
+      data: processedData,
     });
   } catch (error) {
     console.error("Error fetching RTO records:", error);
@@ -415,7 +667,7 @@ exports.getRtoProcessesWithRcConfirmationStatusIsfalse = async (req, res) => {
 
 exports.getRtoProcessById = async (req, res) => {
   try {
-    const rto = await RtoProcess.findById(req.params.id).populate({
+    let rto = await RtoProcess.findById(req.params.id).populate({
       path: "bookingId",
       select:
         "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
@@ -424,9 +676,27 @@ exports.getRtoProcessById = async (req, res) => {
         select: "model_name type",
       },
     });
+
     if (!rto) {
       return res.status(404).json({ success: false, message: "RTO not found" });
     }
+
+    // Flatten bookingId object
+    const booking = rto.bookingId;
+    if (booking) {
+      const flattenedBooking = {
+        id: booking.id,
+        bookingNumber: booking.bookingNumber,
+        chassisNumber: booking.chassisNumber,
+        customerName: booking.customerDetails?.name,
+        customerMobile: booking.customerDetails?.mobile1,
+        model: booking.model,
+      };
+
+      rto = rto.toObject(); // convert to plain object
+      rto.bookingId = flattenedBooking;
+    }
+
     res.status(200).json({ success: true, data: rto });
   } catch (err) {
     console.error("Error fetching RTO:", err);
@@ -436,7 +706,8 @@ exports.getRtoProcessById = async (req, res) => {
   }
 };
 
-// Update RTO Process (only desired fields)
+
+
 exports.updateRtoProcess = async (req, res) => {
   try {
     const updates = req.body;
@@ -480,7 +751,7 @@ exports.updateRtoProcess = async (req, res) => {
   }
 };
 
-// Delete RTO
+
 exports.deleteRtoProcess = async (req, res) => {
   try {
     const rto = await RtoProcess.findByIdAndDelete(req.params.id);

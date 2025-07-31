@@ -38,9 +38,8 @@ const RtoProcessSchema = new mongoose.Schema({
     default: '',
   },
   rtoPendingTaxStatus: {
-    type: String,
-    enum: ['Paid', 'Unpaid', 'N/A'],
-    default: 'N/A',
+     type: Boolean,
+    default: false,
   },
   hsrbOrdering: {
     type: Boolean,
