@@ -6,6 +6,18 @@ const ledgerSchema = new mongoose.Schema({
     ref: 'Booking',
     required: true
   },
+  insurance: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Insurance',
+    required: function() {
+      return this.type === 'INSURANCE_PAYMENT';
+    }
+  },
+  type: {
+    type: String,
+    enum: ['BOOKING_PAYMENT', 'INSURANCE_PAYMENT'],
+    default: 'BOOKING_PAYMENT'
+  },
   paymentMode: {
     type: String,
     enum: ['Cash', 'Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'],
@@ -59,6 +71,8 @@ const ledgerSchema = new mongoose.Schema({
 
 // Indexes
 ledgerSchema.index({ booking: 1 });
+ledgerSchema.index({ insurance: 1 });
+ledgerSchema.index({ type: 1 });
 ledgerSchema.index({ paymentMode: 1 });
 ledgerSchema.index({ receiptDate: 1 });
 
@@ -83,6 +97,14 @@ ledgerSchema.virtual('receivedByDetails', {
   foreignField: '_id',
   justOne: true,
   options: { select: 'name email' }
+});
+
+ledgerSchema.virtual('insuranceDetails', {
+  ref: 'Insurance',
+  localField: 'insurance',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'policyNumber premiumAmount insuranceProvider' }
 });
 
 module.exports = mongoose.model('Ledger', ledgerSchema);

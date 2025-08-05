@@ -102,6 +102,14 @@ const InsuranceSchema = new mongoose.Schema({
     enum: ['COMPLETED'], // Removed 'PENDING' and 'REJECTED'
     default: 'COMPLETED' // Directly set to COMPLETED when created
   },
+  paymentStatus: {
+    type: String,
+    enum: ['UNPAID', 'PARTIAL', 'PAID'],
+    default: 'UNPAID'
+  },
+  paymentCompletedDate: {
+    type: Date
+  },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
