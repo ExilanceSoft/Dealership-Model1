@@ -80,6 +80,7 @@ const insuranceRoutes = require('./routes/insuranceRoutes');
 const declarationsRoutes = require('./routes/declarationRoutes');
 const expenseAccountsRoutes = require('./routes/expenseAccountRoutes');
 const rtoProcessRoutes = require('./routes/rtoProcessRoutes');
+const newInsuranceRoutes = require('./routes/newInsuranceRoutes');
 // Create Express application
 const app = express();
 app.use('/api/v1/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -175,7 +176,8 @@ app.use('/api/v1/cash-locations',cashLocationRoutes);
 app.use('/api/v1/insurance',insuranceRoutes);
 app.use('/api/v1/declarations',declarationsRoutes);
 app.use('/api/v1/expense-accounts',expenseAccountsRoutes);
-app.use('/api/v1/rtoProcess',rtoProcessRoutes)
+app.use('/api/v1/rtoProcess',rtoProcessRoutes);
+app.use('/api/v1/new-insurance',newInsuranceRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
