@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const InsuranceSchema = new mongoose.Schema({
+const newInsuranceSchema = new mongoose.Schema({
   booking: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Booking',
@@ -12,16 +12,6 @@ const InsuranceSchema = new mongoose.Schema({
       },
       message: 'Booking must exist and be in APPROVED status'
     }
-  },
-  insuranceProvider: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'InsuranceProvider',
-    required: true
-  },
-  paymentMode: {
-    type: String,
-    enum: ['CASH', 'BANK', 'CARD'],
-    required: true
   },
   insuranceDate: {
     type: Date,
@@ -99,8 +89,8 @@ const InsuranceSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['COMPLETED'], // Removed 'PENDING' and 'REJECTED'
-    default: 'COMPLETED' // Directly set to COMPLETED when created
+    enum: ['COMPLETED'],
+    default: 'COMPLETED'
   },
   paymentStatus: {
     type: String,
@@ -116,7 +106,7 @@ const InsuranceSchema = new mongoose.Schema({
   },
   approvalDate: {
     type: Date,
-    default: Date.now // Set approval date automatically
+    default: Date.now
   },
   remarks: {
     type: String,
@@ -153,16 +143,13 @@ const InsuranceSchema = new mongoose.Schema({
   }
 });
 
-// Indexes
-InsuranceSchema.index({ booking: 1 });
-InsuranceSchema.index({ policyNumber: 1 }, { unique: true });
-InsuranceSchema.index({ insuranceDate: -1 });
-InsuranceSchema.index({ validUptoDate: -1 });
-InsuranceSchema.index({ createdBy: 1 });
-InsuranceSchema.index({ insuranceProvider: 1 });
+newInsuranceSchema.index({ booking: 1 });
+newInsuranceSchema.index({ policyNumber: 1 }, { unique: true });
+newInsuranceSchema.index({ insuranceDate: -1 });
+newInsuranceSchema.index({ validUptoDate: -1 });
+newInsuranceSchema.index({ createdBy: 1 });
 
-// Virtual population
-InsuranceSchema.virtual('bookingDetails', {
+newInsuranceSchema.virtual('bookingDetails', {
   ref: 'Booking',
   localField: 'booking',
   foreignField: '_id',
@@ -172,17 +159,7 @@ InsuranceSchema.virtual('bookingDetails', {
   }
 });
 
-InsuranceSchema.virtual('insuranceProviderDetails', {
-  ref: 'InsuranceProvider',
-  localField: 'insuranceProvider',
-  foreignField: '_id',
-  justOne: true,
-  options: {
-    select: 'provider_name is_active'
-  }
-});
-
-InsuranceSchema.virtual('createdByDetails', {
+newInsuranceSchema.virtual('createdByDetails', {
   ref: 'User',
   localField: 'createdBy',
   foreignField: '_id',
@@ -192,7 +169,7 @@ InsuranceSchema.virtual('createdByDetails', {
   }
 });
 
-InsuranceSchema.virtual('approvedByDetails', {
+newInsuranceSchema.virtual('approvedByDetails', {
   ref: 'User',
   localField: 'approvedBy',
   foreignField: '_id',
@@ -202,7 +179,7 @@ InsuranceSchema.virtual('approvedByDetails', {
   }
 });
 
-InsuranceSchema.virtual('updatedByDetails', {
+newInsuranceSchema.virtual('updatedByDetails', {
   ref: 'User',
   localField: 'updatedBy',
   foreignField: '_id',
@@ -212,22 +189,18 @@ InsuranceSchema.virtual('updatedByDetails', {
   }
 });
 
-// Middleware to sync insurance status with booking
-InsuranceSchema.pre('save', async function(next) {
+newInsuranceSchema.pre('save', async function(next) {
   try {
-    // Automatically set approvedBy to createdBy if not set
     if (this.isNew && !this.approvedBy) {
       this.approvedBy = this.createdBy;
     }
 
-    // Update booking insurance status to COMPLETED
     const booking = await mongoose.model('Booking').findById(this.booking);
     if (booking && booking.insuranceStatus !== 'COMPLETED') {
       booking.insuranceStatus = 'COMPLETED';
       await booking.save();
     }
     
-    // Set updatedBy if not set
     if (this.isModified() && !this.updatedBy) {
       this.updatedBy = this._conditions?.updatedBy || this.createdBy;
     }
@@ -238,23 +211,19 @@ InsuranceSchema.pre('save', async function(next) {
   }
 });
 
-// Static method to get insurance by booking ID
-InsuranceSchema.statics.findByBookingId = function(bookingId) {
+newInsuranceSchema.statics.findByBookingId = function(bookingId) {
   return this.findOne({ booking: bookingId })
     .populate('bookingDetails')
-    .populate('insuranceProviderDetails')
     .populate('approvedByDetails');
 };
 
-// Static method to get all insurances
-InsuranceSchema.statics.findAllInsurances = function() {
+newInsuranceSchema.statics.findAllInsurances = function() {
   return this.find()
     .populate('bookingDetails')
-    .populate('insuranceProviderDetails')
     .populate('createdByDetails')
     .populate('approvedByDetails');
 };
 
-const Insurance = mongoose.model('Insurance', InsuranceSchema);
+const newInsurance = mongoose.model('newInsurance', newInsuranceSchema);
 
-module.exports = Insurance;
+module.exports = newInsurance;

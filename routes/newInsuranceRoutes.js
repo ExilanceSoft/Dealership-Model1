@@ -20,23 +20,145 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024 // 5MB
   }
 });
 
 /**
  * @swagger
  * tags:
- *   name: Insurance
+ *   name: new-insurance
  *   description: Insurance management endpoints
  */
 
 /**
  * @swagger
- * /api/v1/insurance/all-combined:
+ * components:
+ *   schemas:
+ *     Insurance:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The auto-generated ID of the insurance
+ *         booking:
+ *           type: string
+ *           description: ID of the associated booking
+ *         insuranceDate:
+ *           type: string
+ *           format: date
+ *           description: Date when insurance was created
+ *         policyNumber:
+ *           type: string
+ *           description: Insurance policy number
+ *         premiumAmount:
+ *           type: number
+ *           description: Insurance premium amount
+ *         validUptoDate:
+ *           type: string
+ *           format: date
+ *           description: Date until insurance is valid
+ *         status:
+ *           type: string
+ *           enum: [COMPLETED]
+ *           description: Insurance status
+ *         paymentStatus:
+ *           type: string
+ *           enum: [UNPAID, PARTIAL, PAID]
+ *           description: Payment status of the insurance
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Creation timestamp
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Last update timestamp
+ *       required:
+ *         - booking
+ *         - policyNumber
+ *         - premiumAmount
+ *         - validUptoDate
+ */
+
+/**
+ * @swagger
+ * /api/v1/new-insurance:
+ *   get:
+ *     summary: Get all insurances with booking details
+ *     tags: [new-insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of insurances with booking details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Insurance'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getAllInsurances
+);
+
+/**
+ * @swagger
+ * /api/v1/new-insurance/awaiting:
+ *   get:
+ *     summary: Get all bookings awaiting insurance
+ *     tags: [new-insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of bookings awaiting insurance
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/awaiting',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  insuranceController.getBookingsAwaitingInsurance
+);
+
+/**
+ * @swagger
+ * /api/v1/new-insurance/all-combined:
  *   get:
  *     summary: Get all bookings with their insurance details
- *     tags: [Insurance]
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -81,10 +203,10 @@ router.get(
 
 /**
  * @swagger
- * /api/v1/insurance/{bookingId}:
+ * /api/v1/new-insurance/{bookingId}:
  *   post:
- *     summary: Add insurance details for a booking (form data)
- *     tags: [Insurance]
+ *     summary: Add insurance details for a booking
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     consumes:
@@ -102,13 +224,6 @@ router.get(
  *           schema:
  *             type: object
  *             properties:
- *               insuranceProvider:
- *                 type: string
- *                 description: ID of the insurance provider
- *               paymentMode:
- *                 type: string
- *                 enum: [CASH, BANK, CARD]
- *                 description: Payment mode for the insurance
  *               insuranceDate:
  *                 type: string
  *                 format: date
@@ -145,14 +260,16 @@ router.get(
  *                 format: binary
  *                 description: Additional insurance document (optional)
  *             required:
- *               - insuranceProvider
- *               - paymentMode
  *               - policyNumber
  *               - premiumAmount
  *               - validUptoDate
  *     responses:
  *       201:
  *         description: Insurance added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Insurance'
  *       400:
  *         description: Invalid input
  *       401:
@@ -181,61 +298,10 @@ router.post(
 
 /**
  * @swagger
- * /api/v1/insurance:
- *   get:
- *     summary: Get all insurances with booking details
- *     tags: [Insurance]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of insurances with booking details
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.get(
-  '/',
-  protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-  insuranceController.getAllInsurances
-);
-
-/**
- * @swagger
- * /api/v1/insurance/awaiting:
- *   get:
- *     summary: Get all bookings awaiting insurance
- *     tags: [Insurance]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of bookings awaiting insurance
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       500:
- *         description: Server error
- */
-router.get(
-  '/awaiting',
-  protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-  insuranceController.getBookingsAwaitingInsurance
-);
-
-/**
- * @swagger
- * /api/v1/insurance/{chassisNumber}:
+ * /api/v1/new-insurance/{chassisNumber}:
  *   get:
  *     summary: Get insurance details by chassis number
- *     description: Retrieve complete insurance information for a vehicle using its chassis number
- *     tags: [Insurance]
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -244,7 +310,7 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
- *         description: Vehicle chassis number (case insensitive search)
+ *         description: Vehicle chassis number
  *     responses:
  *       200:
  *         description: Insurance details retrieved successfully
@@ -256,74 +322,7 @@ router.get(
  *                 success:
  *                   type: boolean
  *                 data:
- *                   type: object
- *                   properties:
- *                     insuranceId:
- *                       type: string
- *                     policyNumber:
- *                       type: string
- *                     status:
- *                       type: string
- *                       enum: [COMPLETED]
- *                     insuranceDate:
- *                       type: string
- *                       format: date
- *                     validUptoDate:
- *                       type: string
- *                       format: date
- *                     premiumAmount:
- *                       type: number
- *                     paymentMode:
- *                       type: string
- *                       enum: [CASH, BANK, CARD]
- *                     insuranceProvider:
- *                       type: object
- *                       properties:
- *                         _id:
- *                           type: string
- *                         provider_name:
- *                           type: string
- *                     documents:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           url:
- *                             type: string
- *                           name:
- *                             type: string
- *                           type:
- *                             type: string
- *                             enum: [POLICY, RECEIPT, FORM, OTHER]
- *                     bookingDetails:
- *                       type: object
- *                       properties:
- *                         bookingNumber:
- *                           type: string
- *                         model:
- *                           type: object
- *                         color:
- *                           type: object
- *                         customer:
- *                           type: object
- *                           properties:
- *                             name:
- *                               type: string
- *                             mobile:
- *                               type: string
- *                             email:
- *                               type: string
- *                         chassisNumber:
- *                           type: string
- *                         branch:
- *                           type: object
- *                     createdBy:
- *                       $ref: '#/components/schemas/User'
- *                     approvedBy:
- *                       $ref: '#/components/schemas/User'
- *                     approvalDate:
- *                       type: string
- *                       format: date-time
+ *                   $ref: '#/components/schemas/Insurance'
  *       400:
  *         description: Invalid chassis number format
  *       401:
@@ -331,11 +330,12 @@ router.get(
  *       403:
  *         description: Forbidden
  *       404:
- *         description: No booking or insurance found for this chassis number
+ *         description: No booking or insurance found
  *       500:
  *         description: Server error
  */
-router.get('/:chassisNumber',
+router.get(
+  '/:chassisNumber',
   protect,
   authorize('ADMIN', 'MANAGER', 'SUPERADMIN', 'SALES_EXECUTIVE'),
   logAction('READ', 'Insurance'),
@@ -344,10 +344,77 @@ router.get('/:chassisNumber',
 
 /**
  * @swagger
- * /api/v1/insurance/{insuranceId}/ledger:
+ * /api/v1/new-insurance/{insuranceId}/payment-status:
+ *   get:
+ *     summary: Get insurance payment status and history
+ *     tags: [new-insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: insuranceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the insurance record
+ *     responses:
+ *       200:
+ *         description: Insurance payment status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     insurance:
+ *                       $ref: '#/components/schemas/Insurance'
+ *                     paymentHistory:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Ledger'
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         totalEntries:
+ *                           type: number
+ *                         totalPaid:
+ *                           type: number
+ *                         remainingAmount:
+ *                           type: number
+ *                         paymentStatus:
+ *                           type: string
+ *                           enum: [PAID, PARTIAL, UNPAID]
+ *                         paymentPercentage:
+ *                           type: number
+ *       400:
+ *         description: Invalid insurance ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Insurance not found
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/:insuranceId/payment-status',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  logAction('READ', 'InsurancePaymentStatus'),
+  insuranceController.getInsurancePaymentStatus
+);
+
+/**
+ * @swagger
+ * /api/v1/new-insurance/{insuranceId}/ledger:
  *   post:
- *     summary: Create ledger entry for insurance premium payment
- *     tags: [Insurance]
+ *     summary: Create ledger entry for insurance payment
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -370,7 +437,7 @@ router.get('/:chassisNumber',
  *                 description: Payment mode
  *               amount:
  *                 type: number
- *                 description: Payment amount (must be greater than 0)
+ *                 description: Payment amount
  *               cashLocation:
  *                 type: string
  *                 description: Cash location ID (required for cash payments)
@@ -379,7 +446,7 @@ router.get('/:chassisNumber',
  *                 description: Bank ID (required for non-cash payments)
  *               remark:
  *                 type: string
- *                 description: Additional remarks (optional)
+ *                 description: Additional remarks
  *             required:
  *               - paymentMode
  *               - amount
@@ -415,13 +482,13 @@ router.get('/:chassisNumber',
  *                           type: string
  *                           enum: [PAID, PARTIAL, UNPAID]
  *       400:
- *         description: Invalid input or amount exceeds remaining premium
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden
  *       404:
- *         description: Insurance record not found
+ *         description: Insurance not found
  *       500:
  *         description: Server error
  */
@@ -432,12 +499,13 @@ router.post(
   logAction('CREATE', 'InsuranceLedger'),
   insuranceController.createInsuranceLedgerEntry
 );
+
 /**
  * @swagger
- * /api/v1/insurance/{insuranceId}/ledger:
+ * /api/v1/new-insurance/{insuranceId}/ledger:
  *   get:
  *     summary: Get insurance ledger history
- *     tags: [Insurance]
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -461,21 +529,7 @@ router.post(
  *                   type: object
  *                   properties:
  *                     insurance:
- *                       type: object
- *                       properties:
- *                         id:
- *                           type: string
- *                         policyNumber:
- *                           type: string
- *                         premiumAmount:
- *                           type: number
- *                         totalPaid:
- *                           type: number
- *                         remainingAmount:
- *                           type: number
- *                         paymentStatus:
- *                           type: string
- *                           enum: [PAID, PARTIAL, UNPAID]
+ *                       $ref: '#/components/schemas/Insurance'
  *                     ledgerEntries:
  *                       type: array
  *                       items:
@@ -491,14 +545,15 @@ router.post(
  *                           type: number
  *                         paymentStatus:
  *                           type: string
+ *                           enum: [PAID, PARTIAL, UNPAID]
  *       400:
- *         description: Invalid insurance ID format
+ *         description: Invalid insurance ID
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden
  *       404:
- *         description: Insurance record not found
+ *         description: Insurance not found
  *       500:
  *         description: Server error
  */
@@ -512,10 +567,10 @@ router.get(
 
 /**
  * @swagger
- * /api/v1/insurance/ledger/{ledgerId}:
+ * /api/v1/new-insurance/ledger/{ledgerId}:
  *   put:
  *     summary: Update insurance ledger entry
- *     tags: [Insurance]
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -547,15 +602,19 @@ router.get(
  *                 description: Bank ID (required for non-cash payments)
  *               transactionReference:
  *                 type: string
- *                 description: Transaction reference number (optional)
+ *                 description: Transaction reference
  *               remark:
  *                 type: string
  *                 description: Additional remarks
  *     responses:
  *       200:
  *         description: Ledger entry updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Ledger'
  *       400:
- *         description: Invalid input or validation error
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
  *       403:
@@ -575,10 +634,10 @@ router.put(
 
 /**
  * @swagger
- * /api/v1/insurance/ledger/{ledgerId}:
+ * /api/v1/new-insurance/ledger/{ledgerId}:
  *   delete:
  *     summary: Delete insurance ledger entry
- *     tags: [Insurance]
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -592,7 +651,7 @@ router.put(
  *       200:
  *         description: Ledger entry deleted successfully
  *       400:
- *         description: Invalid ledger ID format
+ *         description: Invalid ledger ID
  *       401:
  *         description: Unauthorized
  *       403:
@@ -612,10 +671,10 @@ router.delete(
 
 /**
  * @swagger
- * /api/v1/insurance/payments/summary:
+ * /api/v1/new-insurance/payments/summary:
  *   get:
- *     summary: Get all insurance payments summary
- *     tags: [Insurance]
+ *     summary: Get insurance payments summary
+ *     tags: [new-insurance]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -638,18 +697,13 @@ router.delete(
  *           enum: [PAID, PARTIAL, UNPAID]
  *         description: Filter by payment status
  *       - in: query
- *         name: provider
- *         schema:
- *           type: string
- *         description: Filter by insurance provider ID
- *       - in: query
  *         name: branch
  *         schema:
  *           type: string
  *         description: Filter by branch ID (SuperAdmin only)
  *     responses:
  *       200:
- *         description: Insurance payments summary retrieved successfully
+ *         description: Insurance payments summary
  *         content:
  *           application/json:
  *             schema:
@@ -663,33 +717,7 @@ router.delete(
  *                     insurances:
  *                       type: array
  *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: string
- *                           policyNumber:
- *                             type: string
- *                           premiumAmount:
- *                             type: number
- *                           totalPaid:
- *                             type: number
- *                           remainingAmount:
- *                             type: number
- *                           paymentStatus:
- *                             type: string
- *                             enum: [PAID, PARTIAL, UNPAID]
- *                           insuranceDate:
- *                             type: string
- *                             format: date
- *                           validUptoDate:
- *                             type: string
- *                             format: date
- *                           provider:
- *                             type: object
- *                           booking:
- *                             type: object
- *                           createdBy:
- *                             type: object
+ *                         $ref: '#/components/schemas/Insurance'
  *                     summary:
  *                       type: object
  *                       properties:
@@ -720,116 +748,6 @@ router.get(
   authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
   logAction('READ', 'InsurancePaymentsSummary'),
   insuranceController.getInsurancePaymentsSummary
-);
-
-/**
- * @swagger
- * /api/v1/insurance/{insuranceId}/payment-status:
- *   get:
- *     summary: Get insurance details with payment status and history
- *     tags: [Insurance]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: insuranceId
- *         required: true
- *         schema:
- *           type: string
- *         description: ID of the insurance record
- *     responses:
- *       200:
- *         description: Insurance payment status retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     insurance:
- *                       type: object
- *                       properties:
- *                         id:
- *                           type: string
- *                         policyNumber:
- *                           type: string
- *                         premiumAmount:
- *                           type: number
- *                         totalPaid:
- *                           type: number
- *                         remainingAmount:
- *                           type: number
- *                         paymentStatus:
- *                           type: string
- *                           enum: [PAID, PARTIAL, UNPAID]
- *                         paymentPercentage:
- *                           type: number
- *                         insuranceDate:
- *                           type: string
- *                           format: date
- *                         validUptoDate:
- *                           type: string
- *                           format: date
- *                         provider:
- *                           type: object
- *                         booking:
- *                           type: object
- *                         createdBy:
- *                           type: object
- *                     paymentHistory:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: string
- *                           amount:
- *                             type: number
- *                           paymentMode:
- *                             type: string
- *                           receivedBy:
- *                             type: object
- *                           receiptDate:
- *                             type: string
- *                             format: date-time
- *                           remark:
- *                             type: string
- *                           transactionReference:
- *                             type: string
- *                     summary:
- *                       type: object
- *                       properties:
- *                         totalEntries:
- *                           type: number
- *                         totalPaid:
- *                           type: number
- *                         remainingAmount:
- *                           type: number
- *                         paymentStatus:
- *                           type: string
- *                         paymentPercentage:
- *                           type: number
- *       400:
- *         description: Invalid insurance ID format
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Insurance record not found
- *       500:
- *         description: Server error
- */
-router.get(
-  '/:insuranceId/payment-status',
-  protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
-  logAction('READ', 'InsurancePaymentStatus'),
-  insuranceController.getInsurancePaymentStatus
 );
 
 module.exports = router;

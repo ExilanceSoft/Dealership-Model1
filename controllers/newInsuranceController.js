@@ -1,22 +1,15 @@
 const mongoose = require('mongoose');
-const Insurance = require('../models/insuranceModel');
+const Insurance = require('../models/newInsurance');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
-const InsuranceProvider = require('../models/InsuranceProvider');
 const Ledger = require('../models/Ledger');
 const CashLocation = require('../models/cashLocation');
 const Bank = require('../models/Bank');
 
-/**
- * @desc    Add insurance details for a booking
- * @route   POST /api/v1/insurance/:bookingId
- * @access  Private (Admin/Manager)
- */
 exports.addInsurance = async (req, res) => {
   try {
     const { bookingId } = req.params;
     
-    // Validate booking ID
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({
         success: false,
@@ -24,7 +17,6 @@ exports.addInsurance = async (req, res) => {
       });
     }
 
-    // Check if booking exists and is approved
     const booking = await Booking.findById(bookingId)
       .populate('model', 'name')
       .populate('color', 'name code')
@@ -44,7 +36,6 @@ exports.addInsurance = async (req, res) => {
       });
     }
 
-    // Check if insurance already exists for this booking
     const existingInsurance = await Insurance.findOne({ booking: bookingId });
     if (existingInsurance) {
       return res.status(409).json({
@@ -53,10 +44,7 @@ exports.addInsurance = async (req, res) => {
       });
     }
 
-    // Process form data
     const {
-      insuranceProvider,
-      paymentMode,
       insuranceDate,
       policyNumber,
       rsaPolicyNumber,
@@ -66,24 +54,13 @@ exports.addInsurance = async (req, res) => {
       remarks = ''
     } = req.body;
 
-    // Validate required fields
-    if (!insuranceProvider || !paymentMode || !policyNumber || !premiumAmount || !validUptoDate) {
+    if (!policyNumber || !premiumAmount || !validUptoDate) {
       return res.status(400).json({
         success: false,
-        message: 'Required fields: insuranceProvider, paymentMode, policyNumber, premiumAmount, validUptoDate'
+        message: 'Required fields: policyNumber, premiumAmount, validUptoDate'
       });
     }
 
-    // Check if insurance provider exists
-    const provider = await InsuranceProvider.findById(insuranceProvider);
-    if (!provider) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid insurance provider'
-      });
-    }
-
-    // Process uploaded files
     const documents = [];
     if (req.files) {
       Object.keys(req.files).forEach(key => {
@@ -97,11 +74,8 @@ exports.addInsurance = async (req, res) => {
       });
     }
 
-    // Create insurance data (status is automatically set to COMPLETED)
     const insuranceData = {
       booking: bookingId,
-      insuranceProvider,
-      paymentMode,
       insuranceDate: insuranceDate ? new Date(insuranceDate) : new Date(),
       policyNumber,
       rsaPolicyNumber: rsaPolicyNumber || '',
@@ -111,13 +85,11 @@ exports.addInsurance = async (req, res) => {
       documents,
       remarks,
       createdBy: req.user.id,
-      approvedBy: req.user.id // Automatically approved by creator
+      approvedBy: req.user.id
     };
 
-    // Create new insurance record
     const insurance = await Insurance.create(insuranceData);
 
-    // Log the action
     await AuditLog.create({
       action: 'CREATE',
       entity: 'Insurance',
@@ -128,10 +100,8 @@ exports.addInsurance = async (req, res) => {
       status: 'SUCCESS'
     });
 
-    // Prepare response with booking details
     const response = {
       ...insurance.toObject(),
-      insuranceProviderDetails: provider,
       bookingDetails: {
         bookingNumber: booking.bookingNumber,
         customer: {
@@ -172,14 +142,8 @@ exports.addInsurance = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get all insurances with booking details
- * @route   GET /api/v1/insurance
- * @access  Private (Admin/Manager)
- */
 exports.getAllInsurances = async (req, res) => {
   try {
-    // For non-superadmins, filter by branch
     const filter = {};
     if (!req.user.roles.some(r => r.isSuperAdmin)) {
       const bookings = await Booking.find({ branch: req.user.branch }).select('_id');
@@ -196,7 +160,6 @@ exports.getAllInsurances = async (req, res) => {
           { path: 'branch', select: 'name' }
         ]
       })
-      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email')
       .populate('approvedBy', 'name email')
       .sort({ createdAt: -1 });
@@ -216,11 +179,6 @@ exports.getAllInsurances = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get bookings awaiting insurance
- * @route   GET /api/v1/insurance/awaiting
- * @access  Private (Admin/Manager)
- */
 exports.getBookingsAwaitingInsurance = async (req, res) => {
   try {
     const filter = {
@@ -228,7 +186,6 @@ exports.getBookingsAwaitingInsurance = async (req, res) => {
       insuranceStatus: 'AWAITING'
     };
 
-    // For non-superadmins, filter by branch
     if (!req.user.roles.some(r => r.isSuperAdmin)) {
       filter.branch = req.user.branch;
     }
@@ -256,16 +213,10 @@ exports.getBookingsAwaitingInsurance = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get insurance details by chassis number
- * @route   GET /api/v1/insurance/:chassisNumber
- * @access  Private (Admin/Manager/Sales Executive)
- */
 exports.getInsuranceByChassisNumber = async (req, res) => {
   try {
     const { chassisNumber } = req.params;
 
-    // Validate chassis number format (basic validation)
     if (!chassisNumber || chassisNumber.trim().length < 5) {
       return res.status(400).json({
         success: false,
@@ -273,7 +224,6 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
       });
     }
 
-    // Find booking with this chassis number
     const booking = await Booking.findOne({ 
       chassisNumber: { $regex: new RegExp(chassisNumber, 'i') } 
     })
@@ -288,11 +238,9 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
       });
     }
 
-    // Find insurance details for this booking
     const insurance = await Insurance.findOne({ booking: booking._id })
       .populate('createdBy', 'name email')
-      .populate('approvedBy', 'name email')
-      .populate('insuranceProvider', 'provider_name');
+      .populate('approvedBy', 'name email');
 
     if (!insurance) {
       return res.status(404).json({
@@ -302,7 +250,6 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
       });
     }
 
-    // Format the response
     const response = {
       insuranceId: insurance._id,
       policyNumber: insurance.policyNumber,
@@ -310,8 +257,6 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
       insuranceDate: insurance.insuranceDate,
       validUptoDate: insurance.validUptoDate,
       premiumAmount: insurance.premiumAmount,
-      paymentMode: insurance.paymentMode,
-      insuranceProvider: insurance.insuranceProvider,
       documents: insurance.documents,
       bookingDetails: {
         bookingNumber: booking.bookingNumber,
@@ -330,7 +275,6 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
       approvalDate: insurance.approvalDate
     };
 
-    // Log successful access
     await AuditLog.create({
       action: 'READ',
       entity: 'Insurance',
@@ -367,27 +311,19 @@ exports.getInsuranceByChassisNumber = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get all bookings with their insurance details
- * @route   GET /api/v1/insurance/all-combined
- * @access  Private (Admin/Manager/SuperAdmin)
- */
 exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
   try {
     const { insuranceStatus } = req.query;
 
-    // Build filters
     const bookingFilter = {};
     if (insuranceStatus) {
       bookingFilter.insuranceStatus = insuranceStatus;
     }
 
-    // For non-superadmins, filter by branch
     if (!req.user.roles.some(r => r.isSuperAdmin)) {
       bookingFilter.branch = req.user.branch;
     }
 
-    // Get all bookings with basic details and populate model name
     const bookings = await Booking.find(bookingFilter)
       .populate({
         path: 'model',
@@ -398,21 +334,17 @@ exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
 
-    // Get all insurances for these bookings
     const insurances = await Insurance.find({
       booking: { $in: bookings.map(b => b._id) }
     })
-      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email')
       .populate('approvedBy', 'name email');
 
-    // Create a map of bookingId to insurance for quick lookup
     const insuranceMap = new Map();
     insurances.forEach(insurance => {
       insuranceMap.set(insurance.booking.toString(), insurance);
     });
 
-    // Combine the data
     const combinedData = bookings.map(booking => {
       const bookingResponse = {
         bookingNumber: booking.bookingNumber,
@@ -475,17 +407,11 @@ exports.getAllCombinedBookingInsuranceDetails = async (req, res) => {
   }
 };
 
-/**
- * @desc    Create ledger entry for insurance premium payment
- * @route   POST /api/v1/insurance/:insuranceId/ledger
- * @access  Private (Admin/Manager)
- */
 exports.createInsuranceLedgerEntry = async (req, res) => {
   try {
     const { insuranceId } = req.params;
     const { paymentMode, amount, cashLocation, bank, remark } = req.body;
     
-    // Validate insurance ID
     if (!mongoose.Types.ObjectId.isValid(insuranceId)) {
       return res.status(400).json({
         success: false,
@@ -493,7 +419,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Find the insurance record (lean query to avoid validation)
     const insurance = await Insurance.findById(insuranceId).lean();
 
     if (!insurance) {
@@ -503,7 +428,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Validate required fields
     if (!paymentMode || amount === undefined) {
       return res.status(400).json({
         success: false,
@@ -511,7 +435,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Validate amount
     if (amount <= 0) {
       return res.status(400).json({
         success: false,
@@ -519,7 +442,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Check if payment would exceed premium amount
     const existingPayments = await Ledger.find({ 
       insurance: insuranceId,
       type: 'INSURANCE_PAYMENT'
@@ -536,7 +458,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Validate payment mode specific fields
     if (paymentMode === 'Cash') {
       if (!cashLocation) {
         return res.status(400).json({
@@ -545,7 +466,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
         });
       }
       
-      // Validate cash location exists
       const cashLoc = await CashLocation.findById(cashLocation);
       if (!cashLoc) {
         return res.status(400).json({
@@ -562,7 +482,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
         });
       }
       
-      // Validate bank exists
       const bankExists = await Bank.findById(bank);
       if (!bankExists) {
         return res.status(400).json({
@@ -572,7 +491,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
       }
     }
 
-    // Create ledger entry for insurance payment
     const ledgerEntry = await Ledger.create({
       booking: insurance.booking,
       insurance: insuranceId,
@@ -586,7 +504,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
       receiptDate: new Date()
     });
 
-    // Update insurance payment status without triggering full validation
     const newTotalPaid = totalPaid + amount;
     const updateData = {
       paymentStatus: newTotalPaid >= insurance.premiumAmount ? 'PAID' : 'PARTIAL',
@@ -599,7 +516,6 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
 
     await Insurance.findByIdAndUpdate(insuranceId, updateData, { runValidators: false });
 
-    // Populate the response
     const populatedLedger = await Ledger.findById(ledgerEntry._id)
       .populate('bankDetails')
       .populate('cashLocationDetails')
@@ -629,16 +545,11 @@ exports.createInsuranceLedgerEntry = async (req, res) => {
     });
   }
 };
-/**
- * @desc    Get insurance ledger history
- * @route   GET /api/v1/insurance/:insuranceId/ledger
- * @access  Private (Admin/Manager)
- */
+
 exports.getInsuranceLedgerHistory = async (req, res) => {
   try {
     const { insuranceId } = req.params;
     
-    // Validate insurance ID
     if (!mongoose.Types.ObjectId.isValid(insuranceId)) {
       return res.status(400).json({
         success: false,
@@ -646,10 +557,8 @@ exports.getInsuranceLedgerHistory = async (req, res) => {
       });
     }
 
-    // Find the insurance record
     const insurance = await Insurance.findById(insuranceId)
       .populate('booking', 'bookingNumber customerDetails chassisNumber model color branch')
-      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email');
 
     if (!insurance) {
@@ -659,7 +568,6 @@ exports.getInsuranceLedgerHistory = async (req, res) => {
       });
     }
 
-    // Get all ledger entries for this insurance
     const ledgerEntries = await Ledger.find({ 
       insurance: insuranceId,
       type: 'INSURANCE_PAYMENT'
@@ -669,7 +577,6 @@ exports.getInsuranceLedgerHistory = async (req, res) => {
     .populate('receivedByDetails')
     .sort({ receiptDate: -1 });
 
-    // Calculate payment summary
     const totalPaid = ledgerEntries.reduce((sum, entry) => sum + entry.amount, 0);
     const remainingAmount = insurance.premiumAmount - totalPaid;
     const paymentStatus = totalPaid >= insurance.premiumAmount ? 'PAID' : 
@@ -687,7 +594,6 @@ exports.getInsuranceLedgerHistory = async (req, res) => {
           paymentStatus,
           insuranceDate: insurance.insuranceDate,
           validUptoDate: insurance.validUptoDate,
-          provider: insurance.insuranceProvider,
           booking: insurance.booking
         },
         ledgerEntries,
@@ -710,17 +616,11 @@ exports.getInsuranceLedgerHistory = async (req, res) => {
   }
 };
 
-/**
- * @desc    Update insurance ledger entry
- * @route   PUT /api/v1/insurance/ledger/:ledgerId
- * @access  Private (Admin/Manager)
- */
 exports.updateInsuranceLedgerEntry = async (req, res) => {
   try {
     const { ledgerId } = req.params;
     const { paymentMode, amount, cashLocation, bank, transactionReference, remark } = req.body;
     
-    // Validate ledger ID
     if (!mongoose.Types.ObjectId.isValid(ledgerId)) {
       return res.status(400).json({
         success: false,
@@ -728,7 +628,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Find the ledger entry
     const ledgerEntry = await Ledger.findById(ledgerId)
       .populate('insurance', 'policyNumber premiumAmount');
 
@@ -739,7 +638,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Check if it's an insurance payment
     if (ledgerEntry.type !== 'INSURANCE_PAYMENT') {
       return res.status(400).json({
         success: false,
@@ -747,15 +645,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Validate amount if provided
-    if (amount !== undefined && amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Amount must be greater than 0'
-      });
-    }
-
-    // Calculate new total if amount is being updated
     let newTotalPaid = 0;
     if (amount !== undefined && amount !== ledgerEntry.amount) {
       const existingPayments = await Ledger.find({ 
@@ -767,7 +656,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       const otherPayments = existingPayments.reduce((sum, entry) => sum + entry.amount, 0);
       newTotalPaid = otherPayments + amount;
       
-      // Check if new total exceeds premium amount
       const insurance = await Insurance.findById(ledgerEntry.insurance);
       if (insurance && newTotalPaid > insurance.premiumAmount) {
         return res.status(400).json({
@@ -777,7 +665,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       }
     }
 
-    // Validate payment mode specific fields
     const updatedPaymentMode = paymentMode || ledgerEntry.paymentMode;
     if (updatedPaymentMode === 'Cash') {
       if (!cashLocation) {
@@ -812,7 +699,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       }
     }
 
-    // Update the ledger entry
     ledgerEntry.paymentMode = updatedPaymentMode;
     if (amount !== undefined) ledgerEntry.amount = amount;
     ledgerEntry.cashLocation = updatedPaymentMode === 'Cash' ? cashLocation : undefined;
@@ -822,7 +708,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
     
     await ledgerEntry.save();
 
-    // Update insurance payment status if amount was changed
     if (amount !== undefined && amount !== ledgerEntry.amount) {
       const insurance = await Insurance.findById(ledgerEntry.insurance);
       if (insurance) {
@@ -836,7 +721,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       }
     }
 
-    // Log the action
     await AuditLog.create({
       action: 'UPDATE',
       entity: 'InsuranceLedger',
@@ -851,7 +735,6 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
       status: 'SUCCESS'
     });
 
-    // Populate the response
     const populatedLedger = await Ledger.findById(ledgerEntry._id)
       .populate('bankDetails')
       .populate('cashLocationDetails')
@@ -886,16 +769,10 @@ exports.updateInsuranceLedgerEntry = async (req, res) => {
   }
 };
 
-/**
- * @desc    Delete insurance ledger entry
- * @route   DELETE /api/v1/insurance/ledger/:ledgerId
- * @access  Private (Admin/Manager)
- */
 exports.deleteInsuranceLedgerEntry = async (req, res) => {
   try {
     const { ledgerId } = req.params;
     
-    // Validate ledger ID
     if (!mongoose.Types.ObjectId.isValid(ledgerId)) {
       return res.status(400).json({
         success: false,
@@ -903,7 +780,6 @@ exports.deleteInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Find the ledger entry
     const ledgerEntry = await Ledger.findById(ledgerId)
       .populate('insurance', 'policyNumber premiumAmount');
 
@@ -914,7 +790,6 @@ exports.deleteInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Check if it's an insurance payment
     if (ledgerEntry.type !== 'INSURANCE_PAYMENT') {
       return res.status(400).json({
         success: false,
@@ -922,13 +797,10 @@ exports.deleteInsuranceLedgerEntry = async (req, res) => {
       });
     }
 
-    // Store insurance ID for later use
     const insuranceId = ledgerEntry.insurance;
 
-    // Delete the ledger entry
     await Ledger.findByIdAndDelete(ledgerId);
 
-    // Recalculate insurance payment status
     const remainingPayments = await Ledger.find({ 
       insurance: insuranceId,
       type: 'INSURANCE_PAYMENT'
@@ -949,7 +821,6 @@ exports.deleteInsuranceLedgerEntry = async (req, res) => {
       await insurance.save();
     }
 
-    // Log the action
     await AuditLog.create({
       action: 'DELETE',
       entity: 'InsuranceLedger',
@@ -995,16 +866,10 @@ exports.deleteInsuranceLedgerEntry = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get all insurance payments summary
- * @route   GET /api/v1/insurance/payments/summary
- * @access  Private (Admin/Manager/SuperAdmin)
- */
 exports.getInsurancePaymentsSummary = async (req, res) => {
   try {
-    const { startDate, endDate, paymentStatus, provider, branch } = req.query;
+    const { startDate, endDate, paymentStatus, branch } = req.query;
     
-    // Build filters
     const filter = {};
     if (startDate && endDate) {
       filter.insuranceDate = {
@@ -1012,11 +877,7 @@ exports.getInsurancePaymentsSummary = async (req, res) => {
         $lte: new Date(endDate)
       };
     }
-    if (provider) {
-      filter.insuranceProvider = provider;
-    }
 
-    // For non-superadmins, filter by branch
     if (!req.user.roles.some(r => r.isSuperAdmin)) {
       const bookings = await Booking.find({ branch: req.user.branch }).select('_id');
       filter.booking = { $in: bookings.map(b => b._id) };
@@ -1025,27 +886,22 @@ exports.getInsurancePaymentsSummary = async (req, res) => {
       filter.booking = { $in: bookings.map(b => b._id) };
     }
 
-    // Get all insurances with payment details
     const insurances = await Insurance.find(filter)
       .populate('booking', 'bookingNumber customerDetails chassisNumber model color branch')
-      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email');
 
-    // Get all insurance ledger entries
     const insuranceIds = insurances.map(ins => ins._id);
     const ledgerEntries = await Ledger.find({
       insurance: { $in: insuranceIds },
       type: 'INSURANCE_PAYMENT'
     });
 
-    // Create a map of insuranceId to total paid
     const paymentMap = new Map();
     ledgerEntries.forEach(entry => {
       const current = paymentMap.get(entry.insurance.toString()) || 0;
       paymentMap.set(entry.insurance.toString(), current + entry.amount);
     });
 
-    // Process insurance data with payment information
     const processedInsurances = insurances.map(insurance => {
       const totalPaid = paymentMap.get(insurance._id.toString()) || 0;
       const remainingAmount = insurance.premiumAmount - totalPaid;
@@ -1061,19 +917,16 @@ exports.getInsurancePaymentsSummary = async (req, res) => {
         paymentStatus,
         insuranceDate: insurance.insuranceDate,
         validUptoDate: insurance.validUptoDate,
-        provider: insurance.insuranceProvider,
         booking: insurance.booking,
         createdBy: insurance.createdBy
       };
     });
 
-    // Filter by payment status if provided
     let filteredInsurances = processedInsurances;
     if (paymentStatus) {
       filteredInsurances = processedInsurances.filter(ins => ins.paymentStatus === paymentStatus);
     }
 
-    // Calculate summary statistics
     const summary = {
       totalInsurances: filteredInsurances.length,
       totalPremiumAmount: filteredInsurances.reduce((sum, ins) => sum + ins.premiumAmount, 0),
@@ -1102,16 +955,10 @@ exports.getInsurancePaymentsSummary = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get insurance details with payment status
- * @route   GET /api/v1/insurance/:insuranceId/payment-status
- * @access  Private (Admin/Manager)
- */
 exports.getInsurancePaymentStatus = async (req, res) => {
   try {
     const { insuranceId } = req.params;
     
-    // Validate insurance ID
     if (!mongoose.Types.ObjectId.isValid(insuranceId)) {
       return res.status(400).json({
         success: false,
@@ -1119,10 +966,8 @@ exports.getInsurancePaymentStatus = async (req, res) => {
       });
     }
 
-    // Find the insurance record
     const insurance = await Insurance.findById(insuranceId)
       .populate('booking', 'bookingNumber customerDetails chassisNumber model color branch')
-      .populate('insuranceProvider', 'provider_name')
       .populate('createdBy', 'name email');
 
     if (!insurance) {
@@ -1132,7 +977,6 @@ exports.getInsurancePaymentStatus = async (req, res) => {
       });
     }
 
-    // Get all ledger entries for this insurance
     const ledgerEntries = await Ledger.find({ 
       insurance: insuranceId,
       type: 'INSURANCE_PAYMENT'
@@ -1140,13 +984,11 @@ exports.getInsurancePaymentStatus = async (req, res) => {
     .populate('receivedByDetails')
     .sort({ receiptDate: -1 });
 
-    // Calculate payment summary
     const totalPaid = ledgerEntries.reduce((sum, entry) => sum + entry.amount, 0);
     const remainingAmount = insurance.premiumAmount - totalPaid;
     const paymentStatus = totalPaid >= insurance.premiumAmount ? 'PAID' : 
                          totalPaid > 0 ? 'PARTIAL' : 'UNPAID';
 
-    // Calculate payment percentage
     const paymentPercentage = insurance.premiumAmount > 0 ? 
       Math.round((totalPaid / insurance.premiumAmount) * 100) : 0;
 
@@ -1163,7 +1005,6 @@ exports.getInsurancePaymentStatus = async (req, res) => {
           paymentPercentage,
           insuranceDate: insurance.insuranceDate,
           validUptoDate: insurance.validUptoDate,
-          provider: insurance.insuranceProvider,
           booking: insurance.booking,
           createdBy: insurance.createdBy
         },

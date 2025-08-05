@@ -404,6 +404,20 @@ exports.getKYCDocuments = async (req, res) => {
       });
     }
 
+    // First get the booking details
+    const booking = await Booking.findById(bookingId)
+      .select('bookingNumber customerDetails chassisNumber model color branch')
+      .populate('model', 'name model_name')
+      .populate('color', 'name code')
+      .populate('branch', 'name');
+
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found' 
+      });
+    }
+
     const kyc = await KYC.findOne({ booking: bookingId })
       .select('aadharFront aadharBack panCard vPhoto chasisNoPhoto addressProof1 addressProof2 documentPdf');
 
@@ -414,9 +428,23 @@ exports.getKYCDocuments = async (req, res) => {
       });
     }
 
+    // Prepare booking details for response
+    const bookingDetails = {
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber,
+      customerName: booking.customerDetails.name,
+      chassisNumber: booking.chassisNumber,
+      model: booking.model,
+      color: booking.color,
+      branch: booking.branch
+    };
+
     res.status(200).json({
       success: true,
-      data: kyc
+      data: {
+        bookingDetails,
+        kycDocuments: kyc
+      }
     });
   } catch (err) {
     console.error('Error fetching KYC documents:', err);
