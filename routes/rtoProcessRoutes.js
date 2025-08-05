@@ -180,6 +180,42 @@ router.get('/rtotaxpending', rtoController.getRtoProcessesWithRtoTaxPending);
 
 /**
  * @swagger
+ * /api/v1/rtoProcess/stats:
+ *   get:
+ *     summary: Get total, monthly, and daily counts for all RTO process steps
+ *     tags: [RTO Processes]
+ *     responses:
+ *       200:
+ *         description: Counts retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalApplications:
+ *                       $ref: '#/components/schemas/StatBlock'
+ *                     rtoPaperVerify:
+ *                       $ref: '#/components/schemas/StatBlock'
+ *                     rtoTaxVerify:
+ *                       $ref: '#/components/schemas/StatBlock'
+ *                     rtoTaxUpdate:
+ *                       $ref: '#/components/schemas/StatBlock'
+ *                     hsrpOrdering:
+ *                       $ref: '#/components/schemas/StatBlock'
+ *                     hsrpInstallation:
+ *                       $ref: '#/components/schemas/StatBlock'
+ *                     rcConfirmation:
+ *                       $ref: '#/components/schemas/StatBlock'
+ */
+router.get('/stats', rtoController.getRtoProcessStats);
+
+/**
+ * @swagger
  * /api/v1/rtoProcess/rtotaxcompleted:
  *   get:
  *     summary: Get RTO processes with application numbers
@@ -517,6 +553,77 @@ router.patch(
   logAction('UPDATE', 'RtoProcess'),
   rtoController.updateRtoProcess
 );
+
+/**
+ * @swagger
+ * /api/v1/rtoProcess/update-rto-details:
+ *   put:
+ *     summary: Update RTO details for multiple RTO IDs (bulk update)
+ *     tags: [RTO Processes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - updates
+ *             properties:
+ *               updates:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - rtoId
+ *                     - rtoAmount
+ *                     - numberPlate
+ *                     - receiptNumber
+ *                   properties:
+ *                     rtoId:
+ *                       type: string
+ *                       description: RTO Process ID
+ *                       example: "64f9e9f9a1b2c3d4e5f6a7b8"
+ *                     rtoAmount:
+ *                       type: number
+ *                       example: 2500
+ *                     numberPlate:
+ *                       type: string
+ *                       example: "MH12AB1234"
+ *                     receiptNumber:
+ *                       type: string
+ *                       example: "RCPT2025-789"
+ *     responses:
+ *       200:
+ *         description: RTO records updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 updated:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/RtoProcess'
+ *       400:
+ *         description: Invalid input
+ *       500:
+ *         description: Server error
+ */
+router.put(
+  '/update-rto-details',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN'),
+  logAction('BULK_UPDATE', 'RtoProcess'),
+  rtoController.updateMultipleRtoProcessesTaxDetails
+);
+
+
 
 /**
  * @swagger

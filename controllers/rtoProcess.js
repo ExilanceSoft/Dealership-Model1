@@ -131,11 +131,41 @@ exports.getAllRtoProcesses = async (req, res) => {
   }
 };
 
+exports.getAllRtoProcessRecords = async (req, res) => {
+  try {
+    // Find all RTO processes with basic population
+    const rtoProcesses = await RtoProcess.find()
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "bookingId",
+        select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+        populate: {
+          path: "model",
+          select: "model_name type",
+        },
+      })
+      .populate("createdBy", "name email") 
+      .populate("updatedBy", "name email"); 
+
+    res.status(200).json({
+      success: true,
+      count: rtoProcesses.length,
+      data: rtoProcesses,
+    });
+  } catch (error) {
+    console.error("Error fetching all RTO records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 
 exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
   try {
     let rtoProcesses = await RtoProcess.find({
-      applicationNumber: { $ne: null, $nin: [""] }, // shorter syntax
+      applicationNumber: { $ne: null, $nin: [""] }, 
     }).populate({
       path: "bookingId",
       select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
@@ -752,6 +782,51 @@ exports.updateRtoProcess = async (req, res) => {
 };
 
 
+
+exports.updateMultipleRtoProcessesTaxDetails = async (req, res) => {
+  try {
+    const { updates, receiptNumber } = req.body;
+
+    if (!receiptNumber || !Array.isArray(updates)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid input: receiptNumber and updates are required",
+      });
+    }
+
+    const updatePromises = updates.map((item) =>
+      RtoProcess.findByIdAndUpdate(
+        item.rtoId,
+        {
+          rtoAmount: item.rtoAmount,
+          numberPlate: item.numberPlate,
+          receiptNumber: receiptNumber,
+          rtoPendingTaxStatus: true
+
+        },
+        { new: true }
+      )
+    );
+
+    const updatedRecords = await Promise.all(updatePromises);
+
+    res.status(200).json({
+      success: true,
+      message: "RTO Processes updated successfully",
+      data: updatedRecords,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+
+
 exports.deleteRtoProcess = async (req, res) => {
   try {
     const rto = await RtoProcess.findByIdAndDelete(req.params.id);
@@ -788,5 +863,49 @@ exports.deleteRtoProcess = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: "Server error", error: err.message });
+  }
+};
+
+
+exports.getRtoProcessStats = async (req, res) => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const getCount = async (filter = {}) => {
+      const total = await RtoProcess.countDocuments(filter);
+      const monthly = await RtoProcess.countDocuments({
+        ...filter,
+        updatedAt: { $gte: startOfMonth },
+      });
+      const daily = await RtoProcess.countDocuments({
+        ...filter,
+        updatedAt: { $gte: startOfDay },
+      });
+      return { total, monthly, daily };
+    };
+
+    const stats = {
+      totalApplications: await getCount(),
+      rtoPaperVerify: await getCount({ rtoPaperStatus: { $nin: ["Not Submitted", "N/A"] } }),
+      rtoTaxVerify: await getCount({ rtoPendingTaxStatus: true }),
+      rtoTaxUpdate: await getCount({ receiptNumber: { $ne: null } }),
+      hsrpOrdering: await getCount({ hsrbOrdering: true }),
+      hsrpInstallation: await getCount({ hsrbInstallation: true }),
+      rcConfirmation: await getCount({ rcConfirmation: true }),
+    };
+
+    res.status(200).json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    console.error("Error getting RTO stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };

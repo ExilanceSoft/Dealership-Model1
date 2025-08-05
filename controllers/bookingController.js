@@ -119,6 +119,7 @@ const bookingFormTemplate = Handlebars.compile(templateHtml);
 //         throw error;
 //     }
 // };
+
 const generateBookingFormHTML = async (booking, saveToFile = true) => {
     try {
         // Prepare data for the template
@@ -3037,7 +3038,10 @@ exports.getFullyPaidPendingRTOBookings = async (req, res) => {
     const bookings = await Booking.find({
       balanceAmount: 0,
       rtoStatus: 'pending'
-    }).lean();
+    }).lean().populate({
+        path: "model",
+        select: "model_name type",
+      });
 
     res.status(200).json({ success: true, count: bookings.length, data: bookings });
   } catch (error) {
