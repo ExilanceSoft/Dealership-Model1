@@ -7,86 +7,75 @@ const logger = require('../config/logger');
 const mongoose = require('mongoose');
 const QRCode = require('qrcode');
 const User = require('../models/User');
+const csv = require('csv-parser');
+const { stringify } = require('csv-stringify');
 
-
-// Enhanced population options with error handling
 const populateOptions = [
   {
     path: 'model',
     model: 'Model',
     select: 'model_name type status prices colors createdAt',
-    match: { _id: { $exists: true } } // Only populate if model exists
+    match: { _id: { $exists: true } }
   },
   {
     path: 'unloadLocation',
     model: 'Branch',
     select: 'name address city state pincode phone email gst_number is_active',
-    match: { _id: { $exists: true } } // Only populate if branch exists
+    match: { _id: { $exists: true } }
   },
   {
     path: 'colors',
     model: 'Color',
-    select: 'name hex_code status models createdAt',
-    match: { _id: { $exists: true } } // Only populate if color exists
+    select: 'name status models createdAt',
+    match: { _id: { $exists: true } }
   },
   {
     path: 'addedBy',
     model: 'User',
     select: 'name email',
-    match: { _id: { $exists: true } } // Only populate if user exists
+    match: { _id: { $exists: true } }
   }
 ];
 
-// Create a new vehicle
-// Create a new vehicle
 exports.createVehicle = async (req, res, next) => {
   try {
     const { model, unloadLocation, type, colors, chassisNumber } = req.body;
     
-    // Basic validation
     if (!model || !unloadLocation || !type || !colors || !chassisNumber) {
       return next(new AppError('Model, unload location, type, colors, and chassis number are required', 400));
     }
     
-    // Validate ObjectId formats
     if (!mongoose.Types.ObjectId.isValid(model) || 
         !mongoose.Types.ObjectId.isValid(unloadLocation) ||
         colors.some(color => !mongoose.Types.ObjectId.isValid(color))) {
       return next(new AppError('Invalid ID format', 400));
     }
 
-    // Validate referenced documents exist
+    if (!['EV', 'ICE'].includes(type.toUpperCase())) {
+      return next(new AppError('Type must be EV or ICE', 400));
+    }
+
     const [modelExists, branchExists, colorsExist] = await Promise.all([
       Model.exists({ _id: model }),
       Branch.exists({ _id: unloadLocation }),
       Color.countDocuments({ _id: { $in: colors } })
     ]);
 
-    if (!modelExists) {
-      return next(new AppError('Referenced model does not exist', 400));
-    }
+    if (!modelExists) return next(new AppError('Referenced model does not exist', 400));
+    if (!branchExists) return next(new AppError('Referenced branch does not exist', 400));
+    if (colorsExist !== colors.length) return next(new AppError('One or more referenced colors do not exist', 400));
 
-    if (!branchExists) {
-      return next(new AppError('Referenced branch does not exist', 400));
-    }
-
-    if (colorsExist !== colors.length) {
-      return next(new AppError('One or more referenced colors do not exist', 400));
-    }
-
-    // Check for existing vehicle with same chassis number
     const existingVehicle = await Vehicle.findOne({ chassisNumber });
     if (existingVehicle) {
       return next(new AppError(`Vehicle with chassis number ${chassisNumber} already exists`, 409));
     }
     
-    // Create the vehicle
     const newVehicle = await Vehicle.create({
       ...req.body,
+      type: type.toUpperCase(),
       addedBy: req.user.id
     });
     
-    // Generate QR code data URL
     const vehicleWithRefs = await Vehicle.findById(newVehicle._id).populate(populateOptions);
     
     const qrCodeData = {
@@ -100,7 +89,6 @@ exports.createVehicle = async (req, res, next) => {
     
     const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(qrCodeData));
     
-    // Update vehicle with QR code URL
     const vehicleWithQr = await Vehicle.findByIdAndUpdate(
       newVehicle._id,
       { qrCodeImage: qrCodeUrl },
@@ -114,7 +102,6 @@ exports.createVehicle = async (req, res, next) => {
       }
     });
   } catch (err) {
-    // Handle duplicate key error specifically
     if (err.code === 11000 && err.keyPattern?.chassisNumber) {
       const duplicateValue = err.keyValue?.chassisNumber;
       logger.error(`Duplicate chassis number error: ${duplicateValue}`);
@@ -130,12 +117,9 @@ exports.getVehicleCounts = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).populate('branch');
     
-    // For superadmin - get counts for all branches
     if (await user.isSuperAdmin()) {
-      // Get all active branches
       const branches = await Branch.find({ is_active: true });
       
-      // Get counts for each branch
       const branchCounts = await Promise.all(
         branches.map(async (branch) => {
           const counts = await Vehicle.aggregate([
@@ -176,7 +160,6 @@ exports.getVehicleCounts = async (req, res, next) => {
       });
     }
     
-    // For non-superadmin users - get counts for their branch only
     if (!user.branch) {
       return next(new AppError('User is not assigned to any branch', 400));
     }
@@ -217,14 +200,13 @@ exports.getVehicleCounts = async (req, res, next) => {
     next(new AppError('Server Error', 500));
   }
 };
-// Get all vehicles with filtering options
+
 exports.getAllVehicles = async (req, res, next) => {
   try {
     const { type, status, model, location, color, hasDamage } = req.query;
     
     let query = Vehicle.find();
     
-    // Apply filters if provided
     if (type && ['EV', 'ICE'].includes(type.toUpperCase())) {
       query = query.where('type').equals(type.toUpperCase());
     }
@@ -251,45 +233,38 @@ exports.getAllVehicles = async (req, res, next) => {
       query = query.where('hasDamage').equals(false);
     }
     
-    // Apply population with error handling
     query = query.populate(populateOptions);
     
     const vehicles = await query;
     
-    // Transform the response to handle null references
     const transformedVehicles = vehicles.map(vehicle => {
       const vehicleObj = vehicle.toObject();
       
-      // Handle missing model
       if (!vehicleObj.model) {
         vehicleObj.model = {
-          _id: vehicle.model, // Original ID
+          _id: vehicle.model,
           model_name: 'Unknown Model',
           type: 'Unknown'
         };
       }
       
-      // Handle missing location
       if (!vehicleObj.unloadLocation) {
         vehicleObj.unloadLocation = {
-          _id: vehicle.unloadLocation, // Original ID
+          _id: vehicle.unloadLocation,
           name: 'Unknown Location'
         };
       }
       
-      // Handle missing colors
       vehicleObj.colors = vehicleObj.colors.map(color => {
         return color || {
-          _id: color, // Original ID
-          name: 'Unknown Color',
-          hex_code: '#CCCCCC'
+          _id: color,
+          name: 'Unknown Color'
         };
       });
       
-      // Handle missing addedBy
       if (!vehicleObj.addedBy) {
         vehicleObj.addedBy = {
-          _id: vehicle.addedBy, // Original ID
+          _id: vehicle.addedBy,
           name: 'Unknown User'
         };
       }
@@ -310,7 +285,6 @@ exports.getAllVehicles = async (req, res, next) => {
   }
 };
 
-// Get a single vehicle by ID
 exports.getVehicleById = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.vehicleId)) {
@@ -324,7 +298,6 @@ exports.getVehicleById = async (req, res, next) => {
       return next(new AppError('No vehicle found with that ID', 404));
     }
 
-    // Transform the response to handle null references
     const vehicleObj = vehicle.toObject();
     
     if (!vehicleObj.model) {
@@ -369,7 +342,6 @@ exports.getVehicleById = async (req, res, next) => {
   }
 };
 
-// Get vehicle by QR code
 exports.getVehicleByQrCode = async (req, res, next) => {
   try {
     const { qrCode } = req.params;
@@ -381,7 +353,6 @@ exports.getVehicleByQrCode = async (req, res, next) => {
       return next(new AppError('No vehicle found with that QR code', 404));
     }
 
-    // Transform the response to handle null references
     const vehicleObj = vehicle.toObject();
     
     if (!vehicleObj.model) {
@@ -426,7 +397,6 @@ exports.getVehicleByQrCode = async (req, res, next) => {
   }
 };
 
-// Update vehicle status
 exports.updateVehicleStatus = async (req, res, next) => {
   try {
     const { vehicleId } = req.params;
@@ -450,7 +420,6 @@ exports.updateVehicleStatus = async (req, res, next) => {
       return next(new AppError('No vehicle found with that ID', 404));
     }
 
-    // Transform the response to handle null references
     const vehicleObj = updatedVehicle.toObject();
     
     if (!vehicleObj.model) {
@@ -495,7 +464,6 @@ exports.updateVehicleStatus = async (req, res, next) => {
   }
 };
 
-// Add damage to vehicle
 exports.addDamage = async (req, res, next) => {
   try {
     const { vehicleId } = req.params;
@@ -522,7 +490,6 @@ exports.addDamage = async (req, res, next) => {
       return next(new AppError('No vehicle found with that ID', 404));
     }
 
-    // Transform the response to handle null references
     const vehicleObj = updatedVehicle.toObject();
     
     if (!vehicleObj.model) {
@@ -567,7 +534,6 @@ exports.addDamage = async (req, res, next) => {
   }
 };
 
-// Generate QR code for existing vehicle
 exports.generateQrCode = async (req, res, next) => {
   try {
     const { vehicleId } = req.params;
@@ -583,7 +549,6 @@ exports.generateQrCode = async (req, res, next) => {
       return next(new AppError('No vehicle found with that ID', 404));
     }
 
-    // Transform the response to handle null references
     const vehicleObj = vehicle.toObject();
     
     if (!vehicleObj.model) {
@@ -616,7 +581,6 @@ exports.generateQrCode = async (req, res, next) => {
       };
     }
     
-    // Generate QR code data URL
     const qrCodeData = {
       model: vehicleObj.model.model_name,
       chassisNumber: vehicle.chassisNumber,
@@ -628,7 +592,6 @@ exports.generateQrCode = async (req, res, next) => {
     
     const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(qrCodeData));
     
-    // Update vehicle with QR code URL
     const updatedVehicle = await Vehicle.findByIdAndUpdate(
       vehicleId,
       { qrCodeImage: qrCodeUrl },
@@ -648,21 +611,17 @@ exports.generateQrCode = async (req, res, next) => {
   }
 };
 
-// Get vehicles by branch
 exports.getVehiclesByBranch = async (req, res, next) => {
   try {
     const { branchId } = req.params;
 
-    // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(branchId)) {
       return next(new AppError('Invalid branch ID format', 400));
     }
 
-    // Find vehicles by unloadLocation (branch)
     const vehicles = await Vehicle.find({ unloadLocation: branchId })
       .populate(populateOptions);
 
-    // Transform the response to handle null references
     const transformedVehicles = vehicles.map(vehicle => {
       const vehicleObj = vehicle.toObject();
       
@@ -712,7 +671,6 @@ exports.getVehiclesByBranch = async (req, res, next) => {
   }
 };
 
-// Get vehicle by chassis number
 exports.getVehicleByChassisNumber = async (req, res, next) => {
   try {
     const { chassisNumber } = req.params;
@@ -728,7 +686,6 @@ exports.getVehicleByChassisNumber = async (req, res, next) => {
       return next(new AppError('No vehicle found with that chassis number', 404));
     }
 
-    // Transform the response to handle null references
     const vehicleObj = vehicle.toObject();
     
     if (!vehicleObj.model) {
@@ -770,5 +727,237 @@ exports.getVehicleByChassisNumber = async (req, res, next) => {
   } catch (err) {
     logger.error(`Error getting vehicle by chassis number: ${err.message}`);
     next(new AppError('Server Error', 500));
+  }
+};
+
+exports.exportCSVTemplate = async (req, res, next) => {
+  try {
+    const { type, branch_id } = req.query;
+    
+    if (!type || !['EV', 'ICE'].includes(type.toUpperCase())) {
+      return next(new AppError('Type is required and must be EV or ICE', 400));
+    }
+    
+    if (!branch_id) {
+      return next(new AppError('Branch ID is required', 400));
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(branch_id)) {
+      return next(new AppError('Invalid branch ID format', 400));
+    }
+
+    const normalizedType = type.toUpperCase();
+    const branch = await Branch.findById(branch_id);
+    if (!branch) return next(new AppError('Branch not found', 404));
+
+    const vehicles = await Vehicle.find({ 
+      type: normalizedType,
+      unloadLocation: branch_id
+    }).populate([
+      { path: 'model', select: 'model_name type status' },
+      { path: 'colors', select: 'name' }
+    ]).sort({ createdAt: -1 });
+
+    const csvData = [];
+    const headerRow = [
+      'model_name', 'branch_name', 'type', 'colors', 'batteryNumber',
+      'keyNumber', 'chassisNumber', 'motorNumber', 'chargerNumber',
+      'engineNumber', 'hasDamage', 'status'
+    ];
+    csvData.push(headerRow);
+
+    vehicles.forEach(vehicle => {
+      csvData.push([
+        vehicle.model?.model_name || '',
+        branch.name,
+        vehicle.type || normalizedType,
+        vehicle.colors?.map(c => c.name).join('|') || '',
+        vehicle.batteryNumber || '',
+        vehicle.keyNumber || '',
+        vehicle.chassisNumber || '',
+        vehicle.motorNumber || '',
+        vehicle.chargerNumber || '',
+        vehicle.engineNumber || '',
+        vehicle.hasDamage ? 'true' : 'false',
+        vehicle.status || 'in_stock'
+      ]);
+    });
+
+    const stringifier = stringify({
+      header: false,
+      delimiter: ',',
+      quoted: true,
+      quoted_empty: true,
+      quoted_string: true,
+      escape: '"',
+      bom: true
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=vehicle_inward_${normalizedType}_${branch.name.replace(/\s+/g, '_')}_${Date.now()}.csv`
+    );
+
+    stringifier.pipe(res);
+    csvData.forEach(row => stringifier.write(row));
+    stringifier.end();
+
+  } catch (err) {
+    logger.error(`Error exporting CSV template: ${err.message}`);
+    next(new AppError('Error generating CSV template', 500));
+  }
+};
+
+exports.importCSV = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return next(new AppError('Please upload a CSV file', 400));
+    }
+
+    const csvString = req.file.buffer.toString('utf8').trim();
+    const csvData = csvString.split('\n')
+      .filter(row => row.trim() !== '')
+      .map(row => {
+        const cells = row.split(',')
+          .map(cell => {
+            const trimmed = cell.trim();
+            return trimmed.replace(/^"|"$/g, '');
+          });
+        return cells;
+      });
+
+    if (csvData.length < 2) {
+      return next(new AppError('CSV must contain at least header and data rows', 400));
+    }
+
+    const headerRow = csvData[0];
+    const dataRows = csvData.slice(1);
+    const errors = [];
+    let importedCount = 0;
+    let updatedCount = 0;
+
+    for (const row of dataRows) {
+      try {
+        const vehicleData = {};
+        
+        headerRow.forEach((header, index) => {
+          const value = row[index];
+          if (value !== undefined && value !== '') {
+            switch (header.toLowerCase()) {
+              case 'model_name':
+                vehicleData.model_name = value;
+                break;
+              case 'branch_name':
+                vehicleData.branch_name = value;
+                break;
+              case 'type':
+                vehicleData.type = value.toUpperCase();
+                break;
+              case 'colors':
+                vehicleData.colors = value.split('|').filter(c => c.trim() !== '');
+                break;
+              case 'batterynumber':
+                vehicleData.batteryNumber = value;
+                break;
+              case 'keynumber':
+                vehicleData.keyNumber = value;
+                break;
+              case 'chassisnumber':
+                vehicleData.chassisNumber = value;
+                break;
+              case 'motornumber':
+                vehicleData.motorNumber = value;
+                break;
+              case 'chargernumber':
+                vehicleData.chargerNumber = value;
+                break;
+              case 'enginenumber':
+                vehicleData.engineNumber = value;
+                break;
+              case 'hasdamage':
+                vehicleData.hasDamage = value.toLowerCase() === 'true';
+                break;
+              case 'status':
+                vehicleData.status = value.toLowerCase();
+                break;
+            }
+          }
+        });
+
+        if (!vehicleData.model_name || !vehicleData.branch_name || !vehicleData.type || !vehicleData.chassisNumber) {
+          errors.push(`Row ${dataRows.indexOf(row) + 2}: Missing required fields`);
+          continue;
+        }
+
+        if (!['EV', 'ICE'].includes(vehicleData.type)) {
+          errors.push(`Row ${dataRows.indexOf(row) + 2}: Invalid type ${vehicleData.type} - must be EV or ICE`);
+          continue;
+        }
+
+        const branch = await Branch.findOne({ name: vehicleData.branch_name });
+        if (!branch) {
+          errors.push(`Row ${dataRows.indexOf(row) + 2}: Branch '${vehicleData.branch_name}' does not exist`);
+          continue;
+        }
+        vehicleData.unloadLocation = branch._id;
+        
+        if (req.query.branch_id && branch._id.toString() !== req.query.branch_id) {
+          errors.push(`Row ${dataRows.indexOf(row) + 2}: Branch '${vehicleData.branch_name}' does not match the export branch`);
+          continue;
+        }
+
+        let model = await Model.findOne({ model_name: vehicleData.model_name });
+        if (!model) {
+          model = await Model.create({
+            model_name: vehicleData.model_name,
+            type: vehicleData.type,
+            status: 'active',
+            createdBy: req.user.id
+          });
+        }
+        vehicleData.model = model._id;
+
+        const colorIds = [];
+        for (const colorName of vehicleData.colors) {
+          let color = await Color.findOne({ name: colorName });
+          if (!color) {
+            color = await Color.create({
+              name: colorName,
+              status: 'active'
+            });
+          }
+          colorIds.push(color._id);
+        }
+        vehicleData.colors = colorIds;
+
+        const existingVehicle = await Vehicle.findOne({ chassisNumber: vehicleData.chassisNumber });
+
+        if (existingVehicle) {
+          Object.assign(existingVehicle, vehicleData);
+          await existingVehicle.save();
+          updatedCount++;
+        } else {
+          vehicleData.addedBy = req.user.id;
+          await Vehicle.create(vehicleData);
+          importedCount++;
+        }
+
+      } catch (rowError) {
+        errors.push(`Row ${dataRows.indexOf(row) + 2}: ${rowError.message}`);
+      }
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'CSV import completed',
+      imported: importedCount,
+      updated: updatedCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (err) {
+    logger.error(`Error importing CSV: ${err.message}`);
+    next(new AppError('Error processing CSV file', 500));
   }
 };

@@ -32,7 +32,7 @@ const populateOptions = [
   }
 ];
 
-// Create a new stock transfer
+// Create a new stock transfer (immediately completes it)
 exports.createTransfer = async (req, res, next) => {
   try {
     // Validate request body
@@ -46,14 +46,14 @@ exports.createTransfer = async (req, res, next) => {
       return next(new AppError('Source and destination branches cannot be the same', 400));
     }
 
-    // Create the transfer
+    // Create the transfer (status will be automatically set to completed by post-save hook)
     const transfer = await StockTransfer.create({
       ...req.body,
       initiatedBy: req.user.id,
       expectedDeliveryDate: req.body.expectedDeliveryDate || new Date()
     });
 
-    // Populate the transfer details
+    // Get the populated transfer
     const populatedTransfer = await StockTransfer.findById(transfer._id)
       .populate(populateOptions);
 
@@ -142,7 +142,7 @@ exports.getTransferById = async (req, res, next) => {
   }
 };
 
-// Update transfer status (e.g., mark as in transit or completed)
+// Update transfer status (only allow cancellation after creation)
 exports.updateTransferStatus = async (req, res, next) => {
   try {
     const { transferId } = req.params;
@@ -152,54 +152,18 @@ exports.updateTransferStatus = async (req, res, next) => {
       return next(new AppError('Invalid transfer ID format', 400));
     }
 
-    if (!status || !['pending', 'in_transit', 'completed', 'cancelled'].includes(status)) {
-      return next(new AppError('Valid status is required', 400));
+    if (!status || !['completed', 'cancelled'].includes(status)) {
+      return next(new AppError('Only completed or cancelled status is allowed', 400));
     }
 
-    // Get the current transfer
+    // Get the transfer
     const transfer = await StockTransfer.findById(transferId);
     if (!transfer) {
       return next(new AppError('No transfer found with that ID', 404));
     }
 
-    // Prevent invalid status transitions
-    if (transfer.status === 'completed' || transfer.status === 'cancelled') {
-      return next(new AppError(`Cannot modify a ${transfer.status} transfer`, 400));
-    }
-
-    // Handle status-specific logic
-    if (status === 'in_transit') {
-      // Mark transfer as in transit
-      transfer.status = 'in_transit';
-      await transfer.save();
-    } 
-    else if (status === 'completed') {
-      // Mark transfer as completed and update vehicle locations
-      transfer.status = 'completed';
-      transfer.receivedBy = req.user.id;
-      transfer.receivedAt = new Date();
-
-      // Update each item status
-      transfer.items.forEach(item => {
-        item.status = 'completed';
-        item.receivedAt = new Date();
-        item.receivedBy = req.user.id;
-      });
-
-      await transfer.save();
-
-      // Update vehicle locations and statuses
-      const vehicleIds = transfer.items.map(item => item.vehicle);
-      await Vehicle.updateMany(
-        { _id: { $in: vehicleIds } },
-        { 
-          unloadLocation: transfer.toBranch,
-          status: 'in_stock'
-        }
-      );
-    }
-    else if (status === 'cancelled') {
-      // Mark transfer as cancelled and revert vehicle statuses
+    // Only allow cancellation
+    if (status === 'cancelled') {
       transfer.status = 'cancelled';
       
       // Update each item status
@@ -209,11 +173,14 @@ exports.updateTransferStatus = async (req, res, next) => {
 
       await transfer.save();
 
-      // Revert vehicle statuses to 'in_stock'
+      // Revert vehicle locations to source branch
       const vehicleIds = transfer.items.map(item => item.vehicle);
       await Vehicle.updateMany(
         { _id: { $in: vehicleIds } },
-        { status: 'in_stock' }
+        { 
+          unloadLocation: transfer.fromBranch,
+          status: 'in_stock'
+        }
       );
     }
 
@@ -233,7 +200,7 @@ exports.updateTransferStatus = async (req, res, next) => {
   }
 };
 
-// Update individual transfer item status
+// Update individual transfer item status (only allow cancellation)
 exports.updateTransferItemStatus = async (req, res, next) => {
   try {
     const { transferId, itemId } = req.params;
@@ -243,8 +210,8 @@ exports.updateTransferItemStatus = async (req, res, next) => {
       return next(new AppError('Invalid transfer or item ID format', 400));
     }
 
-    if (!status || !['pending', 'in_transit', 'completed', 'cancelled'].includes(status)) {
-      return next(new AppError('Valid status is required', 400));
+    if (!status || status !== 'cancelled') {
+      return next(new AppError('Only cancellation is allowed for individual items', 400));
     }
 
     // Find the transfer
@@ -259,22 +226,17 @@ exports.updateTransferItemStatus = async (req, res, next) => {
       return next(new AppError('No item found with that ID in this transfer', 404));
     }
 
-    // Update item status
-    item.status = status;
+    // Only allow cancellation
+    item.status = 'cancelled';
     if (notes) item.notes = notes;
 
-    if (status === 'completed') {
-      item.receivedAt = new Date();
-      item.receivedBy = req.user.id;
-
-      // Update vehicle location and status
-      await Vehicle.findByIdAndUpdate(item.vehicle, {
-        unloadLocation: transfer.toBranch,
-        status: 'in_stock'
-      });
-    }
-
     await transfer.save();
+
+    // Revert this specific vehicle's location to source branch
+    await Vehicle.findByIdAndUpdate(item.vehicle, {
+      unloadLocation: transfer.fromBranch,
+      status: 'in_stock'
+    });
 
     // Get the updated transfer with populated data
     const updatedTransfer = await StockTransfer.findById(transferId)

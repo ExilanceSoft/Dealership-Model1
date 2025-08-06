@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const insuranceController = require('../controllers/insuranceController');
+const insuranceController = require('../controllers/newInsuranceController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');

@@ -33,6 +33,7 @@ const ledgerSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  
   cashLocation: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CashLocation',

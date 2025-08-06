@@ -5,7 +5,6 @@ const { protect, authorize, roleAuthorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const path = require('path');
 
-
 /**
  * @swagger
  * tags:
@@ -110,7 +109,7 @@ const path = require('path');
  *         - name
  *         - mobile
  *         - email
- *         - branchData
+ *         - branchesData
  *       properties:
  *         name:
  *           type: string
@@ -125,41 +124,43 @@ const path = require('path');
  *           type: string
  *           format: email
  *           example: "john.doe@example.com"
- *         branchData:
- *           type: object
- *           required:
- *             - branch
- *             - commissionType
- *           properties:
- *             branch:
- *               type: string
- *               format: objectId
- *               example: "507f1f77bcf86cd799439011"
- *             commissionType:
- *               type: string
- *               enum: [FIXED, VARIABLE]
- *               example: "VARIABLE"
- *             fixedCommission:
- *               type: number
- *               minimum: 0
- *               example: 1000
- *             commissionRange:
- *               type: string
- *               enum: [20k-40k, 40k-60k, 60k-80k, 80k-100k, 100k+]
- *               example: "40k-60k"
- *             isActive:
- *               type: boolean
- *               default: true
+ *         branchesData:
+ *           type: array
+ *           items:
+ *             type: object
+ *             required:
+ *               - branch
+ *               - commissionType
+ *             properties:
+ *               branch:
+ *                 type: string
+ *                 format: objectId
+ *                 example: "507f1f77bcf86cd799439011"
+ *               commissionType:
+ *                 type: string
+ *                 enum: [FIXED, VARIABLE]
+ *                 example: "VARIABLE"
+ *               fixedCommission:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 1000
+ *               commissionRange:
+ *                 type: string
+ *                 enum: [20k-40k, 40k-60k, 60k-80k, 80k-100k, 100k+]
+ *                 example: "40k-60k"
+ *               isActive:
+ *                 type: boolean
+ *                 default: true
  */
 
 /**
  * @swagger
  * /api/v1/brokers:
  *   post:
- *     summary: Create new broker or add branch to existing broker
+ *     summary: Create new broker with multiple branches or add branches to existing broker
  *     description: |
- *       - Creates new broker if doesn't exist
- *       - Adds branch to existing broker if already exists
+ *       - Creates new broker with multiple branches if doesn't exist
+ *       - Adds branches to existing broker if already exists
  *       - Requires Branch Manager+ privileges
  *     tags: [Brokers]
  *     security:
@@ -171,31 +172,29 @@ const path = require('path');
  *           schema:
  *             $ref: '#/components/schemas/BrokerInput'
  *           examples:
- *             fixedCommissionExample:
- *               summary: Example with FIXED commission
+ *             multipleBranchesExample:
+ *               summary: Example with multiple branches
  *               value:
  *                 name: "John Doe"
  *                 mobile: "9876543210"
  *                 email: "john.doe@example.com"
- *                 branchData:
- *                   branch: "507f1f77bcf86cd799439011"
- *                   commissionType: "FIXED"
- *                   fixedCommission: 1000
- *                   isActive: true
- *             variableCommissionExample:
- *               summary: Example with VARIABLE commission
- *               value:
- *                 name: "Jane Smith"
- *                 mobile: "9876543211"
- *                 email: "jane.smith@example.com"
- *                 branchData:
- *                   branch: "507f1f77bcf86cd799439011"
- *                   commissionType: "VARIABLE"
- *                   commissionRange: "40k-60k"
- *                   isActive: true
+ *                 branchesData: [
+ *                   {
+ *                     branch: "507f1f77bcf86cd799439011",
+ *                     commissionType: "FIXED",
+ *                     fixedCommission: 1000,
+ *                     isActive: true
+ *                   },
+ *                   {
+ *                     branch: "507f1f77bcf86cd799439012",
+ *                     commissionType: "VARIABLE",
+ *                     commissionRange: "40k-60k",
+ *                     isActive: true
+ *                   }
+ *                 ]
  *     responses:
  *       201:
- *         description: Broker created or branch added successfully
+ *         description: Broker created or branches added successfully
  *         content:
  *           application/json:
  *             schema:
@@ -211,8 +210,8 @@ const path = require('path');
  *           Possible validation errors:
  *           - Branch reference is required
  *           - Invalid commission type configuration
- *           - Broker already associated with this branch
- *           - Branch not found
+ *           - Broker already associated with one or more branches
+ *           - One or more branches not found
  *           - Invalid commission range
  *       401:
  *         description: Unauthorized (missing or invalid token)

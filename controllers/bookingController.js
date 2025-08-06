@@ -1251,6 +1251,11 @@ exports.getBookingByChassisNumber = async (req, res) => {
     });
   }
 };
+/**
+ * @desc    Approve booking (simple version - just updates status)
+ * @route   PUT /api/v1/bookings/:id/approve
+ * @access  Private (Admin/Manager)
+ */
 exports.approveBooking = async (req, res) => {
   try {
     // 1. Validate booking ID format
@@ -1261,18 +1266,10 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
-    // 2. Validate chassis number format if provided (consistent with schema validation)
-    if (req.body.chassisNumber && !/^[A-Z0-9]{17}$/.test(req.body.chassisNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Chassis number must be exactly 17 alphanumeric characters'
-      });
-    }
-
-    // 3. Check user permissions
+    // 2. Check user permissions
     const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
     const isManagerOrAdmin = req.user.roles.some(r => 
-      ['MANAGER', 'ADMIN', 'SUPERADMIN'].includes(r.name)
+      ['MANAGER', 'ADMIN'].includes(r.name)
     );
 
     if (!isSuperAdmin && !isManagerOrAdmin) {
@@ -1282,105 +1279,38 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
-    // 4. Check for duplicate chassis number across all bookings
-    if (req.body.chassisNumber) {
-      const chassisNumber = req.body.chassisNumber.toUpperCase();
-      const existingBooking = await Booking.findOne({ 
-        chassisNumber,
-        _id: { $ne: req.params.id } // Exclude current booking from check
-      });
-
-      if (existingBooking) {
-        return res.status(400).json({
-          success: false,
-          message: 'Chassis number already assigned to another booking'
-        });
-      }
-    }
-
-    // 5. Get vehicle details if chassis number exists
-    let vehicleDetails = {};
-    if (req.body.chassisNumber) {
-      const vehicle = await Vehicle.findOne({ 
-        chassisNumber: req.body.chassisNumber.toUpperCase() 
-      });
-
-      if (vehicle) {
-        vehicleDetails = {
-          batteryNumber: vehicle.batteryNumber || null,
-          keyNumber: vehicle.keyNumber || null,
-          motorNumber: vehicle.motorNumber || null,
-          chargerNumber: vehicle.chargerNumber || null,
-          engineNumber: vehicle.engineNumber || null,
-          qrCode: vehicle.qrCode || null,
-          vehicleRef: vehicle._id
-        };
-      }
-    }
-
-    // 6. Prepare update data
-    const updateData = {
-      status: 'APPROVED',
-      insuranceStatus: 'AWAITING',
-      approvedBy: req.user.id,
-      approvedAt: new Date(),
-      "discounts.$[].approvedBy": req.user.id,
-      "discounts.$[].approvalStatus": 'APPROVED',
-      "discounts.$[].approvalNote": req.body.approvalNote || '',
-      ...(req.body.chassisNumber && { 
-        chassisNumber: req.body.chassisNumber.toUpperCase() 
-      }),
-      ...vehicleDetails
-    };
-
-    // 7. Update booking with duplicate check handling
-    let booking;
-    try {
-      booking = await Booking.findOneAndUpdate(
-        {
-          _id: req.params.id,
-          status: 'PENDING_APPROVAL'
-        },
-        { $set: updateData },
-        { 
-          new: true,
-          runValidators: true 
+    // 3. Find and update the booking (no status condition)
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { 
+        $set: { 
+          status: 'APPROVED',
+          approvedBy: req.user.id,
+          approvedAt: new Date(),
+          // Also approve any pending discounts if they exist
+          "discounts.$[].approvedBy": req.user.id,
+          "discounts.$[].approvalStatus": 'APPROVED',
+          "discounts.$[].approvalNote": req.body.approvalNote || 'Approved'
         }
-      )
-        .populate("model", "model_name type")
-        .populate("color", "name code")
-        .populate("branch", "name address")
-        .populate("approvedBy", "name email mobile");
-    } catch (err) {
-      if (err.code === 11000 && err.keyPattern && err.keyPattern.chassisNumber) {
-        return res.status(400).json({
-          success: false,
-          message: 'Chassis number already exists in another booking'
-        });
+      },
+      { 
+        new: true,
+        runValidators: true 
       }
-      throw err; // Re-throw other errors
-    }
+    )
+      .populate("model", "model_name type")
+      .populate("color", "name code")
+      .populate("branch", "name address")
+      .populate("approvedBy", "name email mobile");
 
     if (!booking) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Booking not found or not pending approval' 
+        message: 'Booking not found' 
       });
     }
 
-    // 8. Prepare response
-    const response = {
-      ...booking.toObject(),
-      fullCustomerName: `${booking.customerDetails.salutation || ""} ${booking.customerDetails.name || ""}`.trim(),
-      batteryNumber: vehicleDetails.batteryNumber,
-      keyNumber: vehicleDetails.keyNumber,
-      motorNumber: vehicleDetails.motorNumber,
-      chargerNumber: vehicleDetails.chargerNumber,
-      engineNumber: vehicleDetails.engineNumber,
-      qrCode: vehicleDetails.qrCode
-    };
-
-    // 9. Generate booking form (async - don't block response)
+    // 4. (Optional) Generate booking form if needed
     if (process.env.GENERATE_FORMS === 'true') {
       generateBookingFormHTML(booking)
         .then(formResult => {
@@ -1393,44 +1323,40 @@ exports.approveBooking = async (req, res) => {
         });
     }
 
-    // 10. Create audit log (async - don't block response)
-    AuditLog.create({
+    // 5. Create audit log
+    await AuditLog.create({
       action: "APPROVE",
       entity: "Booking",
       entityId: booking._id,
       user: req.user.id,
       ip: req.ip,
       metadata: {
-        approvalNote: req.body.approvalNote || null,
-        chassisNumber: req.body.chassisNumber || null,
-        previousStatus: 'PENDING_APPROVAL'
+        approvalNote: req.body.approvalNote || 'No note provided'
       },
       status: "SUCCESS"
-    }).catch(err => console.error("Audit Log Error:", err));
+    });
 
-    // 11. Return success response
+    // 6. Return success response
     res.status(200).json({
       success: true,
-      data: response,
+      data: booking,
       message: 'Booking approved successfully'
     });
 
   } catch (err) {
     console.error("Error approving booking:", err);
     
-    // Create error audit log (async)
-    AuditLog.create({
+    await AuditLog.create({
       action: "APPROVE",
       entity: "Booking",
       entityId: req.params.id,
       user: req.user.id,
       ip: req.ip,
       metadata: {
-        error: err.message,
-        chassisNumber: req.body?.chassisNumber || null
+        error: err.message
       },
       status: "FAILED"
-    }).catch(auditErr => console.error("Audit Log Error:", auditErr));
+    });
 
     res.status(500).json({
       success: false,
@@ -3047,6 +2973,117 @@ exports.getFullyPaidPendingRTOBookings = async (req, res) => {
   } catch (error) {
     console.error('Error fetching fully paid & pending RTO bookings:', error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};
+
+/**
+ * @desc    Allocate chassis number to booking
+ * @route   PUT /api/v1/bookings/:id/allocate
+ * @access  Private (Admin/Manager)
+ */
+exports.allocateChassisNumber = async (req, res) => {
+  try {
+    // Validate booking ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid booking ID format' 
+      });
+    }
+
+    // Validate chassis number format
+    if (!req.body.chassisNumber || !/^[A-Z0-9]{17}$/.test(req.body.chassisNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chassis number must be exactly 17 alphanumeric characters'
+      });
+    }
+
+    // Check user permissions
+    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
+    const isManagerOrAdmin = req.user.roles.some(r => 
+      ['MANAGER', 'ADMIN'].includes(r.name)
+    );
+
+    if (!isSuperAdmin && !isManagerOrAdmin) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Unauthorized to allocate chassis numbers' 
+      });
+    }
+
+    // Check for duplicate chassis number
+    const existingBooking = await Booking.findOne({ 
+      chassisNumber: req.body.chassisNumber.toUpperCase(),
+      _id: { $ne: req.params.id }
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chassis number already assigned to another booking'
+      });
+    }
+
+    // Find and update the booking
+    const booking = await Booking.findOneAndUpdate(
+      { 
+        _id: req.params.id,
+        status: { $in: ['PENDING_APPROVAL', 'APPROVED'] } // Only allow allocation for these statuses
+      },
+      { 
+        $set: { 
+          chassisNumber: req.body.chassisNumber.toUpperCase(),
+          status: 'ALLOCATED'
+        }
+      },
+      { new: true }
+    ).populate('model color branch createdBy salesExecutive');
+
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Booking not found or not in a valid status for allocation' 
+      });
+    }
+
+    // Create audit log
+    await AuditLog.create({
+      action: 'ALLOCATE_CHASSIS',
+      entity: 'Booking',
+      entityId: booking._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        chassisNumber: req.body.chassisNumber
+      },
+      status: 'SUCCESS'
+    });
+
+    res.status(200).json({
+      success: true,
+      data: booking,
+      message: 'Chassis number allocated successfully'
+    });
+
+  } catch (err) {
+    console.error('Error allocating chassis number:', err);
+    
+    await AuditLog.create({
+      action: 'ALLOCATE_CHASSIS',
+      entity: 'Booking',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error allocating chassis number',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 

@@ -1,7 +1,13 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
-// Sub-schemas
+const CounterSchema = new mongoose.Schema({
+  _id: { type: String, required: true },
+  seq: { type: Number, default: 0 }
+});
+
+const Counter = mongoose.model('Counter', CounterSchema);
+
 const exchangeVehicleSchema = new mongoose.Schema({
   broker: {
     type: mongoose.Schema.Types.ObjectId,
@@ -153,7 +159,6 @@ const discountSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-// Main Booking Schema
 const bookingSchema = new mongoose.Schema({
   bookingNumber: {
     type: String,
@@ -174,12 +179,12 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     trim: true,
     uppercase: true,
-    unique: true, // Ensures no duplicate chassis numbers
-    sparse: true, // Allows null values but enforces uniqueness for non-null
+    unique: true,
+    sparse: true,
     validate: {
       validator: function(v) {
-        if (!v) return true; // Allow empty (optional)
-        return /^[A-Z0-9]{17}$/.test(v); // 17 alphanumeric chars
+        if (!v) return true;
+        return /^[A-Z0-9]{17}$/.test(v);
       },
       message: 'Chassis number must be 17 alphanumeric characters',
     },
@@ -242,7 +247,7 @@ const bookingSchema = new mongoose.Schema({
     enum: ['MH', 'BH', 'CRTM'],
     required: [true, 'RTO is required']
   },
-   rtoStatus: {
+  rtoStatus: {
     type: String,
     enum: ['pending', 'completed'],
     default: 'pending',
@@ -423,18 +428,16 @@ const bookingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Ledger'
   }],
-  status: {
-    type: String,
-    enum: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED', 'PENDING_APPROVAL (Discount_Exceeded)'],
-    default: 'DRAFT'
-  },
-  // In Booking.js
-  // In Booking.js, change the insuranceStatus enum to:
-insuranceStatus: {
+status: {
   type: String,
-  enum: ['NOT_APPLICABLE', 'AWAITING', 'COMPLETED'], // Removed 'PENDING' and 'REJECTED'
-  default: 'NOT_APPLICABLE'
+  enum: ['DRAFT', 'PENDING_APPROVAL', 'ALLOCATED', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED', 'PENDING_APPROVAL (Discount_Exceeded)'],
+  default: 'DRAFT'
 },
+  insuranceStatus: {
+    type: String,
+    enum: ['NOT_APPLICABLE', 'AWAITING', 'COMPLETED'],
+    default: 'NOT_APPLICABLE'
+  },
   branch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
@@ -554,7 +557,6 @@ insuranceStatus: {
   }
 });
 
-// Virtual for vehicle details
 bookingSchema.virtual('vehicle', {
   ref: 'Vehicle',
   localField: 'vehicleRef',
@@ -565,13 +567,16 @@ bookingSchema.virtual('vehicle', {
   }
 });
 
-// Generate booking number before saving
 bookingSchema.pre('save', async function(next) {
   if (!this.bookingNumber) {
-    const count = await this.constructor.countDocuments();
-    this.bookingNumber = `BK${(count + 1).toString().padStart(6, '0')}`;
+    const counter = await Counter.findByIdAndUpdate(
+      { _id: 'bookingNumber' },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    this.bookingNumber = `BK${counter.seq.toString().padStart(6, '0')}`;
   }
-  
+
   if ((this.rto === 'BH' || this.rto === 'CRTM') && !this.rtoAmount) {
     const model = await mongoose.model('Model').findById(this.model);
     if (model) {
@@ -592,7 +597,6 @@ bookingSchema.pre('save', async function(next) {
     }
   }
   
-  // Ensure balance is calculated correctly
   if (this.isModified('receivedAmount') || this.isModified('discountedAmount')) {
     this.balanceAmount = this.discountedAmount - this.receivedAmount;
   }
@@ -600,7 +604,6 @@ bookingSchema.pre('save', async function(next) {
   next();
 });
 
-// Indexes
 bookingSchema.index({ bookingNumber: 1 });
 bookingSchema.index({ model: 1 });
 bookingSchema.index({ color: 1 });
@@ -614,7 +617,6 @@ bookingSchema.index({ 'customerDetails.mobile1': 1 });
 bookingSchema.index({ createdAt: 1 });
 bookingSchema.index({ updatedAt: 1 });
 
-// Virtual population
 bookingSchema.virtual('modelDetails', {
   ref: 'Model',
   localField: 'model',
@@ -664,7 +666,6 @@ bookingSchema.virtual('fullCustomerName').get(function() {
   return `${this.customerDetails.salutation} ${this.customerDetails.name}`.trim();
 });
 
-// Add pagination plugin
 bookingSchema.plugin(mongoosePaginate);
 
 const Booking = mongoose.model('Booking', bookingSchema);

@@ -8,7 +8,7 @@ const transferItemSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'in_transit', 'completed', 'cancelled'],
+    enum: ['pending', 'completed', 'cancelled'],
     default: 'pending'
   },
   receivedAt: {
@@ -48,7 +48,7 @@ const stockTransferSchema = new mongoose.Schema({
   items: [transferItemSchema],
   status: {
     type: String,
-    enum: ['pending', 'in_transit', 'completed', 'cancelled'],
+    enum: ['pending', 'completed', 'cancelled'],
     default: 'pending'
   },
   initiatedBy: {
@@ -116,13 +116,32 @@ stockTransferSchema.pre('save', async function(next) {
   }
 });
 
-// Post-save hook to update vehicle status
+// Post-save hook to update vehicle status and location immediately
 stockTransferSchema.post('save', async function(doc, next) {
   try {
-    if (doc.status === 'pending' || doc.status === 'in_transit') {
+    if (doc.isNew) {
+      // Immediately mark transfer as completed
+      doc.status = 'completed';
+      doc.receivedBy = doc.initiatedBy;
+      doc.receivedAt = new Date();
+
+      // Update all items to completed
+      doc.items.forEach(item => {
+        item.status = 'completed';
+        item.receivedAt = new Date();
+        item.receivedBy = doc.initiatedBy;
+      });
+
+      await doc.save();
+
+      // Update vehicle locations to destination branch
+      const vehicleIds = doc.items.map(item => item.vehicle);
       await mongoose.model('Vehicle').updateMany(
-        { _id: { $in: doc.items.map(item => item.vehicle) } },
-        { status: 'in_transit' }
+        { _id: { $in: vehicleIds } },
+        { 
+          unloadLocation: doc.toBranch,
+          status: 'in_stock'
+        }
       );
     }
     next();

@@ -145,7 +145,6 @@ router.post('/:bookingId/submit',
   logAction('SUBMIT_KYC', 'KYC'),
   kycController.submitKYC
 );
-
 /**
  * @swagger
  * /api/v1/kyc/{bookingId}/verify:
@@ -291,7 +290,7 @@ router.post('/:bookingId/verify',
  * @swagger
  * /api/v1/kyc/{bookingId}/documents:
  *   get:
- *     summary: Get KYC documents for a booking with booking details
+ *     summary: Get all KYC documents for a booking
  *     tags: [KYC]
  *     security:
  *       - bearerAuth: []
@@ -304,90 +303,17 @@ router.post('/:bookingId/verify',
  *         description: Booking ID
  *     responses:
  *       200:
- *         description: KYC documents with booking details
+ *         description: All KYC documents
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     bookingDetails:
- *                       type: object
- *                       properties:
- *                         bookingId:
- *                           type: string
- *                           description: Booking ID
- *                         bookingNumber:
- *                           type: string
- *                           description: Booking number
- *                         customerName:
- *                           type: string
- *                           description: Customer name
- *                         chassisNumber:
- *                           type: string
- *                           description: Vehicle chassis number
- *                         model:
- *                           type: object
- *                           properties:
- *                             _id:
- *                               type: string
- *                             name:
- *                               type: string
- *                             model_name:
- *                               type: string
- *                         color:
- *                           type: object
- *                           properties:
- *                             _id:
- *                               type: string
- *                             name:
- *                               type: string
- *                             code:
- *                               type: string
- *                         branch:
- *                           type: object
- *                           properties:
- *                             _id:
- *                               type: string
- *                             name:
- *                               type: string
- *                     kycDocuments:
- *                       type: object
- *                       properties:
- *                         aadharFront:
- *                           type: string
- *                           description: Aadhar front document path
- *                         aadharBack:
- *                           type: string
- *                           description: Aadhar back document path
- *                         panCard:
- *                           type: string
- *                           description: PAN card document path
- *                         vPhoto:
- *                           type: string
- *                           description: Vehicle photo document path
- *                         chasisNoPhoto:
- *                           type: string
- *                           description: Chassis number photo document path
- *                         addressProof1:
- *                           type: string
- *                           description: Address proof 1 document path
- *                         addressProof2:
- *                           type: string
- *                           description: Address proof 2 document path
- *                         documentPdf:
- *                           type: string
- *                           description: Combined PDF document path
+ *               $ref: '#/components/schemas/KYCDocuments'
  *       400:
  *         description: Invalid booking ID
  *       401:
  *         description: Unauthorized
  *       404:
- *         description: Booking or KYC not found
+ *         description: KYC not found
  *       500:
  *         description: Server error
  */

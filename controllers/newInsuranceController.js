@@ -7,140 +7,141 @@ const CashLocation = require('../models/cashLocation');
 const Bank = require('../models/Bank');
 
 exports.addInsurance = async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    
-    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid booking ID format'
-      });
-    }
-
-    const booking = await Booking.findById(bookingId)
-      .populate('model', 'name')
-      .populate('color', 'name code')
-      .populate('branch', 'name');
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
-
-    if (booking.status !== 'APPROVED') {
-      return res.status(400).json({
-        success: false,
-        message: 'Booking must be in APPROVED status to add insurance'
-      });
-    }
-
-    const existingInsurance = await Insurance.findOne({ booking: bookingId });
-    if (existingInsurance) {
-      return res.status(409).json({
-        success: false,
-        message: 'Insurance already exists for this booking'
-      });
-    }
-
-    const {
-      insuranceDate,
-      policyNumber,
-      rsaPolicyNumber,
-      cmsPolicyNumber,
-      premiumAmount,
-      validUptoDate,
-      remarks = ''
-    } = req.body;
-
-    if (!policyNumber || !premiumAmount || !validUptoDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Required fields: policyNumber, premiumAmount, validUptoDate'
-      });
-    }
-
-    const documents = [];
-    if (req.files) {
-      Object.keys(req.files).forEach(key => {
-        if (key.startsWith('document')) {
-          documents.push({
-            url: req.files[key][0].path,
-            name: req.files[key][0].originalname,
-            type: 'POLICY'
-          });
-        }
-      });
-    }
-
-    const insuranceData = {
-      booking: bookingId,
-      insuranceDate: insuranceDate ? new Date(insuranceDate) : new Date(),
-      policyNumber,
-      rsaPolicyNumber: rsaPolicyNumber || '',
-      cmsPolicyNumber: cmsPolicyNumber || '',
-      premiumAmount,
-      validUptoDate: new Date(validUptoDate),
-      documents,
-      remarks,
-      createdBy: req.user.id,
-      approvedBy: req.user.id
-    };
-
-    const insurance = await Insurance.create(insuranceData);
-
-    await AuditLog.create({
-      action: 'CREATE',
-      entity: 'Insurance',
-      entityId: insurance._id,
-      user: req.user.id,
-      ip: req.ip,
-      metadata: insuranceData,
-      status: 'SUCCESS'
-    });
-
-    const response = {
-      ...insurance.toObject(),
-      bookingDetails: {
-        bookingNumber: booking.bookingNumber,
-        customer: {
-          name: booking.customerDetails.name,
-          mobile: booking.customerDetails.mobile1,
-          email: booking.customerDetails.email
-        },
-        chassisNumber: booking.chassisNumber,
-        model: booking.model,
-        color: booking.color,
-        branch: booking.branch
+    try {
+      const { bookingId } = req.params;
+      
+      if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid booking ID format'
+        });
       }
-    };
-
-    res.status(201).json({
-      success: true,
-      data: response
-    });
-
-  } catch (err) {
-    console.error('Error adding insurance:', err);
-    
-    await AuditLog.create({
-      action: 'CREATE',
-      entity: 'Insurance',
-      user: req.user?.id,
-      ip: req.ip,
-      status: 'FAILED',
-      metadata: req.body,
-      error: err.message
-    });
-
-    res.status(500).json({
-      success: false,
-      message: 'Error adding insurance',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-};
+  
+      const booking = await Booking.findById(bookingId)
+        .populate('model', 'name')
+        .populate('color', 'name code')
+        .populate('branch', 'name');
+  
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: 'Booking not found'
+        });
+      }
+  
+      if (booking.status !== 'APPROVED') {
+        return res.status(400).json({
+          success: false,
+          message: 'Booking must be in APPROVED status to add insurance'
+        });
+      }
+  
+      const existingInsurance = await Insurance.findOne({ booking: bookingId });
+      if (existingInsurance) {
+        return res.status(409).json({
+          success: false,
+          message: 'Insurance already exists for this booking'
+        });
+      }
+  
+      const {
+        insuranceDate,
+        policyNumber,
+        rsaPolicyNumber,
+        cmsPolicyNumber,
+        premiumAmount,
+        validUptoDate,
+        remarks = ''
+      } = req.body;
+  
+      // Modified validation to remove insuranceProvider and paymentMode
+      if (!policyNumber || !premiumAmount || !validUptoDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Required fields: policyNumber, premiumAmount, validUptoDate'
+        });
+      }
+  
+      const documents = [];
+      if (req.files) {
+        Object.keys(req.files).forEach(key => {
+          if (key.startsWith('document')) {
+            documents.push({
+              url: req.files[key][0].path,
+              name: req.files[key][0].originalname,
+              type: 'POLICY'
+            });
+          }
+        });
+      }
+  
+      const insuranceData = {
+        booking: bookingId,
+        insuranceDate: insuranceDate ? new Date(insuranceDate) : new Date(),
+        policyNumber,
+        rsaPolicyNumber: rsaPolicyNumber || '',
+        cmsPolicyNumber: cmsPolicyNumber || '',
+        premiumAmount,
+        validUptoDate: new Date(validUptoDate),
+        documents,
+        remarks,
+        createdBy: req.user.id,
+        approvedBy: req.user.id
+      };
+  
+      const insurance = await Insurance.create(insuranceData);
+  
+      await AuditLog.create({
+        action: 'CREATE',
+        entity: 'Insurance',
+        entityId: insurance._id,
+        user: req.user.id,
+        ip: req.ip,
+        metadata: insuranceData,
+        status: 'SUCCESS'
+      });
+  
+      const response = {
+        ...insurance.toObject(),
+        bookingDetails: {
+          bookingNumber: booking.bookingNumber,
+          customer: {
+            name: booking.customerDetails.name,
+            mobile: booking.customerDetails.mobile1,
+            email: booking.customerDetails.email
+          },
+          chassisNumber: booking.chassisNumber,
+          model: booking.model,
+          color: booking.color,
+          branch: booking.branch
+        }
+      };
+  
+      res.status(201).json({
+        success: true,
+        data: response
+      });
+  
+    } catch (err) {
+      console.error('Error adding insurance:', err);
+      
+      await AuditLog.create({
+        action: 'CREATE',
+        entity: 'Insurance',
+        user: req.user?.id,
+        ip: req.ip,
+        status: 'FAILED',
+        metadata: req.body,
+        error: err.message
+      });
+  
+      res.status(500).json({
+        success: false,
+        message: 'Error adding insurance',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
+    }
+  };
 
 exports.getAllInsurances = async (req, res) => {
   try {

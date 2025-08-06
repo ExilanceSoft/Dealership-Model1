@@ -3,6 +3,7 @@ const router = express.Router();
 const vehicleController = require('../controllers/vehicleInwardController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const upload = require('../middlewares/upload');
 
 /**
  * @swagger
@@ -198,7 +199,7 @@ const { logAction } = require('../middlewares/audit');
  * @swagger
  * /api/v1/inward:
  *   post:
- *     summary: Add a new vehicle to inward stock (Admin+)
+ *     summary: Create a new vehicle
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
@@ -210,28 +211,17 @@ const { logAction } = require('../middlewares/audit');
  *             $ref: '#/components/schemas/VehicleInput'
  *     responses:
  *       201:
- *         description: Vehicle added successfully
+ *         description: Vehicle created successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       $ref: '#/components/schemas/Vehicle'
+ *               $ref: '#/components/schemas/Vehicle'
  *       400:
- *         description: Validation error
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: Model, location or color not found
+ *         description: Forbidden
  *       500:
  *         description: Server error
  */
@@ -242,79 +232,51 @@ router.post(
   logAction('CREATE', 'Vehicle'),
   vehicleController.createVehicle
 );
+
 /**
  * @swagger
  * /api/v1/inward/counts:
  *   get:
- *     summary: Get vehicle counts by status and branch
- *     description: Superadmins get counts for all branches, others get counts for their own branch
+ *     summary: Get vehicle counts by status
+ *     description: Superadmins get counts for all branches, others get counts for their branch
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Vehicle counts retrieved successfully
+ *         description: Vehicle counts retrieved
  *         content:
  *           application/json:
  *             schema:
- *               oneOf:
- *                 - type: object
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
  *                   properties:
- *                     status:
- *                       type: string
- *                       example: success
- *                     data:
- *                       type: object
- *                       properties:
- *                         counts:
- *                           type: array
- *                           items:
- *                             type: object
- *                             properties:
- *                               branchId:
- *                                 type: string
- *                               branchName:
- *                                 type: string
- *                               branchCity:
- *                                 type: string
- *                               statusCounts:
- *                                 type: array
- *                                 items:
- *                                   type: object
- *                                   properties:
- *                                     status:
- *                                       type: string
- *                                     count:
- *                                       type: number
- *                               total:
- *                                 type: number
- *                 - type: object
- *                   properties:
- *                     status:
- *                       type: string
- *                       example: success
- *                     data:
- *                       type: object
- *                       properties:
- *                         branchId:
- *                           type: string
- *                         branchName:
- *                           type: string
- *                         branchCity:
- *                           type: string
- *                         statusCounts:
- *                           type: array
- *                           items:
- *                             type: object
- *                             properties:
- *                               status:
- *                                 type: string
- *                               count:
- *                                 type: number
- *                         total:
- *                           type: number
+ *                     counts:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           branchId:
+ *                             type: string
+ *                           branchName:
+ *                             type: string
+ *                           statusCounts:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 status:
+ *                                   type: string
+ *                                 count:
+ *                                   type: number
+ *                           total:
+ *                             type: number
  *       400:
- *         description: User not assigned to any branch
+ *         description: Bad request
  *       401:
  *         description: Unauthorized
  *       500:
@@ -326,11 +288,12 @@ router.get(
   logAction('GET_COUNTS', 'Vehicle'),
   vehicleController.getVehicleCounts
 );
+
 /**
  * @swagger
  * /api/v1/inward:
  *   get:
- *     summary: Get all inward vehicles with filtering options
+ *     summary: Get all vehicles with filtering
  *     tags: [Vehicle Inward]
  *     parameters:
  *       - in: query
@@ -354,7 +317,7 @@ router.get(
  *         name: location
  *         schema:
  *           type: string
- *         description: Filter by unload location ID
+ *         description: Filter by branch ID
  *       - in: query
  *         name: color
  *         schema:
@@ -375,10 +338,8 @@ router.get(
  *               properties:
  *                 status:
  *                   type: string
- *                   example: success
  *                 results:
  *                   type: number
- *                   example: 10
  *                 data:
  *                   type: object
  *                   properties:
@@ -395,7 +356,7 @@ router.get('/', vehicleController.getAllVehicles);
  * @swagger
  * /api/v1/inward/{vehicleId}:
  *   get:
- *     summary: Get an inward vehicle by ID
+ *     summary: Get vehicle by ID
  *     tags: [Vehicle Inward]
  *     parameters:
  *       - in: path
@@ -403,25 +364,15 @@ router.get('/', vehicleController.getAllVehicles);
  *         required: true
  *         schema:
  *           type: string
- *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       200:
  *         description: Vehicle details
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       $ref: '#/components/schemas/Vehicle'
+ *               $ref: '#/components/schemas/Vehicle'
  *       400:
- *         description: Invalid ID format
+ *         description: Invalid ID
  *       404:
  *         description: Vehicle not found
  *       500:
@@ -433,7 +384,7 @@ router.get('/:vehicleId', vehicleController.getVehicleById);
  * @swagger
  * /api/v1/inward/qr/{qrCode}:
  *   get:
- *     summary: Get an inward vehicle by QR code
+ *     summary: Get vehicle by QR code
  *     tags: [Vehicle Inward]
  *     parameters:
  *       - in: path
@@ -441,23 +392,13 @@ router.get('/:vehicleId', vehicleController.getVehicleById);
  *         required: true
  *         schema:
  *           type: string
- *         example: VH-CHS1234567890-abc123
  *     responses:
  *       200:
  *         description: Vehicle details
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       $ref: '#/components/schemas/Vehicle'
+ *               $ref: '#/components/schemas/Vehicle'
  *       404:
  *         description: Vehicle not found
  *       500:
@@ -469,7 +410,7 @@ router.get('/qr/:qrCode', vehicleController.getVehicleByQrCode);
  * @swagger
  * /api/v1/inward/{vehicleId}/status:
  *   put:
- *     summary: Update inward vehicle status (Admin+)
+ *     summary: Update vehicle status
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
@@ -479,7 +420,6 @@ router.get('/qr/:qrCode', vehicleController.getVehicleByQrCode);
  *         required: true
  *         schema:
  *           type: string
- *         example: 507f1f77bcf86cd799439011
  *     requestBody:
  *       required: true
  *       content:
@@ -488,26 +428,17 @@ router.get('/qr/:qrCode', vehicleController.getVehicleByQrCode);
  *             $ref: '#/components/schemas/StatusUpdate'
  *     responses:
  *       200:
- *         description: Status updated successfully
+ *         description: Status updated
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       $ref: '#/components/schemas/Vehicle'
+ *               $ref: '#/components/schemas/Vehicle'
  *       400:
  *         description: Invalid input
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden
  *       404:
  *         description: Vehicle not found
  *       500:
@@ -525,7 +456,7 @@ router.put(
  * @swagger
  * /api/v1/inward/{vehicleId}/damage:
  *   post:
- *     summary: Add damage to inward vehicle (Admin+)
+ *     summary: Add damage to vehicle
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
@@ -535,7 +466,6 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
- *         example: 507f1f77bcf86cd799439011
  *     requestBody:
  *       required: true
  *       content:
@@ -544,26 +474,17 @@ router.put(
  *             $ref: '#/components/schemas/DamageInput'
  *     responses:
  *       200:
- *         description: Damage added successfully
+ *         description: Damage added
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       $ref: '#/components/schemas/Vehicle'
+ *               $ref: '#/components/schemas/Vehicle'
  *       400:
  *         description: Invalid input
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden
  *       404:
  *         description: Vehicle not found
  *       500:
@@ -581,7 +502,7 @@ router.post(
  * @swagger
  * /api/v1/inward/{vehicleId}/generate-qr:
  *   get:
- *     summary: Generate QR code for inward vehicle (Admin+)
+ *     summary: Generate QR code for vehicle
  *     tags: [Vehicle Inward]
  *     security:
  *       - bearerAuth: []
@@ -591,32 +512,24 @@ router.post(
  *         required: true
  *         schema:
  *           type: string
- *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       200:
- *         description: QR code generated successfully
+ *         description: QR code generated
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 status:
+ *                 vehicle:
+ *                   $ref: '#/components/schemas/Vehicle'
+ *                 qrCodeUrl:
  *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       $ref: '#/components/schemas/Vehicle'
- *                     qrCodeUrl:
- *                       type: string
- *                       description: Base64 encoded QR code image
  *       400:
- *         description: Invalid ID format
+ *         description: Invalid ID
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden
  *       404:
  *         description: Vehicle not found
  *       500:
@@ -642,10 +555,9 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
- *         example: 507f1f77bcf86cd799439011
  *     responses:
  *       200:
- *         description: List of vehicles in the specified branch
+ *         description: List of vehicles
  *         content:
  *           application/json:
  *             schema:
@@ -653,10 +565,8 @@ router.get(
  *               properties:
  *                 status:
  *                   type: string
- *                   example: success
  *                 results:
  *                   type: number
- *                   example: 10
  *                 data:
  *                   type: object
  *                   properties:
@@ -665,7 +575,7 @@ router.get(
  *                       items:
  *                         $ref: '#/components/schemas/Vehicle'
  *       400:
- *         description: Invalid ID format
+ *         description: Invalid ID
  *       404:
  *         description: Branch not found
  *       500:
@@ -677,7 +587,7 @@ router.get('/branch/:branchId', vehicleController.getVehiclesByBranch);
  * @swagger
  * /api/v1/inward/chassis/{chassisNumber}:
  *   get:
- *     summary: Get an inward vehicle by chassis number
+ *     summary: Get vehicle by chassis number
  *     tags: [Vehicle Inward]
  *     parameters:
  *       - in: path
@@ -685,10 +595,94 @@ router.get('/branch/:branchId', vehicleController.getVehiclesByBranch);
  *         required: true
  *         schema:
  *           type: string
- *         example: CHS1234567890
  *     responses:
  *       200:
  *         description: Vehicle details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Vehicle'
+ *       400:
+ *         description: Chassis number required
+ *       404:
+ *         description: Vehicle not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/chassis/:chassisNumber', vehicleController.getVehicleByChassisNumber);
+
+/**
+ * @swagger
+ * /api/v1/inward/export-csv:
+ *   get:
+ *     summary: Export vehicles to CSV
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [EV, ICE]
+ *         description: Vehicle type to export
+ *       - in: query
+ *         name: branch_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID
+ *     responses:
+ *       200:
+ *         description: CSV file
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *         headers:
+ *           Content-Disposition:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Invalid parameters
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Branch not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/export-csv',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  logAction('EXPORT_CSV', 'Vehicle'),
+  vehicleController.exportCSVTemplate
+);
+
+/**
+ * @swagger
+ * /api/v1/inward/import-csv:
+ *   post:
+ *     summary: Import vehicles from CSV
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Import results
  *         content:
  *           application/json:
  *             schema:
@@ -696,18 +690,31 @@ router.get('/branch/:branchId', vehicleController.getVehiclesByBranch);
  *               properties:
  *                 status:
  *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     vehicle:
- *                       $ref: '#/components/schemas/Vehicle'
+ *                 message:
+ *                   type: string
+ *                 imported:
+ *                   type: number
+ *                 updated:
+ *                   type: number
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
  *       400:
- *         description: Chassis number is required
- *       404:
- *         description: Vehicle not found
+ *         description: Invalid file
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       500:
  *         description: Server error
  */
-router.get('/chassis/:chassisNumber', vehicleController.getVehicleByChassisNumber);
+router.post('/import-csv',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  upload.single('file'),
+  logAction('IMPORT_CSV', 'Vehicle'),
+  vehicleController.importCSV
+);
+
 module.exports = router;

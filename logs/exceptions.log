@@ -97,3 +97,127 @@ ReferenceError: path is not defined
     at SBMH.push (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\streamsearch\lib\sbmh.js:104:16)
     at Multipart._write (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\node_modules\busboy\lib\types\multipart.js:567:19)
     at writeOrBuffer (node:internal/streams/writable:556:12)
+2025-08-06 12:42:46 [[31MERROR[39M]: uncaughtException: Unexpected identifier 'insuranceStatus'
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)
+2025-08-06 13:22:05 [[31MERROR[39M]: uncaughtException: Unexpected identifier 'insuranceStatus'
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)
+2025-08-06 13:22:37 [[31MERROR[39M]: uncaughtException: Unexpected identifier 'insuranceStatus'
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)
+2025-08-06 13:24:01 [[31MERROR[39M]: uncaughtException: Unexpected identifier 'insuranceStatus'
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)
+E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\models\Booking.js:436
+  insuranceStatus: {
+  ^^^^^^^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'insuranceStatus'
+    at internalCompileFunction (node:internal/vm:77:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1288:20)
+    at Module._compile (node:internal/modules/cjs/loader:1340:27)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Module.require (node:internal/modules/cjs/loader:1235:19)
+    at require (node:internal/modules/helpers:176:18)
+    at Object.<anonymous> (E:\Exilance-Project\Vehicle Dealerships\Dealership\Vehicle-Dealership\jobs\documentDeadlineJob.js:115:17)
+    at Module._compile (node:internal/modules/cjs/loader:1376:14)

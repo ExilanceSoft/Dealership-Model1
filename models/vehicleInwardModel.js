@@ -104,7 +104,6 @@ const vehicleSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes
 vehicleSchema.index({ chassisNumber: 1 }, { unique: true });
 vehicleSchema.index({ qrCode: 1 }, { unique: true });
 vehicleSchema.index({ model: 1 });
@@ -113,7 +112,6 @@ vehicleSchema.index({ type: 1 });
 vehicleSchema.index({ status: 1 });
 vehicleSchema.index({ colors: 1 });
 
-// Pre-save hook to generate QR code
 vehicleSchema.pre('save', async function(next) {
   if (!this.qrCode) {
     this.qrCode = `VH-${this.chassisNumber}-${Date.now().toString(36)}`;
@@ -121,7 +119,6 @@ vehicleSchema.pre('save', async function(next) {
   next();
 });
 
-// Pre-save hook to validate references
 vehicleSchema.pre('save', async function(next) {
   try {
     if (this.isModified('model')) {
@@ -150,7 +147,6 @@ vehicleSchema.pre('save', async function(next) {
   }
 });
 
-// Virtuals for populated data
 vehicleSchema.virtual('modelDetails', {
   ref: 'Model',
   localField: 'model',

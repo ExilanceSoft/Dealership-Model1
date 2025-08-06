@@ -8,16 +8,7 @@ const colorSchema = new mongoose.Schema({
     trim: true,
     maxlength: [50, 'Color name cannot exceed 50 characters']
   },
-  hex_code: {
-    type: String,
-    required: [true, 'Hex code is required'],
-    validate: {
-      validator: function(v) {
-        return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(v);
-      },
-      message: props => `${props.value} is not a valid hex color code`
-    }
-  },
+
   status: {
     type: String,
     enum: ['active', 'inactive'],

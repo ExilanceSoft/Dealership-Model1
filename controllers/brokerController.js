@@ -24,7 +24,7 @@ const validateBranchData = (branchData) => {
     if (!branchData.commissionRange) {
       throw new Error('Commission range is required for VARIABLE type');
     }
-    const validRanges = ['20k-40k', '40k-60k', '60k-80k', '80k-100k', '100k+'];
+    const validRanges = ['1-20000', '20001-40000', '40001-60000', '60001 above'];
     if (!validRanges.includes(branchData.commissionRange)) {
       throw new Error('Invalid commission range');
     }
@@ -33,59 +33,79 @@ const validateBranchData = (branchData) => {
 
 exports.createOrAddBroker = async (req, res) => {
   try {
-    const { name, mobile, email, branchData } = req.body;
+    const { name, mobile, email, branchesData } = req.body;
     const userId = req.user.id;
 
-    validateBranchData(branchData);
-
-    const branchExists = await Branch.exists({ _id: branchData.branch });
-    if (!branchExists) {
+    if (!branchesData || !Array.isArray(branchesData)) {
       return res.status(400).json({
         success: false,
-        message: 'Branch not found'
+        message: 'branchesData must be an array'
       });
     }
 
-    const completeBranchData = {
+    // Validate all branch data
+    for (const branchData of branchesData) {
+      validateBranchData(branchData);
+    }
+
+    // Check if all branches exist
+    const branchIds = branchesData.map(b => b.branch);
+    const existingBranches = await Branch.find({ _id: { $in: branchIds } });
+    
+    if (existingBranches.length !== branchIds.length) {
+      const missingBranches = branchIds.filter(
+        id => !existingBranches.some(b => b._id.toString() === id)
+      );
+      return res.status(400).json({
+        success: false,
+        message: `Branches not found: ${missingBranches.join(', ')}`
+      });
+    }
+
+    const completeBranchesData = branchesData.map(branchData => ({
       ...branchData,
       addedBy: userId
-    };
+    }));
 
     let broker = await Broker.findOne({ $or: [{ mobile }, { email }] });
 
     if (broker) {
-      const existingBranch = broker.branches.find(b => 
-        b.branch.toString() === branchData.branch
+      // Check for existing branch associations
+      const existingBranches = broker.branches.filter(b => 
+        branchIds.includes(b.branch.toString())
       );
       
-      if (existingBranch) {
+      if (existingBranches.length > 0) {
         return res.status(400).json({
           success: false,
-          message: 'Broker already associated with this branch'
+          message: `Broker already associated with branches: ${existingBranches.map(b => b.branch).join(', ')}`
         });
       }
 
-      broker.branches.push(completeBranchData);
+      // Add all new branches
+      broker.branches.push(...completeBranchesData);
       broker = await broker.save();
     } else {
+      // Create new broker with all branches
       broker = await Broker.create({
         name,
         mobile,
         email,
-        branches: [completeBranchData],
+        branches: completeBranchesData,
         createdBy: userId
       });
     }
 
+    // Log the action
     await AuditLog.create({
-      action: broker.branches.length > 1 ? 'ADD_BRANCH' : 'CREATE',
+      action: broker.branches.length > branchesData.length ? 'ADD_BRANCHES' : 'CREATE',
       entity: 'Broker',
       entityId: broker._id,
       user: userId,
       ip: req.ip,
       metadata: {
-        branch: branchData.branch,
-        commissionType: branchData.commissionType
+        branches: branchIds,
+        action: broker.branches.length > branchesData.length ? 'added_branches' : 'created_broker'
       }
     });
 

@@ -420,7 +420,7 @@ router.post('/',
   protect, 
   // validateSalesExecutive,
   authorize('BOOKING', 'CREATE'), 
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),
   logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
@@ -731,8 +731,11 @@ router.put('/:id',
 /**
  * @swagger
  * /api/v1/bookings/{id}/approve:
- *   post:
- *     summary: Approve a booking and optionally allocate chassis number with vehicle details
+ *   put:
+ *     summary: Approve a booking (simple version - just updates status)
+ *     description: |
+ *       Updates booking status to APPROVED and records approval details.
+ *       Requires ADMIN or MANAGER role.
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
@@ -742,9 +745,10 @@ router.put('/:id',
  *         required: true
  *         schema:
  *           type: string
- *         description: Booking ID
+ *           format: objectId
+ *         description: Booking ID to approve
  *     requestBody:
- *       required: true
+ *       description: Optional approval note
  *       content:
  *         application/json:
  *           schema:
@@ -752,41 +756,164 @@ router.put('/:id',
  *             properties:
  *               approvalNote:
  *                 type: string
- *                 description: Optional note for approval
- *               chassisNumber:
- *                 type: string
- *                 description: 17-character chassis number to allocate
- *                 example: "MA6FRE4521KM12345"
- *             required:
- *               - chassisNumber
+ *                 description: Optional note about the approval
+ *                 example: "Customer documents verified"
  *     responses:
  *       200:
- *         description: Booking approved with vehicle details
+ *         description: Booking approved successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Booking'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Booking'
+ *                 message:
+ *                   type: string
+ *                   example: "Booking approved successfully"
  *       400:
- *         description: Invalid input or booking doesn't require approval
+ *         description: Invalid booking ID format
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *       401:
- *         description: Unauthorized
+ *             example:
+ *               success: false
+ *               message: "Invalid booking ID format"
  *       403:
- *         description: Forbidden (no approval permission)
+ *         description: Unauthorized to approve bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Unauthorized to approve bookings"
  *       404:
- *         description: Booking not found or vehicle not found
+ *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Booking not found"
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/:id/approve', 
+router.put('/:id/approve', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   authorize('BOOKING', 'APPROVE'),  // Specific approve permission
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
+);
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/allocate:
+ *   put:
+ *     summary: Allocate chassis number to a booking
+ *     description: |
+ *       Assigns a 17-character chassis number to a booking and updates status to ALLOCATED.
+ *       Requires ADMIN or MANAGER role.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: objectId
+ *         description: Booking ID to allocate chassis number to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - chassisNumber
+ *             properties:
+ *               chassisNumber:
+ *                 type: string
+ *                 pattern: '^[A-Z0-9]{17}$'
+ *                 description: 17-character alphanumeric chassis number
+ *                 example: "MA6FRE4521KM12345"
+ *     responses:
+ *       200:
+ *         description: Chassis number allocated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Booking'
+ *                 message:
+ *                   type: string
+ *                   example: "Chassis number allocated successfully"
+ *       400:
+ *         description: Invalid input (bad ID format, invalid chassis number, or duplicate)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               invalidId:
+ *                 value:
+ *                   success: false
+ *                   message: "Invalid booking ID format"
+ *               invalidChassis:
+ *                 value:
+ *                   success: false
+ *                   message: "Chassis number must be exactly 17 alphanumeric characters"
+ *               duplicateChassis:
+ *                 value:
+ *                   success: false
+ *                   message: "Chassis number already assigned to another booking"
+ *       403:
+ *         description: Unauthorized to allocate chassis numbers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Unauthorized to allocate chassis numbers"
+ *       404:
+ *         description: Booking not found or not in valid status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Booking not found or not in a valid status for allocation"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.put('/:id/allocate', 
+  protect,
+  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
+  authorize('BOOKING', 'ALLOCATE'),  // Specific approve permission
+  logAction('ALLOCATE', 'Booking'), 
+  bookingController.allocateChassisNumber
 );
 // Add this to your routes file
 // /**

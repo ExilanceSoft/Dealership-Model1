@@ -26,7 +26,7 @@ const { logAction } = require('../middlewares/audit');
  *           example: 507f1f77bcf86cd799439011
  *         status:
  *           type: string
- *           enum: [pending, in_transit, completed, cancelled]
+ *           enum: [pending, completed, cancelled]
  *           default: pending
  *         receivedAt:
  *           type: string
@@ -70,7 +70,7 @@ const { logAction } = require('../middlewares/audit');
  *             $ref: '#/components/schemas/TransferItem'
  *         status:
  *           type: string
- *           enum: [pending, in_transit, completed, cancelled]
+ *           enum: [pending, completed, cancelled]
  *           default: pending
  *         initiatedBy:
  *           type: string
@@ -141,8 +141,8 @@ const { logAction } = require('../middlewares/audit');
  *       properties:
  *         status:
  *           type: string
- *           enum: [pending, in_transit, completed, cancelled]
- *           example: in_transit
+ *           enum: [completed, cancelled]
+ *           example: completed
  *         notes:
  *           type: string
  *           example: "Additional notes about the status update"
@@ -153,6 +153,7 @@ const { logAction } = require('../middlewares/audit');
  * /api/v1/transfers:
  *   post:
  *     summary: Create a new stock transfer (Admin+)
+ *     description: Creates a new stock transfer that is immediately marked as completed and moves vehicles to destination branch
  *     tags: [Stock Transfer]
  *     security:
  *       - bearerAuth: []
@@ -164,7 +165,7 @@ const { logAction } = require('../middlewares/audit');
  *             $ref: '#/components/schemas/StockTransferInput'
  *     responses:
  *       201:
- *         description: Transfer created successfully
+ *         description: Transfer created and completed successfully
  *         content:
  *           application/json:
  *             schema:
@@ -202,6 +203,7 @@ router.post(
  * /api/v1/transfers:
  *   get:
  *     summary: Get all stock transfers with filtering options
+ *     description: Retrieve all stock transfers with optional filtering by branch, status, or date range
  *     tags: [Stock Transfer]
  *     parameters:
  *       - in: query
@@ -218,7 +220,7 @@ router.post(
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, in_transit, completed, cancelled]
+ *           enum: [pending, completed, cancelled]
  *         description: Filter by transfer status
  *       - in: query
  *         name: dateFrom
@@ -263,6 +265,7 @@ router.get('/', stockTransferController.getAllTransfers);
  * /api/v1/transfers/{transferId}:
  *   get:
  *     summary: Get a stock transfer by ID
+ *     description: Retrieve detailed information about a specific stock transfer
  *     tags: [Stock Transfer]
  *     parameters:
  *       - in: path
@@ -301,6 +304,7 @@ router.get('/:transferId', stockTransferController.getTransferById);
  * /api/v1/transfers/{transferId}/status:
  *   put:
  *     summary: Update stock transfer status (Admin+)
+ *     description: Update the status of a stock transfer (only cancellation is allowed after creation)
  *     tags: [Stock Transfer]
  *     security:
  *       - bearerAuth: []
@@ -357,6 +361,7 @@ router.put(
  * /api/v1/transfers/{transferId}/items/{itemId}:
  *   put:
  *     summary: Update individual transfer item status (Admin+)
+ *     description: Update the status of a specific item in a transfer (only cancellation is allowed)
  *     tags: [Stock Transfer]
  *     security:
  *       - bearerAuth: []
@@ -419,6 +424,7 @@ router.put(
  * /api/v1/transfers/branches/{branchId}:
  *   get:
  *     summary: Get transfers by branch (incoming, outgoing, or both)
+ *     description: Retrieve all transfers associated with a specific branch
  *     tags: [Stock Transfer]
  *     parameters:
  *       - in: path
@@ -433,7 +439,7 @@ router.put(
  *           type: string
  *           enum: [incoming, outgoing, both]
  *           default: both
- *         description: Filter by transfer direction
+ *         description: Filter by transfer direction (incoming, outgoing, or both)
  *     responses:
  *       200:
  *         description: List of transfers
@@ -469,6 +475,7 @@ router.get('/branches/:branchId', stockTransferController.getTransfersByBranch);
  * /api/v1/transfers/branches/{branchId}/available-vehicles:
  *   get:
  *     summary: Get vehicles available for transfer from a branch
+ *     description: Retrieve list of vehicles that are available for transfer from a specific branch
  *     tags: [Stock Transfer]
  *     parameters:
  *       - in: path
