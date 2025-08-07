@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Update Form</title>
+  <style>
+    /* Base Styles */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    /* Container Styles */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+    }
+
+    /* Typography */
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #3498db;
+      font-size: 28px;
+    }
+
+    h2 {
+      color: #2c3e50;
+      margin-top: 0;
+      font-size: 22px;
+    }
+
+    /* Booking Info Section */
+    .booking-info {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 6px;
+      margin-bottom: 30px;
+      border-left: 4px solid #3498db;
+    }
+
+    .booking-info p {
+      margin: 8px 0;
+    }
+
+    .booking-info strong {
+      color: #2c3e50;
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 15px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: #3498db;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    }
+
+    /* Button Styles */
+    button {
+      background-color: #3498db;
+      color: white;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100%;
+      transition: background-color 0.3s;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    button:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+
+    /* Layout */
+    .form-row {
+      display: flex;
+      gap: 20px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+
+    /* Messages */
+    .success-message {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 25px;
+      display: none;
+    }
+
+    .error-message {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 25px;
+      display: none;
+    }
+
+    /* Loading Indicator */
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .loading-spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid #3498db;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    .loading p {
+      color: #7f8c8d;
+      margin: 0;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+      }
+
+      .form-row {
+        flex-direction: column;
+        gap: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 24px;
+      }
+
+      .booking-info {
+        padding: 15px;
+      }
+        .notice {
+      background: #eff6ff;
+      border-left: 5px solid #3b82f6;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      color: #1e3a8a;
+      border-radius: 6px;
+      font-size: 0.95em;
+    }
+    }
+  </style>
+</head>
+<body>
+  <!-- Debugging: -->
+
+   <div class="container">
+    <h2>Gandhi TVS - Customer Detail Update</h2>
+    
+    <!-- Add the already submitted notice -->
+    <div class="notice already-submitted-notice" id="alreadySubmittedNotice" style="display: none;">
+      You have already submitted an update request for this booking. Only one request per booking is allowed.
+    </div>
+    
+    <div class="notice">
+      This form is to update your personal booking information. You can submit only one update request per booking.
+    </div>
+    
+    <div class="success-message" id="successMessage">
+      Your update request has been submitted successfully! It will be reviewed by management.
+    </div>
+    
+    <div class="error-message" id="errorMessage"></div>
+    
+    <div class="booking-info">
+      <h2>Your Booking Details:</h2>
+      <p><strong>Booking Number:</strong> {{booking.bookingNumber}}</p>
+      <p><strong>Customer:</strong> {{booking.customerDetails.salutation}} {{booking.customerDetails.name}}</p>
+      <p><strong>Model:</strong> {{modelDetails.model_name}}</p>
+    </div>
+
+    <!-- Modified form element with conditional display -->
+    <form id="updateForm" {{#if booking.updateRequestSubmitted}}style="display: none;"{{/if}}>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="salutation">Salutation</label>
+          <select id="salutation" name="customerDetails.salutation" required>
+            <option value="Mr." {{#if (eq booking.customerDetails.salutation 'Mr.')}}selected{{/if}}>Mr.</option>
+            <option value="Mrs." {{#if (eq booking.customerDetails.salutation 'Mrs.')}}selected{{/if}}>Mrs.</option>
+            <option value="Miss" {{#if (eq booking.customerDetails.salutation 'Miss')}}selected{{/if}}>Miss</option>
+            <option value="Dr." {{#if (eq booking.customerDetails.salutation 'Dr.')}}selected{{/if}}>Dr.</option>
+            <option value="Prof." {{#if (eq booking.customerDetails.salutation 'Prof.')}}selected{{/if}}>Prof.</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="name">Customer Name</label>
+          <input type="text" id="name" name="customerDetails.name" value="{{booking.customerDetails.name}}" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="mobile1">Primary Mobile</label>
+          <input type="tel" id="mobile1" name="customerDetails.mobile1" value="{{booking.customerDetails.mobile1}}" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="mobile2">Secondary Mobile (Optional)</label>
+          <input type="tel" id="mobile2" name="customerDetails.mobile2" value="{{booking.customerDetails.mobile2}}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="address">Address</label>
+        <input type="text" id="address" name="customerDetails.address" value="{{booking.customerDetails.address}}" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="pincode">Pincode</label>
+          <input type="text" id="pincode" name="customerDetails.pincode" value="{{booking.customerDetails.pincode}}" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="color">Vehicle Color</label>
+          <select id="color" name="color" required>
+            <option value="{{booking.colorDetails.name}}" selected>
+              {{booking.colorDetails.name}} (Current)
+            </option>
+            <!-- Other options will be loaded via JavaScript -->
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="paymentType">Payment Type</label>
+        <select id="paymentType" name="payment.type" required>
+          <option value="CASH" {{#if (eq booking.payment.type 'CASH')}}selected{{/if}}>Cash</option>
+          <option value="FINANCE" {{#if (eq booking.payment.type 'FINANCE')}}selected{{/if}}>Finance</option>
+        </select>
+      </div>
+
+     <div class="loading" id="loadingIndicator">
+        <div class="loading-spinner"></div>
+        <p>Submitting your request...</p>
+      </div>
+      
+      <button type="submit" id="submitButton">Submit Update Request</button>
+    </form>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const updateForm = document.getElementById('updateForm');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const submitButton = document.getElementById('submitButton');
+      const successMessage = document.getElementById('successMessage');
+      const errorMessage = document.getElementById('errorMessage');
+
+      // Load available colors
+      loadAvailableColors();
+
+      // Form submission handler
+      updateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        
+        // UI State Management
+        showLoadingState();
+        hideMessages();
+        
+        try {
+          const formData = new FormData(updateForm);
+          const updates = processFormData(formData);
+          
+          const response = await submitUpdateRequest(updates);
+          const result = await response.json();
+          
+          if (response.ok) {
+            showSuccessMessage();
+            updateForm.reset();
+          } else {
+            showErrorMessage(result.message || 'Failed to submit update request');
+          }
+        } catch (error) {
+          console.error('Submission error:', error);
+          showErrorMessage('Failed to submit update request. Please try again.');
+        } finally {
+          hideLoadingState();
+        }
+      });
+
+      // Input validation
+      setupInputValidation();
+
+      // Helper Functions
+      function showLoadingState() {
+        loadingIndicator.style.display = 'block';
+        submitButton.disabled = true;
+      }
+
+      function hideLoadingState() {
+        loadingIndicator.style.display = 'none';
+        submitButton.disabled = false;
+      }
+
+      function hideMessages() {
+        successMessage.style.display = 'none';
+        errorMessage.style.display = 'none';
+      }
+
+      function showSuccessMessage() {
+        successMessage.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function showErrorMessage(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        errorMessage.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      function processFormData(formData) {
+        const updates = {};
+        
+        formData.forEach((value, key) => {
+          if (key.includes('.')) {
+            const parts = key.split('.');
+            if (!updates[parts[0]]) updates[parts[0]] = {};
+            updates[parts[0]][parts[1]] = value;
+          } else {
+            updates[key] = value;
+          }
+        });
+        
+        return updates;
+      }
+
+      async function submitUpdateRequest(updates) {
+        return await fetch(`/api/v1/bookings/${'{{booking._id}}'}/submit-update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates })
+        });
+      }
+
+      function setupInputValidation() {
+        document.getElementById('mobile1').addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '').substring(0, 10);
+        });
+        
+        document.getElementById('mobile2').addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '').substring(0, 10);
+        });
+        
+        document.getElementById('pincode').addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '').substring(0, 6);
+        });
+      }
+
+      async function loadAvailableColors() {
+        try {
+          const response = await fetch(`/api/v1/colors/model/{{booking.model}}`);
+          const data = await response.json();
+          
+          if (response.ok && data.data?.colors) {
+            const colorSelect = document.getElementById('color');
+            const currentColor = '{{booking.colorDetails.name}}';
+            
+            data.data.colors.forEach(color => {
+              if (color.name !== currentColor) {
+                const option = document.createElement('option');
+                option.value = color.name;
+                option.textContent = color.name;
+                colorSelect.appendChild(option);
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error loading colors:', error);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

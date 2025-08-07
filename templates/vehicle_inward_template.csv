@@ -1,0 +1,11 @@
+model_name,branch_name,type,colors,batteryNumber,keyNumber,chassisNumber,motorNumber,chargerNumber,engineNumber,hasDamage,status
+Tesla Model S,Mumbai Branch,EV,Red|Blue,BATT001,KEY001,CHS1234567890,MOTOR001,CHARGER001,,false,in_stock
+Toyota Camry,Mumbai Branch,ICE,White|Black,,KEY002,CHS1234567891,,,ENG001,false,in_stock
+Ford Transit,Mumbai Branch,CSD,Silver|Gray,,KEY003,CHS1234567892,,,ENG002,false,in_stock
+Tesla Model 3,Mumbai Branch,EV,White|Red,BATT002,KEY004,CHS1234567893,MOTOR002,CHARGER002,,false,in_transit
+Honda Civic,Mumbai Branch,ICE,Blue|Silver,,KEY005,CHS1234567894,,,ENG003,false,in_stock
+Mercedes Sprinter,Mumbai Branch,CSD,White|Black,,KEY006,CHS1234567895,,,ENG004,false,in_stock
+Tesla Model X,Mumbai Branch,EV,Black|White,BATT003,KEY007,CHS1234567896,MOTOR003,CHARGER003,,false,in_stock
+BMW 3 Series,Mumbai Branch,ICE,Red|Blue,,KEY008,CHS1234567897,,,ENG005,false,in_stock
+Volkswagen Crafter,Mumbai Branch,CSD,Gray|Silver,,KEY009,CHS1234567898,,,ENG006,false,in_stock
+Tesla Model Y,Mumbai Branch,EV,Blue|Red,BATT004,KEY010,CHS1234567899,MOTOR004,CHARGER004,,false,in_stock 

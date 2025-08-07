@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Ledger - Gandhi TVS</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <style>
+    @page {
+      size: A4;
+      margin: 15mm 10mm;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1.3;
+      color: #333;
+    }
+    
+    .container {
+      width: 190mm;
+      margin: 0 auto;
+      padding: 5mm;
+      position: relative;
+      background-color: #fff;
+    }
+    
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3mm;
+      align-items: center;
+    }
+    
+    .header-text {
+      font-size: 20px;
+      font-weight: bold;
+      color: #0066cc;
+    }
+    
+    .logo {
+      width: 130px;
+      max-height: 94px;
+    }
+    
+    .header {
+      text-align: left;
+      margin-bottom: 3mm;
+    }
+    
+    .divider {
+      border-top: 2px solid #AAAAAA;
+      margin: 3mm 0;
+    }
+    
+    .customer-info {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2mm;
+      margin-bottom: 5mm;
+    }
+    
+    .customer-info div {
+      display: flex;
+    }
+    
+    .customer-info strong {
+      min-width: 30mm;
+      display: inline-block;
+      font-weight: bold;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 5mm;
+      page-break-inside: avoid;
+    }
+    
+    th, td {
+      border: 1px solid #000;
+      padding: 2mm;
+      text-align: left;
+      font-size: 13px;
+    }
+    
+    th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+    
+    .text-right {
+      text-align: right;
+    }
+    
+    .text-left {
+      text-align: left;
+    }
+    
+    .text-center {
+      text-align: center;
+    }
+    
+    .qr-code-container {
+      position: absolute;
+      top: 10mm;
+      right: 10mm;
+      width: 30mm;
+      height: 30mm;
+      border: 1px solid #ddd;
+      padding: 2mm;
+      background-color: #fff;
+    }
+    
+    .qr-code {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .qr-code img {
+      max-width: 100%;
+      max-height: 100%;
+    }
+    
+    .qr-code-label {
+      font-size: 10px;
+      margin-top: 2mm;
+      text-align: center;
+      color: #555;
+    }
+    
+    .footer {
+      margin-top: 10mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    
+    .footer-signature {
+      text-align: right;
+    }
+    
+    .footer-qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .footer-qr {
+      width: 25mm;
+      height: 25mm;
+      border: 1px solid #ddd;
+      padding: 1mm;
+      background-color: #fff;
+    }
+    
+    .footer-qr-text {
+      font-size: 8px;
+      text-align: center;
+      margin-top: 1mm;
+      color: #555;
+    }
+    
+    @media print {
+      body {
+        width: 190mm;
+        height: 277mm;
+      }
+      
+      .no-print {
+        display: none;
+      }
+      
+      .qr-code-container,
+      .footer-qr {
+        border: 1px solid #ccc;
+      }
+      
+      table {
+        page-break-inside: auto;
+      }
+      
+      tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-container">
+      <img src="http://localhost:5002/api/v1/images/logo.png" class="logo" alt="Company Logo">
+      <div class="header-text" id="branchName">GANDHI TVS</div>
+    </div>
+    
+    <div class="header">
+      <div id="branchDetails">
+        <!-- Branch details will be populated by JavaScript -->
+      </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="customer-info">
+      <div><strong>Customer Name:</strong> <span id="customerName"></span></div>
+      <div><strong>Ledger Date:</strong> <span id="ledgerDate"></span></div>
+      <div><strong>Customer Address:</strong> <span id="customerAddress"></span></div>
+      <div><strong>Customer Phone:</strong> <span id="customerPhone"></span></div>
+      <div><strong>Chassis No:</strong> <span id="chassisNo"></span></div>
+      <div><strong>Engine No:</strong> <span id="engineNo"></span></div>
+      <div><strong>Finance Name:</strong> <span id="financeName"></span></div>
+      <div><strong>Sale Executive:</strong> <span id="salesExecutive"></span></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th width="15%">Date</th>
+          <th width="35%">Description</th>
+          <th width="15%">Receipt/VC No</th>
+          <th width="10%" class="text-right">Credit (₹)</th>
+          <th width="10%" class="text-right">Debit (₹)</th>
+          <th width="15%" class="text-right">Balance (₹)</th>
+        </tr>
+      </thead>
+      <tbody id="ledgerEntries">
+        <!-- Entries will be populated by JavaScript -->
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" class="text-left"><strong>Total</strong></td>
+          <td class="text-right"><strong id="totalCredit"></strong></td>
+          <td class="text-right"><strong id="totalDebit"></strong></td>
+          <td class="text-right"><strong id="finalBalance"></strong></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="footer">
+      <div class="footer-qr-container">
+        <div id="footerQrCode" class="footer-qr"></div>
+        <div class="footer-qr-text">Scan for digital copy</div>
+      </div>
+      <div class="footer-signature">
+        <p>For, <span id="footerBranchName">Gandhi TVS</span></p>
+        <p>Authorised Signatory</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Function to format currency with Indian numbering system
+    function formatCurrency(amount) {
+      return new Intl.NumberFormat('en-IN', {
+        style: 'decimal',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    }
+
+    // Function to generate QR codes
+    function generateQRCode() {
+      const currentUrl = window.location.href;
+      const qrOptions = {
+        typeNumber: 4,
+        errorCorrectionLevel: 'L',
+        cellSize: 4
+      };
+      
+      // Generate footer QR code (left side)
+      const footerQr = qrcode(qrOptions.typeNumber, qrOptions.errorCorrectionLevel);
+      footerQr.addData(currentUrl);
+      footerQr.make();
+      document.getElementById('footerQrCode').innerHTML = footerQr.createImgTag(3);
+      
+      // Style all QR code images
+      document.querySelectorAll('.footer-qr img').forEach(img => {
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.display = 'block';
+      });
+    }
+
+    // Function to populate branch details
+    function populateBranchDetails(branch) {
+      // Set branch name in header
+      document.getElementById('branchName').textContent = branch.name.toUpperCase();
+      document.getElementById('footerBranchName').textContent = branch.name;
+      
+      // Populate branch details
+      const branchDetails = document.getElementById('branchDetails');
+      branchDetails.innerHTML = `
+        Authorised Main Dealer: TVS Motor Company Ltd.<br>
+        ${branch.address ? branch.address + '<br>' : ''}
+        ${branch.city ? branch.city + ', ' : ''}${branch.state ? branch.state + ', ' : ''}${branch.pincode || ''}<br>
+        Phone: ${branch.phone || '7498903672'}${branch.gst_number ? '<br>GST: ' + branch.gst_number : ''}
+      `;
+    }
+
+    // Function to fetch and populate ledger data
+    async function fetchLedgerData() {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const bookingId = urlParams.get('bookingId');
+        
+        if (!bookingId) {
+          throw new Error('Booking ID not found in URL parameters');
+        }
+
+        const response = await fetch(`/api/v1/ledger/report/${bookingId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const { data } = await response.json();
+        
+        // Populate branch details
+        if (data.branchDetails) {
+          populateBranchDetails(data.branchDetails);
+        }
+        
+        // Populate customer info
+        const populateField = (id, value) => {
+          document.getElementById(id).textContent = value || 'N/A';
+        };
+        
+        populateField('customerName', data.customerDetails.name);
+        populateField('ledgerDate', data.ledgerDate || new Date().toLocaleDateString('en-GB'));
+        populateField('customerAddress', data.customerDetails.address);
+        populateField('customerPhone', data.customerDetails.phone);
+        populateField('chassisNo', data.vehicleDetails.chassisNo);
+        populateField('engineNo', data.vehicleDetails.engineNo);
+        populateField('financeName', data.financeDetails.financer);
+        populateField('salesExecutive', data.salesExecutive);
+
+        // Populate ledger entries
+        const entriesTable = document.getElementById('ledgerEntries');
+        entriesTable.innerHTML = ''; // Clear any existing rows
+        
+        data.entries.forEach(entry => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${entry.date || '-'}</td>
+            <td>${entry.description || '-'}</td>
+            <td>${entry.receiptNo || '-'}</td>
+            <td class="text-right">${entry.credit ? formatCurrency(entry.credit) : '-'}</td>
+            <td class="text-right">${entry.debit ? formatCurrency(entry.debit) : '-'}</td>
+            <td class="text-right">${formatCurrency(entry.balance)}</td>
+          `;
+          entriesTable.appendChild(row);
+        });
+
+        // Populate totals
+        document.getElementById('totalCredit').textContent = formatCurrency(data.totals.totalCredit);
+        document.getElementById('totalDebit').textContent = formatCurrency(data.totals.totalDebit);
+        document.getElementById('finalBalance').textContent = formatCurrency(data.totals.finalBalance);
+
+        // Generate QR codes
+        generateQRCode();
+        
+        // Auto-print after a short delay
+        setTimeout(() => {
+          window.print();
+        }, 500);
+
+      } catch (error) {
+        console.error('Error fetching ledger data:', error);
+        alert('Failed to load ledger data. Please check the booking ID and try again.');
+      }
+    }
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', fetchLedgerData);
+  </script>
+</body>
+</html>
