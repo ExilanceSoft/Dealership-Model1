@@ -435,8 +435,8 @@ status: {
 },
   insuranceStatus: {
     type: String,
-    enum: ['NOT_APPLICABLE', 'AWAITING', 'COMPLETED'],
-    default: 'NOT_APPLICABLE'
+    enum: [ 'AWAITING', 'COMPLETED','LATER'],
+    default: 'AWAITING'
   },
   branch: {
     type: mongoose.Schema.Types.ObjectId,
