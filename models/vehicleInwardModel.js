@@ -201,7 +201,6 @@
 
 const mongoose = require('mongoose');
 
-
 const damageSchema = new mongoose.Schema({
   description: {
     type: String,
@@ -216,17 +215,20 @@ const damageSchema = new mongoose.Schema({
   reportedAt: {
     type: Date,
     default: Date.now
+  },
+  reportedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
 }, { _id: false });
 
-
 const vehicleSchema = new mongoose.Schema({
   model: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Model',
-    required: [true, 'Model is required']
-  },
-   modelName: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Model' // Removed required: true
+},
+modelName: {
   type: String,
   required: [true, 'Model name is required']
 },
@@ -246,6 +248,18 @@ const vehicleSchema = new mongoose.Schema({
     ref: 'Color',
     required: [true, 'At least one color is required']
   }],
+  color: {
+    id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Color',
+      required: [true, 'Color ID is required']
+    },
+    name: {
+      type: String,
+      required: [true, 'Color name is required'],
+      trim: true
+    }
+  },
   batteryNumber: {
     type: String,
     trim: true,
@@ -266,17 +280,20 @@ const vehicleSchema = new mongoose.Schema({
   motorNumber: {
     type: String,
     trim: true,
-    uppercase: true
+    uppercase: true,
+    required: function() { return this.type === 'EV'; }
   },
   chargerNumber: {
     type: String,
     trim: true,
-    uppercase: true
+    uppercase: true,
+    required: function() { return this.type === 'EV'; }
   },
   engineNumber: {
     type: String,
     trim: true,
-    uppercase: true
+    uppercase: true,
+    required: function() { return this.type === 'ICE'; }
   },
   hasDamage: {
     type: Boolean,
@@ -287,51 +304,49 @@ const vehicleSchema = new mongoose.Schema({
     type: String,
     unique: true
   },
-  qrCodeImage: {
-    type: String
-  },
+  qrCodeImage: String,
   status: {
     type: String,
-    enum: ['in_stock', 'in_transit', 'sold', 'service', 'damaged'],
-    default: 'in_stock'
+    enum: ['not_approved', 'in_stock', 'in_transit', 'sold', 'service', 'damaged'],
+    default: 'not_approved'
   },
   addedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  addedAt: {
-    type: Date,
-    default: Date.now,
-    immutable: true
+  lastUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toObject: { virtuals: true },
+  strict: 'throw'
 });
 
-
+// Indexes for performance
 vehicleSchema.index({ chassisNumber: 1 }, { unique: true });
 vehicleSchema.index({ qrCode: 1 }, { unique: true });
 vehicleSchema.index({ model: 1 });
 vehicleSchema.index({ unloadLocation: 1 });
 vehicleSchema.index({ type: 1 });
 vehicleSchema.index({ status: 1 });
-vehicleSchema.index({ colors: 1 });
+vehicleSchema.index({ 'color.name': 1 });
+vehicleSchema.index({ 'color.id': 1 });
 
-
+// Pre-save hooks
 vehicleSchema.pre('save', async function(next) {
+  // Auto-generate QR code if not set
   if (!this.qrCode) {
-    this.qrCode = `VH-${this.chassisNumber}-${Date.now().toString(36)}`;
+    this.qrCode = `VH-${this.chassisNumber}-${Date.now().toString(36).toUpperCase()}`;
   }
-  next();
-});
 
-
-vehicleSchema.pre('save', async function(next) {
+  // Validate references exist
   try {
-    if (this.isModified('model')) {
+    // Only validate model if it's provided
+    if (this.model && this.isModified('model')) {
       const modelExists = await mongoose.model('Model').exists({ _id: this.model });
       if (!modelExists) throw new Error('Referenced Model does not exist');
     }
@@ -341,23 +356,36 @@ vehicleSchema.pre('save', async function(next) {
       if (!branchExists) throw new Error('Referenced Branch does not exist');
     }
    
-    if (this.isModified('colors')) {
-      const colorsExist = await mongoose.model('Color').countDocuments({ _id: { $in: this.colors } });
-      if (colorsExist !== this.colors.length) throw new Error('One or more Colors do not exist');
+    if (this.isModified('colors') || this.isModified('color.id')) {
+      const colorExists = await mongoose.model('Color').exists({ _id: this.color.id });
+      if (!colorExists) throw new Error('Referenced Color does not exist');
+      
+      // Ensure color.id is in colors array
+      if (!this.colors.includes(this.color.id)) {
+        this.colors = [...new Set([this.color.id, ...this.colors])];
+      }
     }
    
     if (this.isModified('addedBy')) {
       const userExists = await mongoose.model('User').exists({ _id: this.addedBy });
       if (!userExists) throw new Error('Referenced User does not exist');
     }
-   
+
+    // Sync color name if not set or if color ID changed
+    if (!this.color.name || this.isModified('color.id')) {
+      const colorDoc = await mongoose.model('Color').findById(this.color.id).select('name');
+      if (colorDoc) {
+        this.color.name = colorDoc.name;
+      }
+    }
+
     next();
   } catch (err) {
     next(err);
   }
 });
 
-
+// Virtuals for populated data
 vehicleSchema.virtual('modelDetails', {
   ref: 'Model',
   localField: 'model',
@@ -367,7 +395,6 @@ vehicleSchema.virtual('modelDetails', {
     select: 'model_name type status prices colors createdAt'
   }
 });
-
 
 vehicleSchema.virtual('locationDetails', {
   ref: 'Branch',
@@ -379,7 +406,6 @@ vehicleSchema.virtual('locationDetails', {
   }
 });
 
-
 vehicleSchema.virtual('colorDetails', {
   ref: 'Color',
   localField: 'colors',
@@ -388,7 +414,6 @@ vehicleSchema.virtual('colorDetails', {
     select: 'name hex_code status models createdAt'
   }
 });
-
 
 vehicleSchema.virtual('addedByDetails', {
   ref: 'User',
@@ -399,7 +424,13 @@ vehicleSchema.virtual('addedByDetails', {
     select: 'name email'
   }
 });
-
-
+// Duplicate chassis number check (extra protection)
+vehicleSchema.post('save', function(error, doc, next) {
+  if (error.name === 'MongoServerError' && error.code === 11000) {
+    next(new Error(`Chassis number ${doc.chassisNumber} already exists in the system`));
+  } else {
+    next(error);
+  }
+});
 module.exports = mongoose.model('Vehicle', vehicleSchema);
 

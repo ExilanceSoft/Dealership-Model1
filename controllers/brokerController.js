@@ -24,7 +24,7 @@ const validateBranchData = (branchData) => {
     if (!branchData.commissionRange) {
       throw new Error('Commission range is required for VARIABLE type');
     }
-    const validRanges = ['1-20000', '20001-40000', '40001-60000', '60001'];
+    const validRanges = ['1 - 20000', '20001-40000', '40001-60000', '60001'];
     if (!validRanges.includes(branchData.commissionRange)) {
       throw new Error('Invalid commission range');
     }

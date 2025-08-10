@@ -209,13 +209,51 @@ exports.updateHeaderPriorities = async (req, res, next) => {
   }
 };
 
+// exports.deleteHeader = async (req, res, next) => {
+//   try {
+//     const Model = require('../models/ModelModel');
+//     const referencedModels = await Model.find({ header_id: req.params.id });
+    
+//     if (referencedModels.length > 0) {
+//       return next(new AppError('Cannot delete header - it is referenced by existing models', 400));
+//     }
+
+//     const header = await Header.findByIdAndDelete(req.params.id);
+
+//     if (!header) {
+//       return next(new AppError('No header found with that ID', 404));
+//     }
+
+//     res.status(204).json({
+//       status: 'success',
+//       data: null
+//     });
+//   } catch (err) {
+//     logger.error(`Error deleting header: ${err.message}`);
+//     next(err);
+//   }
+// };
+
 exports.deleteHeader = async (req, res, next) => {
   try {
     const Model = require('../models/ModelModel');
-    const referencedModels = await Model.find({ header_id: req.params.id });
+    const Booking = require('../models/Booking'); // Import Booking model
     
-    if (referencedModels.length > 0) {
-      return next(new AppError('Cannot delete header - it is referenced by existing models', 400));
+    // Check if header is referenced in models
+    const referencedModels = await Model.countDocuments({ 
+      'prices.header_id': req.params.id 
+    });
+    
+    // Check if header is referenced in bookings
+    const referencedBookings = await Booking.countDocuments({
+      'priceComponents.header': req.params.id
+    });
+    
+    if (referencedModels > 0 || referencedBookings > 0) {
+      return next(new AppError(
+        'Cannot delete header - it is referenced by existing models or bookings', 
+        400
+      ));
     }
 
     const header = await Header.findByIdAndDelete(req.params.id);

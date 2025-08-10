@@ -1,305 +1,735 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Booking Form - BK000018</title>
-    <style>
-        body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            margin: 100px;
-            line-height: 1.3;
-        }
-      @page {
-    size: A4;
-    margin: 120mm 600mm 120mm 600mm; /* top, right, bottom, left */
-}
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-            page-break-inside: avoid;
-        }
-        th, td {
-            padding: 4px 6px;
-            border: 1px solid #000;
-            vertical-align: top;
-        }
-        .header-table {
-            border: none;
-        }
-        .header-table td {
-            border: none;
-            padding: 1px 6px;
-        }
-        .item-table {
-            font-size: 11px;
-        }
-        .item-table td {
-            padding: 2px 4px;
-        }
-        .text-right {
-            text-align: right;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .text-bold {
-            font-weight: bold;
-        }
-        .section-title {
-            font-weight: bold;
-            margin: 10px 0 3px 0;
-            border-bottom: 1px solid #000;
-            padding-bottom: 2px;
-            font-size: 13px;
-        }
-        .signature-table {
-            margin-top: 30px;
-        }
-        .signature-table td {
-            border: none;
-            padding-top: 40px;
-            width: 25%;
-            border-top: 1px solid #000;
-        }
-        .declaration {
-            font-size: 9px;
-            text-align: justify;
-            margin-top: 15px;
-        }
-        .no-border {
-            border: none;
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>RBAC Tester — Roles, Users & Route Checks</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#0f172a;--panel:#111827;--muted:#1f2937;--soft:#374151;--text:#e5e7eb;--sub:#9ca3af;
+    --brand:#22c55e;--accent:#3b82f6;--warn:#f59e0b;--danger:#ef4444
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .topbar{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--muted);
+    position:sticky;top:0;background:rgba(15,23,42,.85);backdrop-filter:blur(6px);z-index:10}
+  .topbar .field{display:flex;gap:6px;align-items:center}
+  .topbar label{font-size:12px;color:var(--sub)}
+  .topbar input,.topbar select{background:var(--panel);border:1px solid var(--soft);color:var(--text);padding:8px 10px;border-radius:8px}
+  .topbar input[type="text"],.topbar input[type="password"]{min-width:280px}
+  .btn{border:1px solid var(--soft);background:var(--muted);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer}
+  .btn.brand{border-color:#14532d;background:#14532d}
+  .btn.accent{border-color:#1e40af;background:#1e3a8a}
+  .btn.warn{border-color:#78350f;background:#78350f}
+  .btn.danger{border-color:#7f1d1d;background:#7f1d1d}
+  .btn.ghost{background:transparent}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .wrap{display:grid;grid-template-columns:240px 1fr;height:calc(100% - 58px)}
+  .sidebar{border-right:1px solid var(--muted);padding:16px;overflow:auto}
+  .sidebar h2{font-size:13px;color:var(--sub);margin:6px 0 10px}
+  .nav a{display:block;padding:10px 12px;margin-bottom:6px;color:var(--text);border:1px solid var(--soft);
+    border-radius:8px;text-decoration:none}
+  .nav a.active{background:#1f2937;border-color:var(--accent)}
+
+  .main{padding:16px;overflow:auto}
+  .hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .hdr .title{font-size:18px;font-weight:600}
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card{background:var(--panel);border:1px solid var(--muted);border-radius:12px;overflow:hidden}
+  .card .card-body{padding:12px}
+  .help{color:var(--sub);font-size:12px}
+  .muted{color:var(--sub)}
+  .ok{color:var(--brand)} .bad{color:var(--danger)}
+  .chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#0b1220;border:1px solid var(--soft);font-size:12px;margin-right:4px;margin-bottom:4px;white-space:nowrap}
+  .matrix{width:100%;overflow:auto;border:1px solid var(--muted);border-radius:10px}
+  .matrix table{width:100%;min-width:720px;border-collapse:separate;border-spacing:0}
+  th{background:#0b1220;color:var(--sub);text-align:left;padding:10px;border-bottom:1px solid var(--soft);position:sticky;top:0;z-index:1}
+  td{padding:10px;border-bottom:1px solid var(--muted)}
+  tbody tr:hover{background:#0b1220}
+  .mcell{text-align:center}
+  .toggle{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:1px solid var(--soft);background:var(--muted);cursor:pointer;user-select:none}
+  .toggle.on{background:#064e3b;border-color:#064e3b}
+  .grid{display:grid;gap:8px}
+  .row{display:grid;gap:8px;grid-template-columns:1fr 1fr}
+  .row .col{display:flex;flex-direction:column;gap:6px}
+  input,select,textarea{background:var(--muted);border:1px solid var(--soft);color:var(--text);padding:8px 10px;border-radius:8px}
+  pre.code{background:#0b1220;border:1px solid var(--soft);border-radius:8px;padding:8px;overflow:auto;margin:6px 0}
+  .toast{position:fixed;bottom:20px;right:20px;background:#0b1220;border:1px solid var(--soft);color:var(--text);padding:10px 12px;border-radius:8px;display:none;z-index:60}
+  .toast.show{display:block}
+  .empty{padding:24px;color:var(--sub);text-align:center}
+</style>
 </head>
 <body>
-    <!-- Header Section -->
-    <table class="header-table">
-        <tr>
-            <td width="40%"><font size="5"><b>Gandhi TVS</b></font></td>
-            <td width="40%" class="text-center"><b><u>Booking Form / Order Form</u></b></td>
-            <td width="20%" class="text-right"><img src="tvs.jpg" alt="tvs" width="120" height="25"></td>
-        </tr>
-        <tr>
-            <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
-            <td class="text-right">Date: 16/07/2025</td>
-        </tr>
-        <tr>
-            <td colspan="3">Nashik Branch</td>
-        </tr>
-    </table>
 
-    <!-- Customer Details -->
-    <div class="section-title">Customer & Vehicle Details</div>
-    <table class="header-table">
-        <tr>
-            <td width="20%"><b>Booking No.:</b></td>
-            <td width="30%">BK000018</td>
-            <td width="20%"><b>GSTIN:</b></td>
-            <td width="30%">N/A</td>
-        </tr>
-        <tr>
-            <td><b>Customer Name:</b></td>
-            <td>Mr. Rahul Sharma</td>
-            <td><b>RTO Type:</b></td>
-            <td>BH</td>
-        </tr>
-        <tr>
-            <td><b>Address:</b></td>
-            <td colspan="3">456 Business Park, Nashik</td>
-        </tr>
-        <tr>
-            <td><b>Taluka:</b></td>
-            <td>Nashik</td>
-            <td><b>District:</b></td>
-            <td>Nashik</td>
-        </tr>
-        <tr>
-            <td><b>Pincode:</b></td>
-            <td>422005</td>
-            <td><b>Mobile No.:</b></td>
-            <td>9876543210</td>
-        </tr>
-        <tr>
-            <td><b>D.O.B.:</b></td>
-            <td>15/05/1985</td>
-            <td><b>Aadhar No.:</b></td>
-            <td>112233445566</td>
-        </tr>
-        <tr>
-            <td><b>Exchange Mode:</b></td>
-            <td>NO</td>
-            <td><b>Payment Mode:</b></td>
-            <td>FINANCE (ABC Finance1)</td>
-        </tr>
-        <tr>
-            <td><b>Model:</b></td>
-            <td>TVS Apache</td>
-            <td><b>Color:</b></td>
-            <td>Red</td>
-        </tr>
-        <tr>
-            <td><b>Sales Rep:</b></td>
-            <td>Rajesh Kumar</td>
-            <td><b>HPA:</b></td>
-            <td>YES</td>
-        </tr>
-    </table>
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="field"><label>API</label><input id="apiBase" type="text" placeholder="https://dealership.gandhitvs.in/api/v1" /></div>
+  <div class="field"><label>Token</label><input id="jwtToken" type="password" placeholder="Bearer JWT token" /></div>
+  <div class="field"><label>Creds</label>
+    <select id="sendCreds">
+      <option value="omit">omit</option>
+      <option value="include">include</option>
+    </select>
+  </div>
+  <button class="btn brand" id="saveCfgBtn">Save</button>
+  <button class="btn" id="reloadBtn">Reload</button>
+  <span class="help" id="cfgStatus"></span>
+</div>
 
-    <!-- Price Components -->
-    <div class="section-title">Price Breakdown</div>
-    <table class="item-table">
-        <thead>
-            <tr>
-                <th width="25%"><b>Particulars</b></th>
-                <th width="5%"><b>HSN</b></th>
-                <th width="8%"><b>Unit Cost</b></th>
-                <th width="8%"><b>Taxable</b></th>
-                <th width="5%"><b>CGST</b></th>
-                <th width="8%"><b>CGST AMT</b></th>
-                <th width="5%"><b>SGST</b></th>
-                <th width="8%"><b>SGST AMT</b></th>
-                <th width="7%"><b>DIS.</b></th>
-                <th width="8%"><b>LINE TOTAL</b></th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><b>ACCESSORIES TOTAL</b></td>
-                <td class="text-right">8703</td>
-                <td class="text-right">9000.00</td>
-                <td class="text-right">9000.00</td>
-                <td class="text-right">9</td>
-                <td class="text-right">810.00</td>
-                <td class="text-right">9</td>
-                <td class="text-right">810.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">9000.00</td>
-            </tr>
-            <tr>
-                <td><b>battery_capacity</b></td>
-                <td class="text-right">8703</td>
-                <td class="text-right">4567.00</td>
-                <td class="text-right">4517.00</td>
-                <td class="text-right">9</td>
-                <td class="text-right">406.53</td>
-                <td class="text-right">9</td>
-                <td class="text-right">406.53</td>
-                <td class="text-right">50.00</td>
-                <td class="text-right">4517.00</td>
-            </tr>
-            <tr>
-                <td><b>HYPOTHECATION CHARGES</b></td>
-                <td class="text-right">8703</td>
-                <td class="text-right">500.00</td>
-                <td class="text-right">500.00</td>
-                <td class="text-right">9</td>
-                <td class="text-right">45.00</td>
-                <td class="text-right">9</td>
-                <td class="text-right">45.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">500.00</td>
-            </tr>
-            <tr>
-                <td><b>Alloy Wheels34</b></td>
-                <td class="text-right">-</td>
-                <td class="text-right">500.00</td>
-                <td class="text-right">500.00</td>
-                <td class="text-right">0</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">500.00</td>
-            </tr>
-            <tr>
-                <td><b>Additional Charges</b></td>
-                <td class="text-right">-</td>
-                <td class="text-right">8500.00</td>
-                <td class="text-right">8500.00</td>
-                <td class="text-right">0</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">8500.00</td>
-            </tr>
-        </tbody>
-    </table>
+<div class="wrap">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <h2>Navigation</h2>
+    <nav class="nav">
+      <a href="#" data-view="catalog" class="active">Permissions Catalog</a>
+      <a href="#" data-view="roles">Roles</a>
+      <a href="#" data-view="users">Users</a>
+      <a href="#" data-view="tester">Quick Route Tester</a>
+    </nav>
+    <h2>Notes</h2>
+    <div class="help">
+      <p>• Roles <b>send permissions as keys</b> (e.g. <code>VEHICLES.READ</code>) or IDs. Backend normalizes.</p>
+      <p>• Use the <b>Tester</b> to hit domain routes (BANK, ACCESSORY, etc.).</p>
+      <p>• If you get <b>403</b> → user/roles lack required permission.</p>
+    </div>
+  </aside>
 
-    <!-- Totals Section -->
-    <table class="header-table">
-        <tr>
-            <td colspan="9"><strong>Total(A)</strong></td>
-            <td class="text-right"><strong>28,067.00</strong></td>
-        </tr>
-    </table>
+  <!-- MAIN -->
+  <main class="main" id="main"></main>
+</div>
 
-    <table>
-        <tbody>
-            <tr>
-                <td width="85%"><b>RTO TAX,REGISTRATION SMART CARD CHARGES AGENT FEES</b></td>
-                <td class="text-right">5,000.00</td>
-            </tr>
-            <tr>
-                <td><b>HP CHARGES</b></td>
-                <td class="text-right">500.00</td>
-            </tr>
-            <tr>
-                <td><b>Insurance</b></td>
-                <td class="text-right">9,000.00</td>
-            </tr>
-        </tbody>
-    </table>
-    
-    <table class="header-table">
-        <tr>
-            <td colspan="9"><strong>Total(B)</strong></td>
-            <td class="text-right"><strong>14,500.00</strong></td>
-        </tr>
-    </table>
-    
-    <table class="header-table">
-        <tr>
-            <td colspan="9"><strong>GRAND TOTAL(A) + (B)</strong></td>
-            <td class="text-right"><strong>42,567.00</strong></td>
-        </tr>
-    </table>
+<div class="toast" id="toast"></div>
 
-    <!-- Notes -->
-    <table class="header-table">
-        <tr>
-            <td><strong>Notes:-</strong> Delivery expected within 7 working days</td>
-        </tr>
-    </table>
+<script>
+/* =========================
+   CONFIG
+========================= */
+const cfg = {
+  baseURL: localStorage.getItem('apiBaseUrl') || '',
+  token: localStorage.getItem('token') || '',
+  credentials: localStorage.getItem('sendCreds') || 'omit'
+};
+const elApiBase = document.getElementById('apiBase');
+const elToken   = document.getElementById('jwtToken');
+const elCreds   = document.getElementById('sendCreds');
+const elCfgStatus = document.getElementById('cfgStatus');
 
-    <!-- Declaration -->
-    <table class="header-table">
-        <tr>
-            <td>ACC.DETAILS: Gandhi TVS Nashik Branch</td>
-        </tr>
-        <tr>
-            <td class="declaration">
-                <strong>Declaration-</strong> I/We Authorize the Dealer to register the vehicle at RTO in my/our name .2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss. 3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration. 4) Registration Number allotted by RTO will be acceptable to me else I will pre book for choice number at RTO at my own. Dealership has no role in RTO Number allocation 5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same 6) I/We agree that the price at the time of delivery will be applicable. 7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle 9)I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking. 8) Subject to sangamner Jurisdication. I accept that vehicle once sold by dealer shall not be taken back /replaced for any reason.
-            </td>
-        </tr>
-    </table>
+elApiBase.value = cfg.baseURL;
+elToken.value   = cfg.token;
+elCreds.value   = cfg.credentials;
 
-    <!-- Signatures -->
-    <table class="signature-table">
-        <tr>
-            <td class="no-border"></td>
-            <td class="no-border"></td>
-            <td class="no-border"></td>
-            <td class="no-border"></td>
-        </tr>
-        <tr>
-            <td>Customer's Signature</td>
-            <td>Sales Executive</td>
-            <td>Manager</td>
-            <td>Accountant</td>
-        </tr>
-    </table>
+document.getElementById('saveCfgBtn').onclick = () => {
+  cfg.baseURL = elApiBase.value.trim().replace(/\/+$/, '');
+  cfg.token   = elToken.value.trim();
+  cfg.credentials = elCreds.value;
+  localStorage.setItem('apiBaseUrl', cfg.baseURL);
+  localStorage.setItem('token', cfg.token);
+  localStorage.setItem('sendCreds', cfg.credentials);
+  elCfgStatus.textContent = 'Saved ✓'; setTimeout(()=>elCfgStatus.textContent='',1500);
+};
+document.getElementById('reloadBtn').onclick = () => location.reload();
+
+function toast(msg, type='info'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = type === 'error' ? '#7f1d1d' : (type === 'success' ? '#14532d' : '#1e3a8a');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+/* =========================
+   API helper
+========================= */
+async function api(path, { method='GET', body, headers={} } = {}) {
+  if (!cfg.baseURL) throw new Error('Set API base URL in the top bar');
+  const url = path.startsWith('http') ? path : cfg.baseURL + path;
+  const h = { 'Accept':'application/json', ...headers };
+  if (cfg.token) h['Authorization'] = 'Bearer ' + cfg.token;
+  const opts = { method, headers:h, credentials: cfg.credentials };
+  if (body !== undefined) { h['Content-Type']='application/json'; opts.body = JSON.stringify(body); }
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    let msg = res.status + ' ' + res.statusText;
+    try { const j = await res.json(); msg = j?.message || j?.error || JSON.stringify(j); } catch {}
+    throw new Error(msg);
+  }
+  if (res.status === 204) return null;
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) return await res.json();
+  return await res.text();
+}
+const asArray = (r) => (Array.isArray(r) ? r : (r?.data?.docs || r?.data || r?.items || r?.roles || r?.users || []) );
+const asObj   = (r) => (r?.data ?? r);
+
+/* =========================
+   STATE
+========================= */
+const state = {
+  view: 'catalog',
+  catalog: { modules: [], flat: [], idToKey:new Map(), keyToId:new Map() },
+  roles: [],
+  users: []
+};
+
+/* =========================
+   LOADERS
+========================= */
+async function loadCatalog() {
+  // load all permissions across pages (assumes 200 max per page; adjust if needed)
+  let page = 1, limit = 200;
+  const all = [];
+  while (true) {
+    const res = await api(`/permissions?page=${page}&limit=${limit}`);
+    const docs = asArray(res);
+    all.push(...docs);
+    if (!docs.length || docs.length < limit) break;
+    page++;
+  }
+  // Build id<->key maps, and group by module
+  const idToKey = new Map();
+  const keyToId = new Map();
+  const byModule = new Map();
+  for (const p of all) {
+    const id = p._id || p.id;
+    const key = `${(p.module||'').toUpperCase()}.${(p.action||'').toUpperCase()}`;
+    idToKey.set(id, key);
+    keyToId.set(key, id);
+    const m = (p.module||'').toUpperCase();
+    const a = (p.action||'').toUpperCase();
+    if (!byModule.has(m)) byModule.set(m, new Set());
+    byModule.get(m).add(a);
+  }
+  const modules = Array.from(byModule.entries()).map(([key, set]) => ({ key, actions: Array.from(set).sort() })).sort((a,b)=> a.key.localeCompare(b.key));
+  state.catalog = { modules, flat: all, idToKey, keyToId };
+}
+
+async function loadRoles() {
+  const res = await api('/roles');
+  const arr = asArray(res).map(r => ({
+    _id: r._id || r.id,
+    name: (r.name || '').toUpperCase(),
+    description: r.description || '',
+    is_active: r.is_active !== false,
+    // can be ids or populated docs; normalize to ids
+    permissions: Array.isArray(r.permissions) ? r.permissions.map(x => (typeof x==='string' ? x : (x?._id||x?.id))).filter(Boolean) : []
+  }));
+  state.roles = arr;
+}
+
+async function loadUsers() {
+  const res = await api('/users');
+  const arr = asArray(res).map(u => ({
+    _id: u._id || u.id,
+    name: u.name || '',
+    email: u.email || '',
+    status: u.status || 'ACTIVE',
+    roles: (u.roles || []).map(x => (typeof x==='string' ? x : (x?._id||x?.id))).filter(Boolean),
+    lastLogin: u.auth?.lastLogin || u.lastLogin || null,
+    createdAt: u.createdAt || null
+  }));
+  state.users = arr;
+}
+
+/* =========================
+   NAV + RENDER
+========================= */
+const main = document.getElementById('main');
+document.querySelectorAll('.nav a').forEach(a=>{
+  a.addEventListener('click', (e)=>{
+    e.preventDefault();
+    document.querySelectorAll('.nav a').forEach(n=>n.classList.remove('active'));
+    a.classList.add('active');
+    state.view = a.dataset.view;
+    render();
+  });
+});
+
+function render(){
+  if (state.view === 'roles') return renderRoles();
+  if (state.view === 'users') return renderUsers();
+  if (state.view === 'tester') return renderTester();
+  return renderCatalog();
+}
+
+/* =========================
+   VIEW: Catalog
+========================= */
+function renderCatalog(){
+  const rows = state.catalog.modules.map(m=>{
+    return `<tr>
+      <td><b>${m.key}</b></td>
+      <td>${m.actions.map(a=>`<span class="chip">${a}</span>`).join(' ')}</td>
+    </tr>`;
+  }).join('');
+  main.innerHTML = `
+    <div class="hdr">
+      <div class="title">Permissions Catalog</div>
+      <div class="toolbar">
+        <button class="btn" id="refreshCatalog">Refresh</button>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="help" style="margin-bottom:8px">Loaded from <code>/permissions</code>. Used to build role matrix. Keys are <code>MODULE.ACTION</code>.</div>
+      <div class="matrix">
+        <table>
+          <thead><tr><th>Module</th><th>Actions</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="2"><div class="empty">No permissions found. Ensure backend seeded catalog.</div></td></tr>`}</tbody>
+        </table>
+      </div>
+    </div></div>
+  `;
+  document.getElementById('refreshCatalog').onclick = async()=> { await loadCatalog(); renderCatalog(); };
+}
+
+/* =========================
+   VIEW: Roles
+========================= */
+function renderRoles(){
+  const rows = state.roles.map(r=>{
+    const keys = (r.permissions||[]).map(id=> state.catalog.idToKey.get(id)).filter(Boolean);
+    const chips = keys.length ? keys.slice(0,10).map(k=>`<span class="chip">${k}</span>`).join('') + (keys.length>10?` <span class="chip">+${keys.length-10} more</span>`:'') : '<span class="muted">—</span>';
+    return `<tr>
+      <td><b>${r.name}</b><div class="help">${r.description||''}</div></td>
+      <td>${r.is_active ? '<span class="ok">Active</span>' : '<span class="bad">Inactive</span>'}</td>
+      <td>${(r.permissions||[]).length}</td>
+      <td>${chips}</td>
+      <td>
+        <button class="btn" data-edit="${r._id}">Edit</button>
+        <button class="btn danger" data-del="${r._id}">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+  main.innerHTML = `
+    <div class="hdr">
+      <div class="title">Roles</div>
+      <div class="toolbar">
+        <button class="btn brand" id="newRole">New Role</button>
+        <button class="btn" id="refreshRoles">Refresh</button>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="matrix">
+        <table>
+          <thead><tr><th>Role</th><th>Status</th><th>#Perms</th><th>Permissions</th><th>Actions</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="5"><div class="empty">No roles found</div></td></tr>`}</tbody>
+        </table>
+      </div>
+    </div></div>
+
+    <div class="card" style="margin-top:12px"><div class="card-body">
+      <div style="font-weight:600;margin-bottom:6px">Editor</div>
+      <div class="row">
+        <div class="col">
+          <label>Role Name</label>
+          <input id="roleName" type="text" placeholder="INVENTORY_MANAGER" />
+        </div>
+        <div class="col">
+          <label>Active</label>
+          <select id="roleActive"><option value="true">true</option><option value="false">false</option></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="col" style="grid-column:1/-1">
+          <label>Description</label>
+          <input id="roleDesc" type="text" placeholder="What is this role for?" />
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+        <div>
+          <div style="font-weight:600">Permissions Matrix</div>
+          <div class="help">Toggle actions; saved as <code>MODULE.ACTION</code> keys.</div>
+        </div>
+        <div class="toolbar">
+          <button class="btn" data-preset="none">None</button>
+          <button class="btn" data-preset="view">View-only</button>
+          <button class="btn" data-preset="manager">Manager</button>
+          <button class="btn" data-preset="full">Full</button>
+        </div>
+      </div>
+
+      <div class="matrix" style="margin-top:8px">
+        <table id="roleMatrixTbl"></table>
+      </div>
+
+      <div class="toolbar" style="margin-top:10px">
+        <button class="btn brand" id="saveRoleBtn">Save Role</button>
+        <button class="btn" id="resetEditor">Reset</button>
+      </div>
+      <pre id="roleDiff" class="code help">No changes.</pre>
+      <input type="hidden" id="editingRoleId" />
+    </div></div>
+  `;
+
+  document.getElementById('refreshRoles').onclick = async()=> { await loadRoles(); renderRoles(); };
+  document.getElementById('newRole').onclick = ()=> startRoleEditor(null);
+
+  main.querySelectorAll('[data-edit]').forEach(b=> b.onclick = ()=> startRoleEditor(b.dataset.edit));
+  main.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=> deleteRole(b.dataset.del));
+
+  document.querySelectorAll('[data-preset]').forEach(btn=> btn.onclick = ()=> applyPreset(btn.dataset.preset));
+  document.getElementById('saveRoleBtn').onclick = saveRole;
+  document.getElementById('resetEditor').onclick = ()=> startRoleEditor(document.getElementById('editingRoleId').value || null);
+
+  // Initialize editor with first role for convenience
+  if (state.roles[0]) startRoleEditor(state.roles[0]._id);
+  else startRoleEditor(null);
+}
+
+let editor = { before:new Set(), selected:new Set(), matrix:{} };
+
+function startRoleEditor(roleId){
+  const nameEl = document.getElementById('roleName');
+  const descEl = document.getElementById('roleDesc');
+  const actEl  = document.getElementById('roleActive');
+  const idEl   = document.getElementById('editingRoleId');
+
+  if (roleId) {
+    const r = state.roles.find(x=>x._id===roleId);
+    idEl.value = r._id;
+    nameEl.value = r.name || '';
+    descEl.value = r.description || '';
+    actEl.value = String(!!r.is_active);
+    // selected as KEYS
+    const keys = (r.permissions||[]).map(id=> state.catalog.idToKey.get(id)).filter(Boolean);
+    editor.before = new Set(keys);
+    editor.selected = new Set(keys);
+  } else {
+    idEl.value = '';
+    nameEl.value = '';
+    descEl.value = '';
+    actEl.value  = 'true';
+    editor.before = new Set();
+    editor.selected = new Set();
+  }
+  buildRoleMatrix();
+  updateRoleDiff();
+}
+
+function buildRoleMatrix(){
+  const tbl = document.getElementById('roleMatrixTbl');
+  const unionActs = Array.from(new Set(state.catalog.modules.flatMap(m=>m.actions))).sort();
+  const head = `<tr><th>Module \\ Action</th>${unionActs.map(a=>`<th class="mcell">${a}</th>`).join('')}</tr>`;
+  const body = state.catalog.modules.map(m=>{
+    const cells = unionActs.map(a=>{
+      const key = `${m.key}.${a}`;
+      const exists = state.catalog.keyToId.has(key);
+      if (!exists) return `<td class="mcell"><span class="muted">—</span></td>`;
+      const on = editor.selected.has(key);
+      return `<td class="mcell"><div class="toggle ${on?'on':''}" data-key="${key}">${on?'✓':''}</div></td>`;
+    }).join('');
+    return `<tr><td><b>${m.key}</b></td>${cells}</tr>`;
+  }).join('');
+  tbl.innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+  tbl.querySelectorAll('.toggle').forEach(t=> t.onclick = ()=>{
+    const key = t.dataset.key;
+    if (editor.selected.has(key)) editor.selected.delete(key); else editor.selected.add(key);
+    buildRoleMatrix();
+    updateRoleDiff();
+  });
+}
+
+function applyPreset(preset){
+  editor.selected = new Set();
+  for (const m of state.catalog.modules){
+    for (const a of m.actions){
+      let on = false;
+      if (preset==='view') on = (a === 'READ');
+      else if (preset==='manager') on = (a === 'READ' || a === 'UPDATE');
+      else if (preset==='full') on = true;
+      else on = false;
+      if (on) editor.selected.add(`${m.key}.${a}`);
+    }
+  }
+  buildRoleMatrix();
+  updateRoleDiff();
+}
+function updateRoleDiff(){
+  const adds=[], rems=[];
+  for (const k of editor.selected) if (!editor.before.has(k)) adds.push(k);
+  for (const k of editor.before) if (!editor.selected.has(k)) rems.push(k);
+  const lines=[];
+  if (adds.length) lines.push('Add: ' + adds.sort().join(', '));
+  if (rems.length) lines.push('Remove: ' + rems.sort().join(', '));
+  if (!lines.length) lines.push('No changes.');
+  document.getElementById('roleDiff').textContent = lines.join('\n');
+}
+async function saveRole(){
+  const id = document.getElementById('editingRoleId').value || null;
+  const name = document.getElementById('roleName').value.trim().toUpperCase();
+  const description = document.getElementById('roleDesc').value.trim();
+  const is_active = document.getElementById('roleActive').value === 'true';
+  if (!name) return toast('Role name required', 'error');
+  const permissions = Array.from(editor.selected); // send as KEYS; backend normalizes
+  if (!permissions.length) return toast('Select at least one permission', 'error');
+
+  try {
+    if (id) {
+      await api(`/roles/${id}`, { method:'PUT', body: { name, description, is_active, permissions }});
+      toast('Role updated','success');
+    } else {
+      await api(`/roles`, { method:'POST', body: { name, description, is_active, permissions }});
+      toast('Role created','success');
+    }
+    await loadRoles();
+    renderRoles();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'error');
+  }
+}
+async function deleteRole(id){
+  if (!confirm('Delete this role?')) return;
+  try {
+    await api(`/roles/${id}`, { method:'DELETE' });
+    toast('Role deleted','success');
+    await loadRoles(); renderRoles();
+  } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+}
+
+/* =========================
+   VIEW: Users
+========================= */
+function renderUsers(){
+  const roleOptions = state.roles.map(r=> `<option value="${r._id}">${r.name}${r.is_active?'':' (inactive)'}</option>`).join('');
+  const rows = state.users.map(u=>{
+    const chips = (u.roles||[]).map(id => {
+      const r = state.roles.find(x=>x._id===id);
+      return r ? `<span class="chip">${r.name}</span>` : `<span class="chip muted">unknown</span>`;
+    }).join(' ');
+    return `<tr>
+      <td>${u.name||'<span class="muted">—</span>'}</td>
+      <td class="muted">${u.email||''}</td>
+      <td>${u.status}</td>
+      <td>${chips || '<span class="muted">—</span>'}</td>
+      <td class="muted">${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : '—'}</td>
+      <td>
+        <button class="btn" data-edit="${u._id}">Edit</button>
+        <button class="btn" data-eff="${u._id}">Effective</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="hdr">
+      <div class="title">Users</div>
+      <div class="toolbar">
+        <button class="btn" id="refreshUsers">Refresh</button>
+      </div>
+    </div>
+    <div class="card"><div class="card-body">
+      <div class="matrix">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Roles</th><th>Last Login</th><th>Actions</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="6"><div class="empty">No users found</div></td></tr>`}</tbody>
+        </table>
+      </div>
+    </div></div>
+
+    <div class="card" style="margin-top:12px"><div class="card-body">
+      <div style="font-weight:600;margin-bottom:6px">Editor</div>
+      <div class="row">
+        <div class="col"><label>User</label><select id="userSel"></select></div>
+        <div class="col"><label>Status</label><select id="userStatus"><option>ACTIVE</option><option>FROZEN</option><option>INVITED</option><option>INACTIVE</option><option>EXTENDED</option></select></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="col"><label>Name</label><input id="userName" type="text" /></div>
+        <div class="col"><label>Email</label><input id="userEmail" type="text" /></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="col" style="grid-column:1/-1">
+          <label>Roles (Ctrl/Cmd to multi-select)</label>
+          <select id="userRoles" multiple size="7">${roleOptions}</select>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:10px">
+        <button class="btn brand" id="saveUserBtn">Save User</button>
+      </div>
+      <pre id="userDiff" class="code help">Select a user to edit.</pre>
+
+      <div style="font-weight:600;margin-top:12px;margin-bottom:6px">Effective Permissions (preview)</div>
+      <div class="matrix"><table id="effTbl"></table></div>
+    </div></div>
+  `;
+
+  document.getElementById('refreshUsers').onclick = async()=> { await loadUsers(); renderUsers(); };
+
+  // Populate user selector
+  const sel = document.getElementById('userSel');
+  sel.innerHTML = state.users.map(u=> `<option value="${u._id}">${u.name || u.email || u._id}</option>`).join('');
+  sel.onchange = ()=> pickUser(sel.value);
+  if (state.users[0]) pickUser(state.users[0]._id);
+
+  document.getElementById('saveUserBtn').onclick = saveUser;
+}
+
+let userEditor = { before:null, data:null };
+function pickUser(uid){
+  const u = state.users.find(x=>x._id===uid);
+  if (!u) return;
+  userEditor.before = JSON.parse(JSON.stringify(u));
+  userEditor.data   = JSON.parse(JSON.stringify(u));
+
+  document.getElementById('userSel').value = u._id;
+  document.getElementById('userStatus').value = u.status || 'ACTIVE';
+  document.getElementById('userName').value = u.name || '';
+  document.getElementById('userEmail').value = u.email || '';
+  const roleSel = document.getElementById('userRoles');
+  Array.from(roleSel.options).forEach(o => o.selected = u.roles.includes(o.value));
+
+  // hooks
+  document.getElementById('userStatus').onchange = e=> (userEditor.data.status = e.target.value, updateUserDiff());
+  document.getElementById('userName').oninput = e=> (userEditor.data.name = e.target.value, updateUserDiff());
+  document.getElementById('userEmail').oninput = e=> (userEditor.data.email = e.target.value, updateUserDiff());
+  roleSel.onchange = e=> {
+    const selected = Array.from(roleSel.selectedOptions).map(o=>o.value);
+    userEditor.data.roles = selected; updateUserDiff();
+  };
+
+  updateUserDiff();
+  loadEffective(uid);
+}
+function updateUserDiff(){
+  const b = userEditor.before, d = userEditor.data;
+  const lines=[];
+  if (b.status !== d.status) lines.push(`Status: ${b.status} → ${d.status}`);
+  if ((b.name||'') !== (d.name||'')) lines.push(`Name: "${b.name||''}" → "${d.name||''}"`);
+  if ((b.email||'') !== (d.email||'')) lines.push(`Email: "${b.email||''}" → "${d.email||''}"`);
+  const added = d.roles.filter(x=>!b.roles.includes(x));
+  const removed = b.roles.filter(x=>!d.roles.includes(x));
+  if (added.length) lines.push('Roles + ' + added.map(id=> state.roles.find(r=>r._id===id)?.name||id).join(', '));
+  if (removed.length) lines.push('Roles − ' + removed.map(id=> state.roles.find(r=>r._id===id)?.name||id).join(', '));
+  document.getElementById('userDiff').textContent = lines.length ? lines.join('\n') : 'No changes.';
+}
+async function saveUser(){
+  const d = userEditor.data;
+  try{
+    await api(`/users/${d._id}`, { method:'PUT', body: { name:d.name, email:d.email, status:d.status, roles:d.roles }});
+    toast('User updated','success');
+    await loadUsers(); renderUsers();
+  }catch(e){ toast('Save failed: ' + e.message, 'error'); }
+}
+async function loadEffective(uid){
+  try{
+    const res = await api(`/users/${uid}/permissions`);
+    const perms = asObj(res)?.permissions || [];
+    const tbl = document.getElementById('effTbl');
+    const rows = perms.map(p=> `<tr><td>${p.module}.${p.action}</td><td class="mcell">✓</td></tr>`).join('');
+    tbl.innerHTML = `<thead><tr><th>Permission</th><th>Allow</th></tr></thead><tbody>${rows||`<tr><td colspan="2"><div class="empty">No permissions</div></td></tr>`}</tbody>`;
+  }catch(e){
+    document.getElementById('effTbl').innerHTML = `<thead><tr><th>Permission</th><th>Allow</th></tr></thead><tbody><tr><td colspan="2"><div class="empty">Failed to load: ${e.message}</div></td></tr></tbody>`;
+  }
+}
+
+/* =========================
+   VIEW: Quick Route Tester
+========================= */
+const RESOURCES = [
+  { key:'ACCESSORY', path:'/accessories' },
+  { key:'BANK', path:'/banks' },
+  { key:'BROKER', path:'/brokers' },
+  { key:'COLOR', path:'/colors' },
+  { key:'CUSTOMER', path:'/customers' },
+  { key:'FINANCER', path:'/financers' },
+  { key:'KYC', path:'/kyc' },
+  { key:'BOOKING', path:'/bookings' },
+  { key:'VEHICLES', path:'/vehicles' },
+  { key:'DECLARATION', path:'/declarations' },
+  { key:'FINANCE_DOCUMENT', path:'/finance-documents' },
+  { key:'CASH_LOCATION', path:'/cash-locations' },
+  { key:'CONTRA_VOUCHER', path:'/contra-vouchers' },
+  { key:'INSURANCE', path:'/insurance' },
+];
+
+function renderTester(){
+  const options = RESOURCES.map(r=> `<option value="${r.path}">${r.key}  (${r.path})</option>`).join('');
+  main.innerHTML = `
+    <div class="hdr">
+      <div class="title">Quick Route Tester</div>
+      <div class="toolbar"><button class="btn" id="clearOut">Clear</button></div>
+    </div>
+    <div class="card"><div class="card-body grid">
+      <div class="row">
+        <div class="col"><label>Resource</label><select id="resSel">${options}</select></div>
+        <div class="col"><label>ID (for GET/PUT/DELETE by id)</label><input id="resId" type="text" placeholder="ObjectId" /></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Method</label>
+          <select id="resMethod">
+            <option>GET (list)</option>
+            <option>GET (by id)</option>
+            <option>POST (create)</option>
+            <option>PUT (update)</option>
+            <option>DELETE (by id)</option>
+          </select>
+        </div>
+        <div class="col"><label>Query (optional)</label><input id="resQuery" type="text" placeholder="?page=1&limit=10" /></div>
+      </div>
+      <div>
+        <label>Body (JSON)</label>
+        <textarea id="resBody" rows="6" placeholder='{"name":"Example"}'></textarea>
+      </div>
+      <div class="toolbar">
+        <button class="btn brand" id="runBtn">Run</button>
+      </div>
+      <div>
+        <div style="font-weight:600;margin:6px 0">Response</div>
+        <pre id="out" class="code"></pre>
+      </div>
+    </div></div>
+  `;
+  document.getElementById('clearOut').onclick = ()=> document.getElementById('out').textContent = '';
+  document.getElementById('runBtn').onclick = runTest;
+}
+
+async function runTest(){
+  const base = document.getElementById('resSel').value;
+  const methodSel = document.getElementById('resMethod').value;
+  const id = (document.getElementById('resId').value || '').trim();
+  const q = (document.getElementById('resQuery').value || '').trim();
+  const bodyText = document.getElementById('resBody').value;
+  const out = document.getElementById('out');
+
+  try{
+    let path = base;
+    if (methodSel.includes('by id')) {
+      if (!id) throw new Error('ID required for this method');
+      path = `${base}/${encodeURIComponent(id)}`;
+    }
+    if (q) path += (q.startsWith('?') ? q : '?' + q);
+
+    let method = 'GET', body;
+    if (methodSel.startsWith('POST')) method = 'POST';
+    else if (methodSel.startsWith('PUT')) method = 'PUT';
+    else if (methodSel.startsWith('DELETE')) method = 'DELETE';
+
+    if (method==='POST' || method==='PUT') {
+      if (bodyText.trim()) body = JSON.parse(bodyText);
+      else body = {};
+    }
+
+    const res = await api(path, { method, body });
+    out.textContent = JSON.stringify(res, null, 2);
+  } catch (e){
+    out.textContent = 'ERROR: ' + e.message;
+  }
+}
+
+/* =========================
+   BOOT
+========================= */
+async function boot(){
+  try{
+    await loadCatalog();
+    await Promise.all([loadRoles(), loadUsers()]);
+    render();
+  }catch(e){
+    toast('Init error: ' + e.message, 'error');
+    render();
+  }
+}
+boot();
+</script>
 </body>
 </html>

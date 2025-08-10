@@ -141,11 +141,12 @@ router.post('/',
  *       500:
  *         description: Internal server error
  */
-router.get('/', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
-  permissionController.getPermissions
-);
+// router.get('/', 
+//   protect, 
+//   authorize('SUPERADMIN', 'ADMIN'), 
+//   permissionController.getPermissions
+// );
+router.get('/', permissionController.getPermissions);
 
 /**
  * @swagger

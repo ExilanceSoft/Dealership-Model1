@@ -185,8 +185,7 @@ bufferExtensions: [{
   type: String,
   enum: ['ACTIVE', 'FROZEN', 'EXTENDED', 'INACTIVE'],
   default: 'ACTIVE'
-}
-,
+},
   lastLogin: Date,
   loginIPs: [String]
 }, { 

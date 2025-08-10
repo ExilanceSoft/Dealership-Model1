@@ -23,7 +23,7 @@ const BrokerBranchSchema = new mongoose.Schema({
   },
   commissionRange: {
     type: String,
-    enum: ['1 - 20000', '20001 - 40000', '40001 - 60000', '60001'],
+    enum: ['1 - 20000', '20001-40000', '40001-60000', '60001'],
     required: function() { return this.commissionType === 'VARIABLE'; }
   },
   isActive: {
