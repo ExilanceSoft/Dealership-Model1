@@ -781,7 +781,7 @@ exports.createBooking = async (req, res) => {
             rtoAmount: ['BH', 'CRTM'].includes(req.body.rto_type) ? rtoAmount : undefined,
             hpa: req.body.hpa || false,
             hypothecationCharges: hypothecationCharges,
-            insuranceStatus: 'NOT_APPLICABLE',
+            insuranceStatus: 'AWAITING',
             customerDetails: {
                 salutation: req.body.customer_details.salutation,
                 name: req.body.customer_details.name,
@@ -3083,6 +3083,51 @@ exports.allocateChassisNumber = async (req, res) => {
       success: false,
       message: 'Error allocating chassis number',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+exports.getBookingsByInsuranceStatus = async (req, res, next) => {
+  try {
+    const { status } = req.params;
+
+    const allowedStatuses = ['AWAITING', 'COMPLETED', 'LATER'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid insuranceStatus. Allowed: ${allowedStatuses.join(', ')}`
+      });
+    }
+
+    const options = {
+      populate: [
+        { path: 'modelDetails' },
+        { path: 'colorDetails' },
+        { path: 'branchDetails' },
+        { path: 'createdByDetails' },
+        { path: 'salesExecutiveDetails' }
+      ],
+      sort: { createdAt: -1 },
+      lean: true
+    };
+
+    const query = {
+      insuranceStatus: status,
+      chassisNumber: { $exists: true, $ne: '' } // ensure chassisNumber exists and is not empty
+    };
+
+    const bookings = await Booking.paginate(query, options);
+
+    res.status(200).json({
+      success: true,
+      count: bookings.docs.length,
+      data: bookings
+    });
+  } catch (error) {
+    console.error('Error fetching bookings by insuranceStatus:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const ContraVoucherSchema = new mongoose.Schema({
+const WorkShopReciptSchema = new mongoose.Schema({
   voucherId: {
     type: String,
     unique: true,
@@ -20,10 +20,10 @@ const ContraVoucherSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-  contraType: {
-    type: String,
+  reciptType: {
+     type: String,
+    enum: ['Workshop', 'Other'],
     required: true,
-    trim: true,
   },
   amount: {
     type: Number,
@@ -60,4 +60,4 @@ const ContraVoucherSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-module.exports = mongoose.model('ContraVoucher', ContraVoucherSchema);
+module.exports = mongoose.model('WorkShopReciptVoucher', WorkShopReciptSchema);

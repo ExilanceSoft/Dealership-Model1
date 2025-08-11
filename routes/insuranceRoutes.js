@@ -13,7 +13,6 @@ if (!fs.existsSync(insuranceUploadPath)) {
   fs.mkdirSync(insuranceUploadPath, { recursive: true });
 }
 
-// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, insuranceUploadPath);
@@ -137,6 +136,7 @@ router.route('/')
     authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
     insuranceController.getAllInsurances
   )
+  
   /**
    * @swagger
    * /api/v1/insurance:
@@ -214,6 +214,54 @@ router.route('/')
     logAction('CREATE', 'Insurance'),
     insuranceController.createInsurance
   );
+
+/**
+ * @swagger
+ * /api/v1/insurance/status/{status}:
+ *   get:
+ *     summary: Get insurances by status
+ *     description: Retrieve a list of insurance records filtered by status.
+ *     tags: [Insurance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, COMPLETED, LATER]
+ *         description: Status of the insurance
+ *     responses:
+ *       200:
+ *         description: List of insurances with the specified status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Insurance'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: No insurances found with the given status
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/status/:status',
+  protect,
+  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  logAction('READ', 'Insurance'),
+  insuranceController.getInsuranceByStatus
+);
 
 router.route('/:id')
   /**

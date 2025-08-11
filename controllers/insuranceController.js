@@ -260,9 +260,56 @@ exports.updateInsuranceByBookingId = async (req, res) => {
 // GET All Insurances
 exports.getAllInsurances = async (req, res) => {
   try {
-    const insurances = await Insurance.findAllInsurances();
-    return sendResponse(res, 200, true, 'Insurances retrieved successfully', insurances);
+    let insurances = await Insurance.find()
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "booking",
+        select:
+          "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+        populate: {
+          path: "model",
+          select: "model_name type",
+        },
+      })
+      .populate("insuranceProviderDetails")
+      .populate("createdBy", "name email")
+      .populate("approvedBy", "name email");
+
+    insurances = insurances.map((item) => {
+      const obj = item.toObject();
+      const booking = obj.booking;
+
+      if (booking) {
+        obj.booking = {
+          id: booking.id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name || "",
+          customerMobile: booking.customerDetails?.mobile1 || "",
+          model: booking.model
+            ? {
+                model_name: booking.model.model_name,
+                type: booking.model.type,
+              }
+            : null,
+        };
+      }
+
+      // Example: remove internal/sensitive fields
+      delete obj.internalNotes;
+
+      return obj;
+    });
+
+    return sendResponse(
+      res,
+      200,
+      true,
+      "Insurances retrieved successfully",
+      insurances
+    );
   } catch (error) {
+    console.error("Error fetching insurances:", error);
     return sendResponse(res, 500, false, error.message);
   }
 };
@@ -270,19 +317,118 @@ exports.getAllInsurances = async (req, res) => {
 // GET Single Insurance by ID
 exports.getInsuranceById = async (req, res) => {
   try {
-    const insurance = await Insurance.findById(req.params.id)
-      .populate('bookingDetails')
-      .populate('insuranceProviderDetails')
-      .populate('createdBy')
-      .populate('approvedBy');
+    let insurance = await Insurance.findById(req.params.id)
+      .populate({
+        path: "booking",
+        select:
+          "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+        populate: {
+          path: "model",
+          select: "model_name type",
+        },
+      })
+      .populate("insuranceProviderDetails")
+      .populate("createdBy", "name email")
+      .populate("approvedBy", "name email");
 
     if (!insurance) {
-      return sendResponse(res, 404, false, 'Insurance not found');
+      return res.status(404).json({
+        success: false,
+        message: "Insurance not found",
+      });
     }
 
-    return sendResponse(res, 200, true, 'Insurance retrieved successfully', insurance);
-  } catch (error) {
-    return sendResponse(res, 500, false, error.message);
+    let insuranceObj = insurance.toObject();
+    const booking = insuranceObj.booking;
+
+    if (booking) {
+      insuranceObj.booking = {
+        id: booking.id,
+        bookingNumber: booking.bookingNumber,
+        chassisNumber: booking.chassisNumber,
+        customerName: booking.customerDetails?.name || "",
+        customerMobile: booking.customerDetails?.mobile1 || "",
+        model: booking.model
+          ? {
+              model_name: booking.model.model_name,
+              type: booking.model.type,
+            }
+          : null,
+      };
+    }
+
+    // Example: remove sensitive/unnecessary fields
+    delete insuranceObj.internalNotes;
+
+    res.status(200).json({
+      success: true,
+      data: insuranceObj,
+    });
+  } catch (err) {
+    console.error("Error fetching insurance:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
+  }
+};
+
+
+exports.getInsuranceByStatus = async (req, res) => {
+  try {
+    let insurances = await Insurance.find({ status: req.params.status.toUpperCase() })
+      .populate({
+        path: "booking",
+        select:
+          "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+        populate: {
+          path: "model",
+          select: "model_name type",
+        },
+      })
+      .populate("insuranceProviderDetails")
+      .populate("createdBy", "name email")
+      .populate("approvedBy", "name email")
+      .sort({ createdAt: -1 });
+
+    insurances = insurances.map((item) => {
+      const obj = item.toObject();
+      const booking = obj.booking;
+
+      if (booking) {
+        obj.booking = {
+          id: booking.id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name || "",
+          customerMobile: booking.customerDetails?.mobile1 || "",
+          model: booking.model
+            ? {
+                model_name: booking.model.model_name,
+                type: booking.model.type,
+              }
+            : null,
+        };
+      }
+
+      delete obj.internalNotes;
+
+      return obj;
+    });
+
+    res.status(200).json({
+      success: true,
+      count: insurances.length,
+      data: insurances,
+    });
+  } catch (err) {
+    console.error("Error fetching insurances:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
   }
 };
 

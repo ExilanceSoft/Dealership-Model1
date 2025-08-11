@@ -384,6 +384,104 @@ router.get('/pfbookings', bookingController.getFullyPaidPendingRTOBookings);
 
 /**
  * @swagger
+ * /api/v1/bookings/insurance-status/{status}:
+ *   get:
+ *     summary: Get bookings by insurance status
+ *     description: Returns a list of bookings filtered by a specific insurance status (AWAITING, COMPLETED, LATER).
+ *     tags:
+ *       - Bookings
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: ['AWAITING', 'COMPLETED', 'LATER']
+ *           example: AWAITING
+ *         description: The insurance status to filter bookings by.
+ *     responses:
+ *       200:
+ *         description: List of bookings filtered by insurance status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: 64cb5c2f6f8ef21a3819a7b2
+ *                       bookingId:
+ *                         type: string
+ *                         example: BK20250810
+ *                       customerName:
+ *                         type: string
+ *                         example: Priya Sharma
+ *                       insuranceStatus:
+ *                         type: string
+ *                         enum: ['AWAITING', 'COMPLETED', 'LATER']
+ *                         example: AWAITING
+ *                       model:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Activa 6G
+ *                       color:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Pearl White
+ *                       branch:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Hadapsar Branch
+ *                       salesExecutive:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             example: Anil Kumar
+ *                           email:
+ *                             type: string
+ *                             example: anil.kumar@example.com
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: 2025-08-10T10:20:00Z
+ *       400:
+ *         description: Invalid insurance status provided
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get('/insurance-status/:status', protect, bookingController.getBookingsByInsuranceStatus);
+
+
+/**
+ * @swagger
  * /api/v1/bookings:
  *   post:
  *     summary: Create a new two-wheeler booking

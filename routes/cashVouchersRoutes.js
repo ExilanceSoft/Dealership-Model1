@@ -9,31 +9,47 @@ const cashVoucherController = require("../controllers/cashVouchersController");
  *     CashVoucher:
  *       type: object
  *       required:
+ *         - voucherType
  *         - recipientName
  *         - expenseType
  *         - amount
  *         - cashLocation
  *       properties:
+ *         voucherId:
+ *           type: string
+ *           description: Auto-generated unique voucher ID
+ *         date:
+ *           type: string
+ *           format: date-time
+ *           description: Date of voucher (defaults to today)
+ *         voucherType:
+ *           type: string
+ *           enum: [credit, debit]
  *         recipientName:
  *           type: string
  *         expenseType:
  *           type: string
  *         amount:
  *           type: number
+ *         paymentMode:
+ *           type: string
+ *           enum: [cash]
  *         remark:
  *           type: string
  *         cashLocation:
  *           type: string
  *         status:
  *           type: string
- *           enum: [PENDING, APPROVED, REJECTED]
+ *           enum: [pending, approved, rejected]
  *       example:
+ *         voucherType: "credit"
  *         recipientName: "John Doe"
  *         expenseType: "Travel"
  *         amount: 500
+ *         paymentMode: "cash"
  *         remark: "Trip to client office"
  *         cashLocation: "Main Branch"
- *         status: "PENDING"
+ *         status: "pending"
  */
 
 /**
@@ -70,7 +86,7 @@ router.get("/", cashVoucherController.getAllCashVouchers);
  * @swagger
  * /api/v1/cash-vouchers/{id}:
  *   get:
- *     summary: Get voucher by ID
+ *     summary: Get voucher by MongoDB ID
  *     tags: [Cash Vouchers]
  *     parameters:
  *       - in: path
@@ -85,6 +101,63 @@ router.get("/", cashVoucherController.getAllCashVouchers);
  *         description: Not found
  */
 router.get("/:id", cashVoucherController.getCashVoucherById);
+
+/**
+ * @swagger
+ * /api/v1/cash-vouchers/status/{status}:
+ *   get:
+ *     summary: Get all cash vouchers by status
+ *     tags: [Cash Vouchers]
+ *     parameters:
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *         description: Status of the cash vouchers to retrieve
+ *     responses:
+ *       200:
+ *         description: List of cash vouchers matching the status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CashVoucher'
+ *                 count:
+ *                   type: integer
+ *       400:
+ *         description: Invalid status
+ *       500:
+ *         description: Server error
+ */
+router.get('/status/:status', cashVoucherController.getCashVouchersByStatus);
+
+/**
+ * @swagger
+ * /api/v1/cash-vouchers/voucher-id/{voucherId}:
+ *   get:
+ *     summary: Get voucher by voucherId
+ *     tags: [Cash Vouchers]
+ *     parameters:
+ *       - in: path
+ *         name: voucherId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Voucher found
+ *       404:
+ *         description: Not found
+ */
+router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherById);
 
 /**
  * @swagger
@@ -111,9 +184,11 @@ router.get("/:id", cashVoucherController.getCashVoucherById);
  */
 router.put("/:id", cashVoucherController.updateCashVoucher);
 
+
+
 /**
  * @swagger
- * /cash-vouchers/{id}:
+ * /api/v1/cash-vouchers/{id}:
  *   delete:
  *     summary: Delete voucher by ID
  *     tags: [Cash Vouchers]

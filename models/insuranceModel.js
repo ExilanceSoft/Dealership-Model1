@@ -8,7 +8,7 @@ const InsuranceSchema = new mongoose.Schema({
     validate: {
       validator: async function (v) {
         const booking = await mongoose.model('Booking').findById(v);
-        return !!booking; // Ensure booking exists
+        return !!booking; 
       },
       message: 'Booking must exist'
     }

@@ -20,10 +20,35 @@ const contraVoucherController = require('../controllers/contraController');
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ContraVoucher'
+ *             type: object
+ *             required:
+ *               - voucherType
+ *               - recipientName
+ *               - contraType
+ *               - amount
+ *               - bankLocation
+ *             properties:
+ *               voucherType:
+ *                 type: string
+ *                 enum: [credit, debit]
+ *               recipientName:
+ *                 type: string
+ *               contraType:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               remark:
+ *                 type: string
+ *               bankName:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [pending, approved, rejected]
+ *               bankLocation:
+ *                 type: string
  *     responses:
  *       201:
- *         description: Contra voucher created
+ *         description: Contra voucher created successfully
  */
 router.post('/', contraVoucherController.createContraVoucher);
 
@@ -35,45 +60,28 @@ router.post('/', contraVoucherController.createContraVoucher);
  *     tags: [ContraVouchers]
  *     responses:
  *       200:
- *         description: List of contra vouchers
+ *         description: List of all contra vouchers
  */
 router.get('/', contraVoucherController.getAllContraVouchers);
 
 /**
  * @swagger
- * /api/v1/contra-vouchers/pending:
+ * /api/v1/contra-vouchers/status/{status}:
  *   get:
- *     summary: Get all pending contra vouchers
+ *     summary: Get contra vouchers by status
  *     tags: [ContraVouchers]
+ *     parameters:
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
  *     responses:
  *       200:
- *         description: List of pending vouchers
+ *         description: List of contra vouchers filtered by status
  */
-router.get('/pending', contraVoucherController.getPendingContraVouchers);
-
-/**
- * @swagger
- * /api/v1/contra-vouchers/approved:
- *   get:
- *     summary: Get all approved contra vouchers
- *     tags: [ContraVouchers]
- *     responses:
- *       200:
- *         description: List of approved vouchers
- */
-router.get('/approved', contraVoucherController.getApprovedContraVouchers);
-
-/**
- * @swagger
- * /api/v1/contra-vouchers/rejected:
- *   get:
- *     summary: Get all rejected contra vouchers
- *     tags: [ContraVouchers]
- *     responses:
- *       200:
- *         description: List of rejected vouchers
- */
-router.get('/rejected', contraVoucherController.getRejectedContraVouchers);
+router.get('/status/:status', contraVoucherController.getContraVouchersByStatus);
 
 /**
  * @swagger
@@ -87,7 +95,6 @@ router.get('/rejected', contraVoucherController.getRejectedContraVouchers);
  *         required: true
  *         schema:
  *           type: string
- *         description: The voucher ID
  *     responses:
  *       200:
  *         description: Contra voucher found
@@ -108,16 +115,34 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *         required: true
  *         schema:
  *           type: string
- *         description: The voucher ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ContraVoucher'
+ *             type: object
+ *             properties:
+ *               voucherType:
+ *                 type: string
+ *                 enum: [credit, debit]
+ *               recipientName:
+ *                 type: string
+ *               contraType:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               remark:
+ *                 type: string
+ *               bankName:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [pending, approved, rejected]
+ *               bankLocation:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Contra voucher updated
+ *         description: Contra voucher updated successfully
  *       404:
  *         description: Contra voucher not found
  */
@@ -135,10 +160,9 @@ router.put('/:id', contraVoucherController.updateContraVoucher);
  *         required: true
  *         schema:
  *           type: string
- *         description: The voucher ID
  *     responses:
  *       200:
- *         description: Contra voucher deleted
+ *         description: Contra voucher deleted successfully
  *       404:
  *         description: Contra voucher not found
  */
