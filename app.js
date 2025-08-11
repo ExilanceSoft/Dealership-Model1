@@ -376,6 +376,7 @@ const contraVoucherRoutes = require('./routes/contraVoucherRoutes');
 const insuranceReciptRoutes = require('./routes/insuranceReciptRoutes');
 const newInsuranceRoutes = require('./routes/newInsuranceRoutes');
 const workshopReciptRoutes = require('./routes/workshopReciptRoutes');
+const allReciptRoutes = require('./routes/allCashReciptRoutes');
 
 /* -----------------------------
    API mount points
@@ -424,6 +425,7 @@ app.use('/api/v1/contra-vouchers', contraVoucherRoutes);
 app.use('/api/v1/insurance-recipt', insuranceReciptRoutes);
 app.use('/api/v1/new-insurance', newInsuranceRoutes);
 app.use('/api/v1/workshop-receipts', workshopReciptRoutes);
+app.use('/api/v1/vouchers', allReciptRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
