@@ -41,11 +41,6 @@ const WorkShopReciptSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
-  bankName: {
-    type: String,
-    default: '',
-    trim: true,
-  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

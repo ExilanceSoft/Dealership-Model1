@@ -1,4 +1,3 @@
-// controllers/contraVoucherController.js
 const ContraVoucher = require('../models/ContraVoucherModel');
 
 // Create Contra Voucher with numeric ID
@@ -16,7 +15,7 @@ exports.createContraVoucher = async (req, res) => {
     if (!contraType || !contraType.trim()) {
       return res.status(400).json({ success: false, message: 'Contra type is required' });
     }
-    if (!amount || isNaN(amount) || amount <= 0) {
+    if (amount === undefined || isNaN(amount) || amount <= 0) {
       return res.status(400).json({ success: false, message: 'Valid amount (greater than 0) is required' });
     }
     if (!bankLocation || !bankLocation.trim()) {
@@ -65,35 +64,41 @@ exports.createContraVoucher = async (req, res) => {
   }
 };
 
-
 exports.getAllContraVouchers = async (req, res) => {
   try {
-    const { status, voucherType, startDate, endDate} = req.query;
+    const { status, voucherType, startDate, endDate, page = 1, limit = 20 } = req.query;
     const query = {};
 
-    if (status) query.status = status;
-    if (voucherType) query.voucherType = voucherType;
+    if (status && ['pending', 'approved', 'rejected'].includes(status)) query.status = status;
+    if (voucherType && ['credit', 'debit'].includes(voucherType)) query.voucherType = voucherType;
     if (startDate || endDate) {
       query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
       if (endDate) query.date.$lte = new Date(endDate);
     }
 
-    const vouchers = await ContraVoucher.find(query).sort({ createdAt: -1 }).skip(skip);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const vouchers = await ContraVoucher.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
     const total = await ContraVoucher.countDocuments(query);
 
     res.status(200).json({
       success: true,
       data: vouchers,
       pagination: {
+        total,
         page: parseInt(page),
         limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: Math.ceil(total / limit)
       }
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, error: 'Server error while fetching contra vouchers' });
   }
 };

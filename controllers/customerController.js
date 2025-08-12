@@ -2,14 +2,10 @@ const Customer = require('../models/CustomerModel');
 const AppError = require('../utils/appError');
 const logger = require('../config/logger');
 
-// @desc    Create a new customer
-// @route   POST /api/customers
-// @access  Private
 exports.createCustomer = async (req, res, next) => {
   try {
     const { name, address, taluka, district, mobile1, mobile2 } = req.body;
 
-    // Validate required fields
     if (!name || !address || !mobile1) {
       return next(new AppError('Name, address and mobile1 are required fields', 400));
     }
@@ -36,9 +32,6 @@ exports.createCustomer = async (req, res, next) => {
   }
 };
 
-// @desc    Get all customers
-// @route   GET /api/customers
-// @access  Private
 exports.getAllCustomers = async (req, res, next) => {
   try {
     // Filtering

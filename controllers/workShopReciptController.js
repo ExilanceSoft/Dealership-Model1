@@ -8,6 +8,7 @@ const sendResponse = (res, status, success, message, data = null) => {
 
 // POST: Create a new voucher
 exports.createWorkShopReciptVoucher = async (req, res) => {
+
   try {
     const {
       voucherType,
@@ -15,7 +16,6 @@ exports.createWorkShopReciptVoucher = async (req, res) => {
       reciptType,
       amount,
       remark,
-      bankName,
       status,
       bankLocation,
     } = req.body;
@@ -27,7 +27,6 @@ exports.createWorkShopReciptVoucher = async (req, res) => {
       reciptType,
       amount,
       remark,
-      bankName,
       status,
       bankLocation,
     });

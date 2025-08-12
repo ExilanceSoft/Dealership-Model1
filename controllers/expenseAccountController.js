@@ -12,23 +12,21 @@ exports.createExpenseAccount = async (req, res, next) => {
       return next(new AppError('Expense account name is required', 400));
     }
 
-    // Check if expense account already exists
     const existingAccount = await ExpenseAccount.findOne({ name });
     if (existingAccount) {
       return next(new AppError('Expense account with this name already exists', 400));
     }
 
-    // Create new expense account
     const expenseAccount = await ExpenseAccount.create({
       name,
-      createdBy: req.user.id // Set creator to current user
+      createdBy: req.user.id 
     });
 
-    // Populate createdBy details in the response
+
     const populatedAccount = await ExpenseAccount.findById(expenseAccount._id)
       .populate('createdByDetails', 'name email');
 
-    // Return success response
+
     res.status(201).json({
       status: 'success',
       data: {
@@ -41,27 +39,27 @@ exports.createExpenseAccount = async (req, res, next) => {
   }
 };
 
-// Get all expense accounts (with optional filtering)
+
 exports.getAllExpenseAccounts = async (req, res, next) => {
   try {
     const filter = {};
     
-    // Add status filter if provided
+   
     if (req.query.status && ['active', 'inactive'].includes(req.query.status.toLowerCase())) {
       filter.status = req.query.status.toLowerCase();
     }
     
-    // Add search filter if provided
+
     if (req.query.search) {
       filter.name = { $regex: req.query.search, $options: 'i' }; // Case-insensitive search
     }
 
-    // Query expense accounts with filters
+   
     const expenseAccounts = await ExpenseAccount.find(filter)
       .populate('createdByDetails', 'name email')
-      .sort({ name: 1 }); // Sort by name ascending
+      .sort({ name: 1 }); 
 
-    // Return success response
+  
     res.status(200).json({
       status: 'success',
       results: expenseAccounts.length,
