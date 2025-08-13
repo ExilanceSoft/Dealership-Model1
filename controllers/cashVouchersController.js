@@ -1,102 +1,183 @@
 const CashVoucher = require('../models/CashVoucher');
+const Branch = require('../models/Branch');
 
-// Create a new Cash Voucher
 exports.createCashVoucher = async (req, res) => {
   try {
-    const { voucherType, recipientName, amount, cashLocation, expenseType, remark, status } = req.body;
+    const {
+      voucherType,
+      recipientName,
+      amount,
+      cashLocation,
+      expenseType,
+      remark,
+      status,
+      branch,
+      date
+    } = req.body;
 
-    // Validation
+    // === Validations ===
     if (!voucherType || !['credit', 'debit'].includes(voucherType)) {
       return res.status(400).json({ success: false, message: 'Invalid or missing voucherType (must be credit or debit)' });
     }
-    if (!recipientName || !recipientName.trim()) {
+    if (!recipientName?.trim()) {
       return res.status(400).json({ success: false, message: 'Recipient name is required' });
     }
-    if (!amount || isNaN(amount) || amount <= 0) {
+    if (amount === undefined || isNaN(amount) || amount <= 0) {
       return res.status(400).json({ success: false, message: 'Valid amount (greater than 0) is required' });
     }
-    if (!cashLocation || !cashLocation.trim()) {
+    if (!cashLocation?.trim()) {
       return res.status(400).json({ success: false, message: 'Cash location is required' });
     }
-    if (!expenseType || !expenseType.trim()) {
+    if (!expenseType?.trim()) {
       return res.status(400).json({ success: false, message: 'Expense type is required' });
     }
     if (status && !['pending', 'approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid status (must be pending, approved, or rejected)' });
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+    if (!branch) {
+      return res.status(400).json({ success: false, message: 'Branch is required' });
     }
 
+    // === Check branch existence ===
+    const branchExists = await Branch.findById(branch);
+    if (!branchExists) {
+      return res.status(404).json({ success: false, message: 'Branch not found' });
+    }
+
+    // === Create voucher ===
     const voucher = new CashVoucher({
       voucherType,
       recipientName: recipientName.trim(),
       amount: parseFloat(amount),
       cashLocation: cashLocation.trim(),
       expenseType: expenseType.trim(),
-      remark: remark ? remark.trim() : undefined,
+      remark: remark?.trim() || '',
       status: status || 'pending',
-      paymentMode: 'cash' // Default
+      branch,
+      date: date || new Date()
     });
 
     const savedVoucher = await voucher.save();
+    const populatedVoucher = await savedVoucher.populate('branch'); // Populate branch details
 
     res.status(201).json({
       success: true,
-      data: savedVoucher,
+      data: populatedVoucher,
       message: 'Cash voucher created successfully'
     });
 
   } catch (error) {
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ success: false, error: Object.values(error.errors).map(val => val.message) });
+      return res.status(400).json({
+        success: false,
+        error: Object.values(error.errors).map(val => val.message)
+      });
     }
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, error: 'Voucher ID already exists' });
+    }
+    console.error('Error creating cash voucher:', error);
     res.status(500).json({ success: false, error: 'Server error while creating cash voucher' });
   }
 };
 
-// Get all Cash Vouchers
+
+// Get all Cash Vouchers with advanced filtering
 exports.getAllCashVouchers = async (req, res) => {
   try {
-    const { status, voucherType, startDate, endDate, page = 1, limit = 10 } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      voucherType,
+      fromDate,
+      toDate,
+      branch,
+      minAmount,
+      maxAmount
+    } = req.query;
+
     const query = {};
 
     if (status) query.status = status;
     if (voucherType) query.voucherType = voucherType;
-    if (startDate || endDate) {
-      query.date = {};
-      if (startDate) query.date.$gte = new Date(startDate);
-      if (endDate) query.date.$lte = new Date(endDate);
+    if (branch) query.branch = branch;
+
+    if (minAmount || maxAmount) {
+      query.amount = {};
+      if (minAmount) query.amount.$gte = parseFloat(minAmount);
+      if (maxAmount) query.amount.$lte = parseFloat(maxAmount);
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const vouchers = await CashVoucher.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit));
+    if (fromDate || toDate) {
+      query.date = {};
+      if (fromDate) query.date.$gte = new Date(fromDate);
+      if (toDate) query.date.$lte = new Date(toDate);
+    }
+
+    const vouchers = await CashVoucher.find(query)
+      .populate({
+        path: 'branch',
+        select: 'name address city state'
+      })
+      .sort({ date: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
     const total = await CashVoucher.countDocuments(query);
 
-    res.status(200).json({
+    res.json({
       success: true,
       data: vouchers,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: Number(page),
+        limit: Number(limit),
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: Math.ceil(total / limit)
       }
     });
-
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Server error while fetching cash vouchers' });
+    console.error('Error fetching cash vouchers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching cash vouchers'
+    });
   }
 };
 
 // Get Cash Voucher by ID
 exports.getCashVoucherById = async (req, res) => {
   try {
-    const voucher = await CashVoucher.findById(req.params.id);
-    if (!voucher) return res.status(404).json({ success: false, message: 'Cash voucher not found' });
+    const voucher = await CashVoucher.findById(req.params.id)
+      .populate({
+        path: 'branch',
+        select: 'name address city state'
+      });
 
-    res.status(200).json({ success: true, data: voucher });
+    if (!voucher) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cash voucher not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: voucher
+    });
 
   } catch (error) {
-    if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid voucher ID format' });
-    res.status(500).json({ success: false, error: 'Server error while fetching cash voucher' });
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid voucher ID format'
+      });
+    }
+    console.error('Error fetching cash voucher:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while fetching cash voucher'
+    });
   }
 };
 
@@ -106,94 +187,150 @@ exports.updateCashVoucher = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
-    if (updates.voucherType && !['credit', 'debit'].includes(updates.voucherType)) {
-      return res.status(400).json({ success: false, message: 'Invalid voucherType (must be credit or debit)' });
-    }
-    if (updates.status && !['pending', 'approved', 'rejected'].includes(updates.status)) {
-      return res.status(400).json({ success: false, message: 'Invalid status (must be pending, approved, or rejected)' });
-    }
-    if (updates.amount && (isNaN(updates.amount) || updates.amount <= 0)) {
-      return res.status(400).json({ success: false, message: 'Amount must be a positive number' });
-    }
+    // Prevent modification of immutable fields
+    ['voucherId', 'paymentMode', 'date'].forEach(field => {
+      if (updates[field]) {
+        delete updates[field];
+      }
+    });
 
+    // Trim string fields
     ['recipientName', 'cashLocation', 'expenseType', 'remark'].forEach(field => {
       if (updates[field]) updates[field] = updates[field].trim();
     });
 
-    const updatedVoucher = await CashVoucher.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
-    if (!updatedVoucher) return res.status(404).json({ success: false, message: 'Cash voucher not found' });
+    const updatedVoucher = await CashVoucher.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true, runValidators: true }
+    ).populate({
+      path: 'branch',
+      select: 'name address city state'
+    });
 
-    res.status(200).json({ success: true, data: updatedVoucher, message: 'Cash voucher updated successfully' });
-
-  } catch (error) {
-    if (error.name === 'ValidationError') return res.status(400).json({ success: false, error: Object.values(error.errors).map(val => val.message) });
-    res.status(500).json({ success: false, error: 'Server error while updating cash voucher' });
-  }
-};
-
-// Get cash vouchers by status
-exports.getCashVouchersByStatus = async (req, res) => {
-  try {
-    const { status } = req.params;
-
-    // Validate status
-    const allowedStatuses = ['pending', 'approved', 'rejected'];
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({
+    if (!updatedVoucher) {
+      return res.status(404).json({
         success: false,
-        message: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}`
+        message: 'Cash voucher not found'
       });
     }
 
-    // Fetch vouchers with matching status
-    const vouchers = await CashVoucher.find({ status }).sort({ createdAt: -1 });
-
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
-      count: vouchers.length,
-      data: vouchers
+      data: updatedVoucher,
+      message: 'Cash voucher updated successfully'
     });
 
   } catch (error) {
-    console.error('Error fetching cash vouchers by status:', error);
-    return res.status(500).json({
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        error: errors.length > 1 ? errors : errors[0]
+      });
+    }
+    console.error('Error updating cash voucher:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error while fetching cash vouchers by status'
+      error: 'Server error while updating cash voucher'
     });
   }
 };
-
 
 // Delete Cash Voucher
 exports.deleteCashVoucher = async (req, res) => {
   try {
     const deletedVoucher = await CashVoucher.findByIdAndDelete(req.params.id);
-    if (!deletedVoucher) return res.status(404).json({ success: false, message: 'Cash voucher not found' });
+
+    if (!deletedVoucher) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cash voucher not found'
+      });
+    }
 
     res.status(200).json({
       success: true,
       message: 'Cash voucher deleted successfully',
-      data: { voucherId: deletedVoucher.voucherId, deletedAt: new Date() }
+      data: {
+        voucherId: deletedVoucher.voucherId,
+        deletedAt: new Date()
+      }
     });
 
   } catch (error) {
-    if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid voucher ID format' });
-    res.status(500).json({ success: false, error: 'Server error while deleting cash voucher' });
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid voucher ID format'
+      });
+    }
+    console.error('Error deleting cash voucher:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while deleting cash voucher'
+    });
   }
 };
 
-// Get by Status
+// Get Cash Voucher by voucherId
+exports.getCashVoucherByVoucherId = async (req, res) => {
+  try {
+    const voucher = await CashVoucher.findOne({ voucherId: req.params.voucherId })
+      .populate({
+        path: 'branch',
+        select: 'name address city state'
+      });
+
+    if (!voucher) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cash voucher not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: voucher
+    });
+
+  } catch (error) {
+    console.error('Error fetching cash voucher by voucherId:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while fetching cash voucher'
+    });
+  }
+};
+
+
 exports.getCashVouchersByStatus = async (req, res) => {
   try {
     const { status } = req.params;
-    if (!['pending', 'approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid status (must be pending, approved, or rejected)' });
+
+    // Validate status against allowed values
+    const allowedStatuses = ['pending', 'approved', 'rejected'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}`
+      });
     }
 
-    const vouchers = await CashVoucher.find({ status }).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, data: vouchers, count: vouchers.length });
+    const vouchers = await CashVoucher.find({ status })
+      .populate('branch', 'name') // Example: only get branch name
+      .sort({ createdAt: -1 });
 
-  } catch (error) {
-    res.status(500).json({ success: false, error: 'Server error while fetching cash vouchers by status' });
+    res.status(200).json({
+      success: true,
+      count: vouchers.length,
+      data: vouchers
+    });
+  } catch (err) {
+    console.error('Error fetching vouchers by status:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
   }
 };

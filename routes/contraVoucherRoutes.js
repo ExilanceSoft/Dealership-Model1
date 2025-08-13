@@ -27,25 +27,29 @@ const contraVoucherController = require('../controllers/contraController');
  *               - contraType
  *               - amount
  *               - bankLocation
+ *               - branch
  *             properties:
  *               voucherType:
  *                 type: string
  *                 enum: [credit, debit]
+ *                 description: Type of voucher (credit or debit)
  *               recipientName:
  *                 type: string
  *               contraType:
  *                 type: string
  *               amount:
  *                 type: number
+ *                 minimum: 0
  *               remark:
  *                 type: string
- *               bankName:
+ *               bankLocation:
  *                 type: string
  *               status:
  *                 type: string
  *                 enum: [pending, approved, rejected]
- *               bankLocation:
+ *               branch:
  *                 type: string
+ *                 description: MongoDB ObjectId of the branch
  *     responses:
  *       201:
  *         description: Contra voucher created successfully
@@ -56,8 +60,37 @@ router.post('/', contraVoucherController.createContraVoucher);
  * @swagger
  * /api/v1/contra-vouchers:
  *   get:
- *     summary: Get all contra vouchers
+ *     summary: Get all contra vouchers (supports filters and pagination)
  *     tags: [ContraVouchers]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *       - in: query
+ *         name: voucherType
+ *         schema:
+ *           type: string
+ *           enum: [credit, debit]
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
  *         description: List of all contra vouchers
@@ -131,15 +164,17 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *                 type: string
  *               amount:
  *                 type: number
+ *                 minimum: 0
  *               remark:
  *                 type: string
- *               bankName:
+ *               bankLocation:
  *                 type: string
  *               status:
  *                 type: string
  *                 enum: [pending, approved, rejected]
- *               bankLocation:
+ *               branch:
  *                 type: string
+ *                 description: MongoDB ObjectId of the branch
  *     responses:
  *       200:
  *         description: Contra voucher updated successfully

@@ -10,3 +10,27 @@
 {"timestamp":"2025-08-12 11:42:57","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-08-12 11:45:47","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
 {"timestamp":"2025-08-12 11:47:27","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 11:52:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 14:58:03","level":"\u001b[33MWARN\u001b[39M","message":"Mongoose disconnected from DB","stack":null}
+{"timestamp":"2025-08-12 14:58:18","level":"\u001b[32MINFO\u001b[39M","message":"Mongoose connected to DB","stack":null}
+{"timestamp":"2025-08-12 16:12:09","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:16:14","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:18:51","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:28:06","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:34:34","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:41:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:48:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:53:15","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 16:58:45","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 17:03:30","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 17:13:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 17:23:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 17:54:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 17:58:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 18:02:32","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 18:04:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 18:07:03","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 18:16:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 18:17:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 18:20:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-12 18:26:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

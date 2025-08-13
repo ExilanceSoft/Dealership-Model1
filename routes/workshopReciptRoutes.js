@@ -21,6 +21,7 @@ const workshopReciptController = require("../controllers/workShopReciptControlle
  *         - reciptType
  *         - amount
  *         - bankLocation
+ *         - branch
  *       properties:
  *         voucherType:
  *           type: string
@@ -41,6 +42,12 @@ const workshopReciptController = require("../controllers/workShopReciptControlle
  *           enum: [pending, approved, rejected]
  *         bankLocation:
  *           type: string
+ *         branch:
+ *           type: string
+ *           description: MongoDB ObjectId of the branch
+ *         date:
+ *           type: string
+ *           format: date
  *       example:
  *         voucherType: credit
  *         recipientName: "John Doe"
@@ -50,6 +57,8 @@ const workshopReciptController = require("../controllers/workShopReciptControlle
  *         bankName: "HDFC Bank"
  *         status: pending
  *         bankLocation: "Pune"
+ *         branch: "64b2f0c4e4b0c3a1b5f5f1b2"
+ *         date: "2025-08-13"
  */
 
 /**

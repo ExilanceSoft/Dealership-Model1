@@ -21,14 +21,14 @@ const WorkShopReciptSchema = new mongoose.Schema({
     trim: true,
   },
   reciptType: {
-     type: String,
+    type: String,
     enum: ['Workshop', 'Other'],
     required: true,
   },
   amount: {
     type: Number,
     required: true,
-    min: 0,
+    min: [0, 'Amount must be greater than 0'],
   },
   paymentMode: {
     type: String,
@@ -37,6 +37,11 @@ const WorkShopReciptSchema = new mongoose.Schema({
     required: true,
   },
   remark: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  bankName: {
     type: String,
     default: '',
     trim: true,
@@ -50,9 +55,24 @@ const WorkShopReciptSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
+  },
+  branch: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    required: [true, 'Branch is required'],
   }
 }, {
   timestamps: true,
+});
+
+// Auto-generate voucherId if not set
+WorkShopReciptSchema.pre('save', async function (next) {
+  if (!this.voucherId) {
+    // Example: WS-2025-00001
+    const count = await mongoose.model('WorkShopReciptVoucher').countDocuments() + 1;
+    this.voucherId = `WS-${new Date().getFullYear()}-${count.toString().padStart(5, '0')}`;
+  }
+  next();
 });
 
 module.exports = mongoose.model('WorkShopReciptVoucher', WorkShopReciptSchema);
