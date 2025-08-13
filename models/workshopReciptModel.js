@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const WorkShopReciptSchema = new mongoose.Schema({
+const WorkShopReceiptSchema = new mongoose.Schema({
   voucherId: {
     type: String,
     unique: true,
@@ -20,7 +20,7 @@ const WorkShopReciptSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-  reciptType: {
+  receiptType: {
     type: String,
     enum: ['Workshop', 'Other'],
     required: true,
@@ -32,7 +32,7 @@ const WorkShopReciptSchema = new mongoose.Schema({
   },
   paymentMode: {
     type: String,
-    enum: ['cash'], 
+    enum: ['cash'],
     default: 'cash',
     required: true,
   },
@@ -46,33 +46,36 @@ const WorkShopReciptSchema = new mongoose.Schema({
     default: '',
     trim: true,
   },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending',
-  },
   bankLocation: {
     type: String,
     required: true,
     trim: true,
   },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
   branch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
     required: [true, 'Branch is required'],
+  },
+  bill: {
+    type: String, // URL/path to uploaded file
+    default: '',
   }
 }, {
   timestamps: true,
 });
 
 // Auto-generate voucherId if not set
-WorkShopReciptSchema.pre('save', async function (next) {
+WorkShopReceiptSchema.pre('save', async function (next) {
   if (!this.voucherId) {
-    // Example: WS-2025-00001
-    const count = await mongoose.model('WorkShopReciptVoucher').countDocuments() + 1;
+    const count = await mongoose.model('WorkShopReceiptVoucher').countDocuments() + 1;
     this.voucherId = `WS-${new Date().getFullYear()}-${count.toString().padStart(5, '0')}`;
   }
   next();
 });
 
-module.exports = mongoose.model('WorkShopReciptVoucher', WorkShopReciptSchema);
+module.exports = mongoose.model('WorkShopReceiptVoucher', WorkShopReceiptSchema);

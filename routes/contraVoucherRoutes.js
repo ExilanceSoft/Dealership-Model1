@@ -1,13 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const contraVoucherController = require('../controllers/contraController');
+const multer = require("multer");
+const path = require("path");
 
-/**
- * @swagger
- * tags:
- *   name: ContraVouchers
- *   description: API for managing contra vouchers
- */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit per file
+  },
+});
+
 
 /**
  * @swagger
@@ -56,6 +59,7 @@ const contraVoucherController = require('../controllers/contraController');
  */
 router.post('/', contraVoucherController.createContraVoucher);
 
+
 /**
  * @swagger
  * /api/v1/contra-vouchers:
@@ -97,6 +101,7 @@ router.post('/', contraVoucherController.createContraVoucher);
  */
 router.get('/', contraVoucherController.getAllContraVouchers);
 
+
 /**
  * @swagger
  * /api/v1/contra-vouchers/status/{status}:
@@ -115,6 +120,7 @@ router.get('/', contraVoucherController.getAllContraVouchers);
  *         description: List of contra vouchers filtered by status
  */
 router.get('/status/:status', contraVoucherController.getContraVouchersByStatus);
+
 
 /**
  * @swagger
@@ -136,12 +142,15 @@ router.get('/status/:status', contraVoucherController.getContraVouchersByStatus)
  */
 router.get('/:id', contraVoucherController.getContraVoucherById);
 
+
 /**
  * @swagger
  * /api/v1/contra-vouchers/{id}:
  *   put:
- *     summary: Update a contra voucher by ID
+ *     summary: Update a contra voucher by ID (with file upload support)
  *     tags: [ContraVouchers]
+ *     consumes:
+ *       - multipart/form-data
  *     parameters:
  *       - in: path
  *         name: id
@@ -149,9 +158,8 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *         schema:
  *           type: string
  *     requestBody:
- *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -164,7 +172,6 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *                 type: string
  *               amount:
  *                 type: number
- *                 minimum: 0
  *               remark:
  *                 type: string
  *               bankLocation:
@@ -174,14 +181,23 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *                 enum: [pending, approved, rejected]
  *               branch:
  *                 type: string
- *                 description: MongoDB ObjectId of the branch
+ *               bill_url:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       200:
  *         description: Contra voucher updated successfully
+ *       400:
+ *         description: Invalid input
  *       404:
  *         description: Contra voucher not found
+ *       500:
+ *         description: Server error
  */
-router.put('/:id', contraVoucherController.updateContraVoucher);
+router.put('/:id', upload.single('bill_url'), contraVoucherController.updateContraVoucher);
+
+
+
 
 /**
  * @swagger
@@ -202,5 +218,6 @@ router.put('/:id', contraVoucherController.updateContraVoucher);
  *         description: Contra voucher not found
  */
 router.delete('/:id', contraVoucherController.deleteContraVoucher);
+
 
 module.exports = router;

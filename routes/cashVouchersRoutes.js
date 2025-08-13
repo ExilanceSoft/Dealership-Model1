@@ -1,6 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const cashVoucherController = require("../controllers/cashVouchersController");
+const multer = require("multer");
+const path = require("path");
+
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit per file
+  },
+});
+
 
 /**
  * @swagger
@@ -46,34 +58,58 @@ const cashVoucherController = require("../controllers/cashVouchersController");
  *         branch:
  *           type: string
  *           description: MongoDB ObjectId of the branch
- *       example:
- *         voucherType: "credit"
- *         recipientName: "John Doe"
- *         expenseType: "Travel"
- *         amount: 500
- *         remark: "Trip to client office"
- *         cashLocation: "Main Branch"
- *         status: "pending"
- *         branch: "685641b4a584a450570f20ae"
+ *         billUrl:
+ *           type: string
+ *           description: Optional uploaded bill file URL (read-only)
  */
 
 /**
  * @swagger
  * /api/v1/cash-vouchers:
  *   post:
- *     summary: Create a new cash voucher
+ *     summary: Create a new cash voucher with optional bill upload
  *     tags: [Cash Vouchers]
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/CashVoucher'
+ *             type: object
+ *             properties:
+ *               voucherType:
+ *                 type: string
+ *                 enum: [credit, debit]
+ *               recipientName:
+ *                 type: string
+ *               expenseType:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               cashLocation:
+ *                 type: string
+ *               branch:
+ *                 type: string
+ *               remark:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [pending, approved, rejected]
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *               bill:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional bill file (image or PDF)
  *     responses:
  *       201:
- *         description: Voucher created
+ *         description: Voucher created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CashVoucher'
  */
-router.post("/", cashVoucherController.createCashVoucher);
+router.post("/", upload.single("bill"), cashVoucherController.createCashVoucher);
 
 
 /**
@@ -212,8 +248,9 @@ router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherByVouch
 /**
  * @swagger
  * /api/v1/cash-vouchers/{id}:
- *   put:
- *     summary: Update voucher by ID
+ *   patch:
+ *     summary: Partially update a cash voucher by ID
+ *     description: Send only the fields you want to update. Fields not included in the request will remain unchanged.
  *     tags: [Cash Vouchers]
  *     parameters:
  *       - in: path
@@ -221,18 +258,56 @@ router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherByVouch
  *         required: true
  *         schema:
  *           type: string
+ *         description: MongoDB ObjectId of the cash voucher
  *     requestBody:
+ *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/CashVoucher'
+ *             type: object
+ *             properties:
+ *               voucherType:
+ *                 type: string
+ *                 enum: [credit, debit]
+ *               recipientName:
+ *                 type: string
+ *               expenseType:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               cashLocation:
+ *                 type: string
+ *               branch:
+ *                 type: string
+ *                 description: Must be a valid MongoDB ObjectId
+ *               remark:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [pending, approved, rejected]
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *               bill:
+ *                 type: string
+ *                 format: binary
+ *                 description: Optional bill file (image or PDF)
  *     responses:
  *       200:
- *         description: Voucher updated
+ *         description: Voucher updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CashVoucher'
+ *       400:
+ *         description: Invalid request data (e.g., invalid ObjectId for branch)
  *       404:
- *         description: Not found
+ *         description: Voucher not found
+ *       500:
+ *         description: Server error
  */
-router.put("/:id", cashVoucherController.updateCashVoucher);
+router.patch("/:id", upload.single("bill"), cashVoucherController.updateCashVoucher);
+
 
 /**
  * @swagger

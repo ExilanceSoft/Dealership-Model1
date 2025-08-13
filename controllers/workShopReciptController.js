@@ -1,132 +1,275 @@
-const WorkShopReciptVoucher = require("../models/workshopReciptModel");
-const Branch = require("../models/Branch");
+const WorkShopReceiptVoucher = require('../models/workshopReciptModel');
+const Branch = require('../models/Branch');
+const fs = require('fs');
+const path = require('path');
+const mongoose = require('mongoose');
 
-// Utility: send uniform response
-const sendResponse = (res, status, success, message, data = null) => {
-  res.status(status).json({ success, message, data });
-};
-
-// POST: Create a new voucher
-exports.createWorkShopReciptVoucher = async (req, res) => {
+/**
+ * Create Workshop Receipt Voucher
+ */
+exports.createWorkShopReceiptVoucher = async (req, res) => {
   try {
     const {
       voucherType,
       recipientName,
-      reciptType,
+      receiptType,
       amount,
       remark,
       status,
+      bankName,
       bankLocation,
       branch,
       date
     } = req.body;
 
-    // Validate branch existence
-    const branchExists = await Branch.findById(branch);
-    if (!branchExists) {
-      return sendResponse(res, 400, false, "Invalid branch ID");
+    // === Validations ===
+    const allowedVoucherTypes = ['credit', 'debit'];
+    if (!voucherType || !allowedVoucherTypes.includes(voucherType)) {
+      return res.status(400).json({ success: false, message: `voucherType must be one of: ${allowedVoucherTypes.join(', ')}` });
+    }
+    if (!recipientName?.trim()) {
+      return res.status(400).json({ success: false, message: 'Recipient name is required' });
+    }
+    if (!receiptType?.trim()) {
+      return res.status(400).json({ success: false, message: 'Receipt type is required' });
+    }
+    if (amount === undefined || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be a positive number' });
     }
 
-    const voucher = new WorkShopReciptVoucher({
+    const allowedStatuses = ['pending', 'approved', 'rejected'];
+    if (status && !allowedStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}` });
+    }
+
+    if (!branch || !mongoose.Types.ObjectId.isValid(branch)) {
+      return res.status(400).json({ success: false, message: 'Valid branch ObjectId is required' });
+    }
+    const branchExists = await Branch.findById(branch);
+    if (!branchExists) {
+      return res.status(404).json({ success: false, message: 'Branch not found' });
+    }
+
+    // === Bill Upload Handling ===
+    let billUrl = null;
+    if (req.file) {
+      const uploadDir = path.join(__dirname, '../uploads/workshop-bills');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const filename = `workshop-bill-${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadDir, filename);
+      billUrl = `/uploads/workshop-bills/${filename}`;
+
+      await fs.promises.writeFile(filePath, req.file.buffer);
+    }
+
+    const voucher = new WorkShopReceiptVoucher({
       voucherType,
-      recipientName,
-      reciptType,
-      amount,
-      remark,
-      status: status || "pending",
-      bankLocation,
+      recipientName: recipientName.trim(),
+      receiptType: receiptType.trim(),
+      amount: parseFloat(amount),
+      remark: remark?.trim() || '',
+      status: status || 'pending',
+      bankName: bankName?.trim() || '',
+      bankLocation: bankLocation?.trim() || '',
       branch,
+      billUrl,
       date: date || new Date()
     });
 
     const savedVoucher = await voucher.save();
+    const populatedVoucher = await savedVoucher.populate('branch');
 
-    sendResponse(res, 201, true, "Workshop receipt voucher created successfully", savedVoucher);
+    res.status(201).json({
+      success: true,
+      data: populatedVoucher,
+      message: 'Workshop receipt voucher created successfully'
+    });
+
   } catch (error) {
-    if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map(val => val.message);
-      return sendResponse(res, 400, false, errors.length > 1 ? errors : errors[0]);
-    }
-    if (error.code === 11000) {
-      return sendResponse(res, 400, false, "Voucher ID already exists");
-    }
-    console.error("Error creating workshop receipt voucher:", error);
-    sendResponse(res, 500, false, "Server error while creating workshop receipt voucher");
+    console.error('Error creating workshop receipt voucher:', error);
+    res.status(500).json({ success: false, error: 'Server error while creating workshop receipt voucher' });
   }
 };
 
-// GET: All vouchers
-exports.getAllWorkShopReciptVouchers = async (req, res) => {
+/**
+ * Get All Workshop Receipt Vouchers (with filtering & pagination)
+ */
+exports.getAllWorkShopReceiptVouchers = async (req, res) => {
   try {
-    const vouchers = await WorkShopReciptVoucher.find().sort({ createdAt: -1 }).populate("branch");
-    sendResponse(res, 200, true, "Vouchers retrieved successfully", vouchers);
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      voucherType,
+      receiptType,
+      fromDate,
+      toDate,
+      branch,
+      minAmount,
+      maxAmount
+    } = req.query;
+
+    const query = {};
+    if (status) query.status = status;
+    if (voucherType) query.voucherType = voucherType;
+    if (receiptType) query.receiptType = receiptType;
+    if (branch && mongoose.Types.ObjectId.isValid(branch)) query.branch = branch;
+
+    if (minAmount || maxAmount) {
+      query.amount = {};
+      if (minAmount) query.amount.$gte = parseFloat(minAmount);
+      if (maxAmount) query.amount.$lte = parseFloat(maxAmount);
+    }
+
+    if (fromDate || toDate) {
+      query.date = {};
+      if (fromDate) query.date.$gte = new Date(fromDate);
+      if (toDate) query.date.$lte = new Date(toDate);
+    }
+
+    const vouchers = await WorkShopReceiptVoucher.find(query)
+      .populate('branch', 'name address city state')
+      .sort({ date: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const total = await WorkShopReceiptVoucher.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: vouchers,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
-    sendResponse(res, 500, false, error.message);
+    console.error('Error fetching workshop receipt vouchers:', error);
+    res.status(500).json({ success: false, message: 'Server error while fetching workshop receipt vouchers' });
   }
 };
 
-// GET: Voucher by ID
-exports.getWorkShopReciptVoucherById = async (req, res) => {
+/**
+ * Get Workshop Receipt Voucher by ID
+ */
+exports.getWorkShopReceiptVoucherById = async (req, res) => {
   try {
-    const voucher = await WorkShopReciptVoucher.findById(req.params.id).populate("branch");
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid voucher ID format' });
+    }
+
+    const voucher = await WorkShopReceiptVoucher.findById(req.params.id)
+      .populate('branch', 'name address city state');
+
     if (!voucher) {
-      return sendResponse(res, 404, false, "Voucher not found");
+      return res.status(404).json({ success: false, message: 'Workshop receipt voucher not found' });
     }
-    sendResponse(res, 200, true, "Voucher retrieved successfully", voucher);
+
+    res.status(200).json({ success: true, data: voucher });
+
   } catch (error) {
-    sendResponse(res, 500, false, error.message);
+    console.error('Error fetching workshop receipt voucher:', error);
+    res.status(500).json({ success: false, error: 'Server error while fetching workshop receipt voucher' });
   }
 };
 
-// GET: Vouchers by status
-exports.getWorkShopReciptVouchersByStatus = async (req, res) => {
+/**
+ * Update Workshop Receipt Voucher
+ */
+exports.updateWorkShopReceiptVoucher = async (req, res) => {
+  try {
+    const updateData = { ...req.body };
+
+    // Handle bill file upload
+    if (req.file) {
+      const uploadDir = path.join(__dirname, '../uploads/workshop-bills');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const filename = `workshop-bill-${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadDir, filename);
+      updateData.billUrl = `/uploads/workshop-bills/${filename}`;
+      await fs.promises.writeFile(filePath, req.file.buffer);
+    }
+
+    // Validate branch if provided
+    if (updateData.branch && !mongoose.Types.ObjectId.isValid(updateData.branch)) {
+      return res.status(400).json({ success: false, message: "Invalid branch ObjectId" });
+    }
+
+    const updatedVoucher = await WorkShopReceiptVoucher.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).populate('branch');
+
+    if (!updatedVoucher) {
+      return res.status(404).json({ success: false, message: "Voucher not found" });
+    }
+
+    res.status(200).json({ success: true, data: updatedVoucher });
+
+  } catch (error) {
+    console.error("Error updating workshop receipt voucher:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * Delete Workshop Receipt Voucher
+ */
+exports.deleteWorkShopReceiptVoucher = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid voucher ID format' });
+    }
+
+    const deletedVoucher = await WorkShopReceiptVoucher.findByIdAndDelete(req.params.id);
+
+    if (!deletedVoucher) {
+      return res.status(404).json({ success: false, message: 'Workshop receipt voucher not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Workshop receipt voucher deleted successfully',
+      data: {
+        voucherId: deletedVoucher.voucherId,
+        deletedAt: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error deleting workshop receipt voucher:', error);
+    res.status(500).json({ success: false, error: 'Server error while deleting workshop receipt voucher' });
+  }
+};
+
+/**
+ * Get Workshop Receipt Vouchers by Status
+ */
+exports.getWorkShopReceiptVouchersByStatus = async (req, res) => {
   try {
     const { status } = req.params;
-    const vouchers = await WorkShopReciptVoucher.find({ status }).populate("branch");
-    sendResponse(res, 200, true, `Vouchers with status '${status}' retrieved successfully`, vouchers);
-  } catch (error) {
-    sendResponse(res, 500, false, error.message);
-  }
-};
+    const allowedStatuses = ['pending', 'approved', 'rejected'];
 
-// PUT: Update voucher by ID
-exports.updateWorkShopReciptVoucher = async (req, res) => {
-  try {
-    if (req.body.branch) {
-      const branchExists = await Branch.findById(req.body.branch);
-      if (!branchExists) {
-        return sendResponse(res, 400, false, "Invalid branch ID");
-      }
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ success: false, error: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}` });
     }
 
-    const voucher = await WorkShopReciptVoucher.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate("branch");
+    const vouchers = await WorkShopReceiptVoucher.find({ status })
+      .populate('branch', 'name')
+      .sort({ createdAt: -1 });
 
-    if (!voucher) {
-      return sendResponse(res, 404, false, "Voucher not found");
-    }
-    sendResponse(res, 200, true, "Voucher updated successfully", voucher);
-  } catch (error) {
-    if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map(val => val.message);
-      return sendResponse(res, 400, false, errors.length > 1 ? errors : errors[0]);
-    }
-    sendResponse(res, 500, false, error.message);
-  }
-};
+    res.status(200).json({ success: true, count: vouchers.length, data: vouchers });
 
-// DELETE: Remove voucher by ID
-exports.deleteWorkShopReciptVoucher = async (req, res) => {
-  try {
-    const voucher = await WorkShopReciptVoucher.findByIdAndDelete(req.params.id);
-    if (!voucher) {
-      return sendResponse(res, 404, false, "Voucher not found");
-    }
-    sendResponse(res, 200, true, "Voucher deleted successfully", null);
-  } catch (error) {
-    sendResponse(res, 500, false, error.message);
+  } catch (err) {
+    console.error('Error fetching workshop vouchers by status:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };

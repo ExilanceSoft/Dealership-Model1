@@ -1,6 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const workshopReciptController = require("../controllers/workShopReciptController");
+const multer = require("multer");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+});
 
 /**
  * @swagger
@@ -18,9 +24,8 @@ const workshopReciptController = require("../controllers/workShopReciptControlle
  *       required:
  *         - voucherType
  *         - recipientName
- *         - reciptType
+ *         - receiptType
  *         - amount
- *         - bankLocation
  *         - branch
  *       properties:
  *         voucherType:
@@ -28,7 +33,7 @@ const workshopReciptController = require("../controllers/workShopReciptControlle
  *           enum: [credit, debit]
  *         recipientName:
  *           type: string
- *         reciptType:
+ *         receiptType:
  *           type: string
  *           enum: [Workshop, Other]
  *         amount:
@@ -45,13 +50,16 @@ const workshopReciptController = require("../controllers/workShopReciptControlle
  *         branch:
  *           type: string
  *           description: MongoDB ObjectId of the branch
+ *         billUrl:
+ *           type: string
+ *           description: URL of the uploaded bill file
  *         date:
  *           type: string
  *           format: date
  *       example:
  *         voucherType: credit
  *         recipientName: "John Doe"
- *         reciptType: "Workshop"
+ *         receiptType: "Workshop"
  *         amount: 2500
  *         remark: "Service payment"
  *         bankName: "HDFC Bank"
@@ -65,19 +73,28 @@ const workshopReciptController = require("../controllers/workShopReciptControlle
  * @swagger
  * /api/v1/workshop-receipts:
  *   post:
- *     summary: Create a new workshop receipt voucher
+ *     summary: Create a new workshop receipt voucher (with optional bill file)
  *     tags: [WorkShopReciptVouchers]
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/WorkShopReciptVoucher'
+ *             allOf:
+ *               - $ref: '#/components/schemas/WorkShopReciptVoucher'
+ *               - type: object
+ *                 properties:
+ *                   bill:
+ *                     type: string
+ *                     format: binary
+ *                     description: Bill file to upload
  *     responses:
  *       201:
  *         description: Workshop receipt voucher created
+ *       400:
+ *         description: Invalid request body
  */
-router.post("/", workshopReciptController.createWorkShopReciptVoucher);
+router.post("/", upload.single("bill"), workshopReciptController.createWorkShopReceiptVoucher);
 
 /**
  * @swagger
@@ -85,11 +102,22 @@ router.post("/", workshopReciptController.createWorkShopReciptVoucher);
  *   get:
  *     summary: Get all workshop receipt vouchers
  *     tags: [WorkShopReciptVouchers]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Items per page
  *     responses:
  *       200:
  *         description: List of workshop receipt vouchers
  */
-router.get("/", workshopReciptController.getAllWorkShopReciptVouchers);
+router.get("/", workshopReciptController.getAllWorkShopReceiptVouchers);
 
 /**
  * @swagger
@@ -104,12 +132,11 @@ router.get("/", workshopReciptController.getAllWorkShopReciptVouchers);
  *         schema:
  *           type: string
  *           enum: [pending, approved, rejected]
- *         description: The status of vouchers
  *     responses:
  *       200:
  *         description: List of vouchers with given status
  */
-router.get("/status/:status", workshopReciptController.getWorkShopReciptVouchersByStatus);
+router.get("/status/:status", workshopReciptController.getWorkShopReceiptVouchersByStatus);
 
 /**
  * @swagger
@@ -123,20 +150,19 @@ router.get("/status/:status", workshopReciptController.getWorkShopReciptVouchers
  *         required: true
  *         schema:
  *           type: string
- *         description: The voucher ID
  *     responses:
  *       200:
  *         description: Voucher found
  *       404:
  *         description: Voucher not found
  */
-router.get("/:id", workshopReciptController.getWorkShopReciptVoucherById);
+router.get("/:id", workshopReciptController.getWorkShopReceiptVoucherById);
 
 /**
  * @swagger
  * /api/v1/workshop-receipts/{id}:
  *   put:
- *     summary: Update a workshop receipt voucher by ID
+ *     summary: Update a workshop receipt voucher by ID (with optional bill file)
  *     tags: [WorkShopReciptVouchers]
  *     parameters:
  *       - in: path
@@ -144,20 +170,26 @@ router.get("/:id", workshopReciptController.getWorkShopReciptVoucherById);
  *         required: true
  *         schema:
  *           type: string
- *         description: The voucher ID
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/WorkShopReciptVoucher'
+ *             allOf:
+ *               - $ref: '#/components/schemas/WorkShopReciptVoucher'
+ *               - type: object
+ *                 properties:
+ *                   bill:
+ *                     type: string
+ *                     format: binary
+ *                     description: Bill file to upload
  *     responses:
  *       200:
  *         description: Voucher updated
  *       404:
  *         description: Voucher not found
  */
-router.put("/:id", workshopReciptController.updateWorkShopReciptVoucher);
+router.put("/:id", upload.single("bill"), workshopReciptController.updateWorkShopReceiptVoucher);
 
 /**
  * @swagger
@@ -171,13 +203,12 @@ router.put("/:id", workshopReciptController.updateWorkShopReciptVoucher);
  *         required: true
  *         schema:
  *           type: string
- *         description: The voucher ID
  *     responses:
  *       200:
  *         description: Voucher deleted
  *       404:
  *         description: Voucher not found
  */
-router.delete("/:id", workshopReciptController.deleteWorkShopReciptVoucher);
+router.delete("/:id", workshopReciptController.deleteWorkShopReceiptVoucher);
 
 module.exports = router;

@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
+
 const ContraVoucherSchema = new mongoose.Schema({
   voucherId: {
     type: String,
     unique: true,
     trim: true,
-    // ❌ No `required: true` here — will be auto-generated
   },
   date: {
     type: Date,
@@ -16,7 +16,7 @@ const ContraVoucherSchema = new mongoose.Schema({
     enum: ['credit', 'debit'],
     required: true,
   },
-  recipientName: { 
+  recipientName: {
     type: String,
     required: true,
     trim: true,
@@ -33,7 +33,7 @@ const ContraVoucherSchema = new mongoose.Schema({
   },
   paymentMode: {
     type: String,
-    enum: ['cash'], 
+    enum: ['cash'],
     default: 'cash',
     required: true,
   },
@@ -56,34 +56,44 @@ const ContraVoucherSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
     required: [true, 'Branch is required']
-  }
+  },
+  bill_url: [{
+    url: {
+      type: String,
+      required: true,
+      trim: true
+    },
+  }]
 }, {
   timestamps: true,
 });
+
 
 // Auto-generate voucherId before saving
 ContraVoucherSchema.pre('save', async function (next) {
   if (!this.isNew) return next();
 
+
   try {
     const year = new Date().getFullYear();
+    const Counter = mongoose.model('Counter');
+   
+    // Get or create counter for this year
+    const counter = await Counter.findOneAndUpdate(
+      { _id: `contraVoucher_${year}` },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
 
-    // Get the last voucher of this year
-    const lastVoucher = await this.constructor.findOne({
-      voucherId: new RegExp(`^CONTRA-${year}-\\d{4}$`)
-    }).sort({ createdAt: -1 });
 
-    let nextNumber = 1;
-    if (lastVoucher) {
-      const lastNumber = parseInt(lastVoucher.voucherId.split('-')[2], 10);
-      nextNumber = lastNumber + 1;
-    }
-
-    this.voucherId = `CONV-${year}-${String(nextNumber).padStart(4, '0')}`;
+    this.voucherId = `CONV-${year}-${String(counter.seq).padStart(4, '0')}`;
     next();
   } catch (err) {
     next(err);
   }
 });
 
+
 module.exports = mongoose.model('ContraVoucher', ContraVoucherSchema);
+
+
