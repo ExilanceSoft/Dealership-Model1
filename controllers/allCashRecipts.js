@@ -140,10 +140,10 @@ exports.getVouchersByBranchAndDate = async (req, res) => {
       });
     }
 
-    // Parse and normalize date (we check only that day, ignoring time)
     const selectedDate = moment(date, "YYYY-MM-DD").startOf("day");
     const nextDate = moment(selectedDate).endOf("day");
 
+    // Fetch all vouchers for that branch & date
     const [workshopReceipts, cashVouchers, contraVouchers] = await Promise.all([
       WorkShopReciptVoucher.find({
         branch: branchId,
@@ -167,18 +167,47 @@ exports.getVouchersByBranchAndDate = async (req, res) => {
         .lean(),
     ]);
 
-    const allVouchers = [
+    let allVouchers = [
       ...workshopReceipts.map((v) => ({ ...v, voucherCategory: "WorkshopReceipt" })),
       ...cashVouchers.map((v) => ({ ...v, voucherCategory: "CashVoucher" })),
       ...contraVouchers.map((v) => ({ ...v, voucherCategory: "ContraVoucher" })),
     ];
 
-    allVouchers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Sort vouchers chronologically
+    allVouchers.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    // Get branch opening balance (from any voucher that has it)
+    const branchOpeningBalance =
+      allVouchers[0]?.branch?.opening_balance || 0;
+
+    let runningBalance = branchOpeningBalance;
+
+    const vouchersWithBalance = allVouchers.map((voucher) => {
+      const amount = Number(voucher.amount || 0);
+
+      // Update running balance
+      if (voucher.voucherType === "credit") {
+        runningBalance += amount;
+      } else if (voucher.voucherType === "debit") {
+        runningBalance -= amount;
+      }
+
+      return {
+        ...voucher,
+        openingBalance: branchOpeningBalance,
+        runningBalance,
+      };
+    });
+
+    // Return vouchers sorted latest first
+    vouchersWithBalance.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.status(200).json({
       success: true,
-      count: allVouchers.length,
-      data: allVouchers,
+      count: vouchersWithBalance.length,
+      data: vouchersWithBalance,
+      dailyOpeningBalance: branchOpeningBalance,
+      dailyClosingBalance: runningBalance,
     });
   } catch (error) {
     console.error("Error fetching vouchers by branch and date:", error);

@@ -57,13 +57,11 @@ const ContraVoucherSchema = new mongoose.Schema({
     ref: 'Branch',
     required: [true, 'Branch is required']
   },
-  bill_url: [{
-    url: {
+billUrl: {
       type: String,
-      required: true,
-      trim: true
+      trim: true,
+      default: null,
     },
-  }]
 }, {
   timestamps: true,
 });

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+
 const BranchSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -81,6 +82,32 @@ const BranchSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Add to the BranchSchema
+opening_balance: {
+  type: Number,
+  default: 0,
+  min: [0, 'Opening balance cannot be negative']
+},
+opening_balance_history: [{
+  amount: {
+    type: Number,
+    required: true
+  },
+  date: {
+    type: Date,
+    default: Date.now
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  note: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Note cannot exceed 500 characters']
+  }
+}],
   logo2: {
     type: String,
     default: ''
@@ -90,11 +117,12 @@ const BranchSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   }
-}, { 
-  timestamps: true, 
+}, {
+  timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
 
 // Indexes
 BranchSchema.index({ name: 1 });
@@ -104,6 +132,7 @@ BranchSchema.index({ is_active: 1 });
 BranchSchema.index({ email: 1 }, { unique: true });
 BranchSchema.index({ gst_number: 1 }, { unique: true });
 
+
 // Virtual for user who created the branch
 BranchSchema.virtual('createdByDetails', {
   ref: 'User',
@@ -112,5 +141,6 @@ BranchSchema.virtual('createdByDetails', {
   justOne: true,
   options: { select: 'name email mobile' }
 });
+
 
 module.exports = mongoose.model('Branch', BranchSchema);

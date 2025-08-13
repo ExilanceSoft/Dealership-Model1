@@ -4,59 +4,67 @@ const AuditLog = require('../models/AuditLog');
 const fs = require('fs');
 const path = require('path');
 
+
 // Helper function for validation
 const validateBranchData = (data) => {
   const errors = {};
-  
+ 
   if (data.phone && !/^[6-9]\d{9}$/.test(data.phone)) {
     errors.phone = 'Invalid phone number format (must be 10 digits starting with 6-9)';
   }
+
 
   if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
     errors.email = 'Invalid email format';
   }
 
+
   if (data.gst_number && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(data.gst_number)) {
     errors.gst_number = 'Invalid GST number format';
   }
+
 
   if (data.pincode && !/^[1-9][0-9]{5}$/.test(data.pincode)) {
     errors.pincode = 'Invalid pincode format (must be 6 digits)';
   }
 
+
   return Object.keys(errors).length > 0 ? errors : null;
 };
+
 
 // Helper function to handle file uploads
 const handleFileUpload = (file, branchId, logoNumber) => {
   if (!file) return null;
-  
+ 
   const uploadDir = path.join(__dirname, '../uploads/branches', branchId.toString());
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
-  
+ 
   const ext = path.extname(file.originalname);
   const filename = `logo${logoNumber}${ext}`;
   const filePath = path.join(uploadDir, filename);
-  
+ 
   fs.writeFileSync(filePath, file.buffer);
-  
+ 
   return `/uploads/branches/${branchId.toString()}/${filename}`;
 };
+
 
 exports.createBranch = async (req, res) => {
   try {
     // Validate required fields
     const requiredFields = ['name', 'address', 'city', 'state', 'pincode', 'phone', 'email', 'gst_number'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
-    
+   
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
+
 
     // Validate data formats
     const validationErrors = validateBranchData(req.body);
@@ -68,6 +76,7 @@ exports.createBranch = async (req, res) => {
       });
     }
 
+
     // Check for duplicate email or GST number
     const existingBranch = await Branch.findOne({
       $or: [
@@ -76,12 +85,14 @@ exports.createBranch = async (req, res) => {
       ]
     });
 
+
     if (existingBranch) {
       return res.status(400).json({
         success: false,
         message: 'Branch with this email or GST number already exists'
       });
     }
+
 
     // Create the branch
     const branchData = {
@@ -97,8 +108,9 @@ exports.createBranch = async (req, res) => {
       createdBy: req.user.id
     };
 
+
     const branch = await Branch.create(branchData);
-    
+   
     // Handle logo uploads if files are present
     if (req.files) {
       const updates = {};
@@ -108,13 +120,13 @@ exports.createBranch = async (req, res) => {
       if (req.files.logo2) {
         updates.logo2 = handleFileUpload(req.files.logo2[0], branch._id, 2);
       }
-      
+     
       if (Object.keys(updates).length > 0) {
         await Branch.findByIdAndUpdate(branch._id, updates);
         Object.assign(branch, updates);
       }
     }
-    
+   
     // Log the creation
     await AuditLog.create({
       action: 'CREATE',
@@ -125,21 +137,21 @@ exports.createBranch = async (req, res) => {
       metadata: branchData,
       status: 'SUCCESS'
     });
-    
+   
     res.status(201).json({
       success: true,
       data: branch
     });
   } catch (err) {
     console.error('Error creating branch:', err);
-    
+   
     let message = 'Error creating branch';
     if (err.name === 'ValidationError') {
       message = Object.values(err.errors).map(val => val.message).join(', ');
     } else if (err.code === 11000) {
       message = 'Duplicate value entered for unique field';
     }
-    
+   
     // Log failed attempt
     await AuditLog.create({
       action: 'CREATE',
@@ -150,7 +162,7 @@ exports.createBranch = async (req, res) => {
       metadata: req.body,
       error: err.message
     }).catch(logErr => console.error('Failed to create audit log:', logErr));
-    
+   
     res.status(500).json({
       success: false,
       message,
@@ -159,19 +171,21 @@ exports.createBranch = async (req, res) => {
   }
 };
 
+
 exports.getBranches = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    
+   
     // Remove the is_active filter to get all branches
     const query = {};
-    
+   
     // Optional filter by status if provided
     if (req.query.status) {
       query.is_active = req.query.status === 'active';
     }
+
 
     const [branches, total] = await Promise.all([
       Branch.find(query)
@@ -180,6 +194,7 @@ exports.getBranches = async (req, res) => {
         .populate('createdByDetails', 'name email mobile'),
       Branch.countDocuments(query)
     ]);
+
 
     res.status(200).json({
       success: true,
@@ -199,10 +214,12 @@ exports.getBranches = async (req, res) => {
   }
 };
 
+
 exports.getBranch = async (req, res) => {
   try {
     const branch = await Branch.findById(req.params.id)
       .populate('createdByDetails', 'name email mobile');
+
 
     if (!branch) {
       return res.status(404).json({
@@ -210,7 +227,7 @@ exports.getBranch = async (req, res) => {
         message: 'Branch not found'
       });
     }
-    
+   
     res.status(200).json({
       success: true,
       data: branch
@@ -225,6 +242,7 @@ exports.getBranch = async (req, res) => {
   }
 };
 
+
 exports.updateBranch = async (req, res) => {
   try {
     // Validate data formats if provided
@@ -237,12 +255,13 @@ exports.updateBranch = async (req, res) => {
       });
     }
 
+
     const updates = { ...req.body };
-    
+   
     // Format email and GST if provided
     if (updates.email) updates.email = updates.email.toLowerCase();
     if (updates.gst_number) updates.gst_number = updates.gst_number.toUpperCase();
-    
+   
     // Handle logo uploads if files are present
     if (req.files) {
       if (req.files.logo1) {
@@ -252,19 +271,19 @@ exports.updateBranch = async (req, res) => {
         updates.logo2 = handleFileUpload(req.files.logo2[0], req.params.id, 2);
       }
     }
-    
+   
     const branch = await Branch.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true
     }).populate('createdByDetails', 'name email mobile');
-    
+   
     if (!branch) {
       return res.status(404).json({
         success: false,
         message: 'Branch not found'
       });
     }
-    
+   
     await AuditLog.create({
       action: 'UPDATE',
       entity: 'Branch',
@@ -274,21 +293,21 @@ exports.updateBranch = async (req, res) => {
       metadata: updates,
       status: 'SUCCESS'
     });
-    
+   
     res.status(200).json({
       success: true,
       data: branch
     });
   } catch (err) {
     console.error('Error updating branch:', err);
-    
+   
     let message = 'Error updating branch';
     if (err.name === 'ValidationError') {
       message = Object.values(err.errors).map(val => val.message).join(', ');
     } else if (err.code === 11000) {
       message = 'Duplicate value entered for unique field';
     }
-    
+   
     await AuditLog.create({
       action: 'UPDATE',
       entity: 'Branch',
@@ -299,7 +318,7 @@ exports.updateBranch = async (req, res) => {
       metadata: req.body,
       error: err.message
     });
-    
+   
     res.status(500).json({
       success: false,
       message,
@@ -308,10 +327,11 @@ exports.updateBranch = async (req, res) => {
   }
 };
 
+
 exports.updateBranchStatus = async (req, res) => {
   try {
     const { is_active } = req.body;
-    
+   
     // Validate the request body
     if (typeof is_active !== 'boolean') {
       return res.status(400).json({
@@ -319,6 +339,7 @@ exports.updateBranchStatus = async (req, res) => {
         message: 'Invalid request. is_active must be a boolean value'
       });
     }
+
 
     // Find the branch
     const branch = await Branch.findById(req.params.id);
@@ -329,6 +350,7 @@ exports.updateBranchStatus = async (req, res) => {
       });
     }
 
+
     // No change needed if status is already as requested
     if (branch.is_active === is_active) {
       return res.status(200).json({
@@ -338,9 +360,11 @@ exports.updateBranchStatus = async (req, res) => {
       });
     }
 
+
     // Update the branch status
     branch.is_active = is_active;
     await branch.save();
+
 
     // Handle user statuses based on branch status
     if (!is_active) {
@@ -350,6 +374,7 @@ exports.updateBranchStatus = async (req, res) => {
         { $set: { isActive: false } }
       );
     }
+
 
     // Log the status change
     await AuditLog.create({
@@ -367,6 +392,7 @@ exports.updateBranchStatus = async (req, res) => {
       status: 'SUCCESS'
     });
 
+
     res.status(200).json({
       success: true,
       message: `Branch ${is_active ? 'activated' : 'deactivated'} successfully`,
@@ -374,6 +400,7 @@ exports.updateBranchStatus = async (req, res) => {
     });
   } catch (err) {
     console.error('Error updating branch status:', err);
+
 
     await AuditLog.create({
       action: 'UPDATE',
@@ -386,6 +413,7 @@ exports.updateBranchStatus = async (req, res) => {
       metadata: req.body
     }).catch(logErr => console.error('Failed to create audit log:', logErr));
 
+
     res.status(500).json({
       success: false,
       message: 'Error updating branch status',
@@ -393,6 +421,7 @@ exports.updateBranchStatus = async (req, res) => {
     });
   }
 };
+
 
 exports.deleteBranch = async (req, res) => {
   try {
@@ -405,6 +434,7 @@ exports.deleteBranch = async (req, res) => {
       });
     }
 
+
     // Check for any users assigned to this branch (active or inactive)
     const usersCount = await User.countDocuments({ branch: req.params.id });
     if (usersCount > 0) {
@@ -414,14 +444,17 @@ exports.deleteBranch = async (req, res) => {
       });
     }
 
+
     // Delete associated logo files if they exist
     const uploadDir = path.join(__dirname, '../public/uploads/branches', req.params.id.toString());
     if (fs.existsSync(uploadDir)) {
       fs.rmSync(uploadDir, { recursive: true, force: true });
     }
 
+
     // Perform the actual deletion
     await Branch.findByIdAndDelete(req.params.id);
+
 
     await AuditLog.create({
       action: 'DELETE',
@@ -433,12 +466,14 @@ exports.deleteBranch = async (req, res) => {
       status: 'SUCCESS'
     });
 
+
     res.status(200).json({
       success: true,
       data: { message: 'Branch deleted permanently' }
     });
   } catch (err) {
     console.error('Error deleting branch:', err);
+
 
     await AuditLog.create({
       action: 'DELETE',
@@ -451,9 +486,247 @@ exports.deleteBranch = async (req, res) => {
       metadata: req.body
     }).catch(logErr => console.error('Failed to create audit log:', logErr));
 
+
     res.status(500).json({
       success: false,
       message: 'Error deleting branch',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+exports.addOpeningBalance = async (req, res) => {
+  try {
+    const { amount, note } = req.body;
+
+
+    // Validate amount
+    if (typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be a positive number'
+      });
+    }
+
+
+    // Find branch
+    const branch = await Branch.findById(req.params.id);
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
+
+    // Add to history and update balance
+    branch.opening_balance_history.push({
+      amount,
+      note: note || 'Initial opening balance',
+      updatedBy: req.user.id
+    });
+
+
+    branch.opening_balance = amount;
+    await branch.save();
+
+
+    // Log the action
+    await AuditLog.create({
+      action: 'CREATE',
+      entity: 'Branch Opening Balance',
+      entityId: branch._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        amount,
+        previousBalance: 0,
+        newBalance: amount,
+        note
+      },
+      status: 'SUCCESS'
+    });
+
+
+    res.status(201).json({
+      success: true,
+      data: branch
+    });
+  } catch (err) {
+    console.error('Error adding opening balance:', err);
+   
+    await AuditLog.create({
+      action: 'CREATE',
+      entity: 'Branch Opening Balance',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message,
+      metadata: req.body
+    });
+
+
+    res.status(500).json({
+      success: false,
+      message: 'Error adding opening balance',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+
+exports.updateOpeningBalance = async (req, res) => {
+  try {
+    const { amount, note } = req.body;
+
+
+    // Validate amount
+    if (typeof amount !== 'number' || amount < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be a positive number'
+      });
+    }
+
+
+    // Find and update branch
+    const branch = await Branch.findById(req.params.id);
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
+
+    const previousBalance = branch.opening_balance;
+
+
+    // Add to history and update balance
+    branch.opening_balance_history.push({
+      amount,
+      note: note || `Balance updated from ${previousBalance} to ${amount}`,
+      updatedBy: req.user.id
+    });
+
+
+    branch.opening_balance = amount;
+    await branch.save();
+
+
+    // Log the action
+    await AuditLog.create({
+      action: 'UPDATE',
+      entity: 'Branch Opening Balance',
+      entityId: branch._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        amount,
+        previousBalance,
+        newBalance: amount,
+        note
+      },
+      status: 'SUCCESS'
+    });
+
+
+    res.status(200).json({
+      success: true,
+      data: branch
+    });
+  } catch (err) {
+    console.error('Error updating opening balance:', err);
+   
+    await AuditLog.create({
+      action: 'UPDATE',
+      entity: 'Branch Opening Balance',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message,
+      metadata: req.body
+    });
+
+
+    res.status(500).json({
+      success: false,
+      message: 'Error updating opening balance',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+
+exports.resetOpeningBalance = async (req, res) => {
+  try {
+    const { note } = req.body;
+
+
+    // Find and update branch
+    const branch = await Branch.findById(req.params.id);
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
+
+    const previousBalance = branch.opening_balance;
+
+
+    // Add to history and reset balance
+    branch.opening_balance_history.push({
+      amount: 0,
+      note: note || `Balance reset from ${previousBalance} to 0`,
+      updatedBy: req.user.id
+    });
+
+
+    branch.opening_balance = 0;
+    await branch.save();
+
+
+    // Log the action
+    await AuditLog.create({
+      action: 'DELETE',
+      entity: 'Branch Opening Balance',
+      entityId: branch._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        previousBalance,
+        newBalance: 0,
+        note
+      },
+      status: 'SUCCESS'
+    });
+
+
+    res.status(200).json({
+      success: true,
+      data: branch
+    });
+  } catch (err) {
+    console.error('Error resetting opening balance:', err);
+   
+    await AuditLog.create({
+      action: 'DELETE',
+      entity: 'Branch Opening Balance',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message,
+      metadata: req.body
+    });
+
+
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting opening balance',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }

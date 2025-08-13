@@ -183,40 +183,56 @@ exports.getCashVoucherById = async (req, res) => {
  */
 exports.updateCashVoucher = async (req, res) => {
   try {
-    const updateData = { ...req.body };
+    const updateData = {};
 
-    // If bill file uploaded
+    // Allow updating status if provided
+    if (req.body.status) {
+      updateData.status = req.body.status;
+    }
+
+    // If bill file uploaded, save file & update billUrl
     if (req.file) {
-      const uploadDir = path.join(__dirname, '../uploads/bills');
+      const uploadDir = path.join(__dirname, "../uploads/bills");
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
       const filename = `bill-${Date.now()}-${req.file.originalname}`;
       const filePath = path.join(uploadDir, filename);
-      updateData.billUrl = `/uploads/bills/${filename}`;
       await fs.promises.writeFile(filePath, req.file.buffer);
+      updateData.billUrl = `/uploads/bills/${filename}`;
     }
 
-    // Validate branch if provided
-    if (updateData.branch && !mongoose.Types.ObjectId.isValid(updateData.branch)) {
-      return res.status(400).json({ success: false, message: "Invalid branch ObjectId" });
+    // Prevent any other fields from being updated
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Only 'status' and 'bill' can be updated.",
+      });
     }
 
     const updatedVoucher = await CashVoucher.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
       { new: true, runValidators: true }
-    ).populate('branch');
+    ).populate("branch");
 
     if (!updatedVoucher) {
-      return res.status(404).json({ success: false, message: "Voucher not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Voucher not found",
+      });
     }
 
-    res.status(200).json({ success: true, data: updatedVoucher });
-
+    res.status(200).json({
+      success: true,
+      data: updatedVoucher,
+    });
   } catch (error) {
     console.error("Error updating cash voucher:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 

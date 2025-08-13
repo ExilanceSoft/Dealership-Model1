@@ -15,13 +15,14 @@ exports.createContraVoucher = async (req, res) => {
       bankLocation,
       remark,
       status,
-      branch
+      branch,
+      date
     } = req.body;
 
-
-    // Validation
-    if (!voucherType || !['credit', 'debit'].includes(voucherType)) {
-      return res.status(400).json({ success: false, message: 'Invalid or missing voucherType (must be credit or debit)' });
+    // === Validations ===
+    const allowedVoucherTypes = ['credit', 'debit'];
+    if (!voucherType || !allowedVoucherTypes.includes(voucherType)) {
+      return res.status(400).json({ success: false, message: `voucherType must be one of: ${allowedVoucherTypes.join(', ')}` });
     }
     if (!recipientName?.trim()) {
       return res.status(400).json({ success: false, message: 'Recipient name is required' });
@@ -30,27 +31,41 @@ exports.createContraVoucher = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Contra type is required' });
     }
     if (amount === undefined || isNaN(amount) || amount <= 0) {
-      return res.status(400).json({ success: false, message: 'Valid amount (greater than 0) is required' });
+      return res.status(400).json({ success: false, message: 'Amount must be a positive number' });
     }
     if (!bankLocation?.trim()) {
       return res.status(400).json({ success: false, message: 'Bank location is required' });
     }
-    if (status && !['pending', 'approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid status' });
-    }
-    if (!branch) {
-      return res.status(400).json({ success: false, message: 'Branch is required' });
+
+    const allowedStatuses = ['pending', 'approved', 'rejected'];
+    if (status && !allowedStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}` });
     }
 
+    if (!branch || !mongoose.Types.ObjectId.isValid(branch)) {
+      return res.status(400).json({ success: false, message: 'Valid branch ObjectId is required' });
+    }
 
-    // Check if branch exists
     const branchExists = await Branch.findById(branch);
     if (!branchExists) {
       return res.status(404).json({ success: false, message: 'Branch not found' });
     }
 
+    // === Bill Upload Handling ===
+    let billUrl = null;
+    if (req.file) {
+      const uploadDir = path.join(__dirname, '../uploads/contra-vouchers');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
 
-    // Create new voucher
+      const filename = `bill-${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadDir, filename);
+      billUrl = `/uploads/contra-vouchers/${filename}`;
+
+      await fs.promises.writeFile(filePath, req.file.buffer);
+    }
+
     const voucher = new ContraVoucher({
       voucherType,
       recipientName: recipientName.trim(),
@@ -59,14 +74,13 @@ exports.createContraVoucher = async (req, res) => {
       bankLocation: bankLocation.trim(),
       remark: remark?.trim() || '',
       status: status || 'pending',
-      paymentMode: 'cash',
-      branch
+      branch,
+      billUrl,
+      date: date || new Date()
     });
-
 
     const savedVoucher = await voucher.save();
     const populatedVoucher = await savedVoucher.populate('branch');
-
 
     res.status(201).json({
       success: true,
@@ -74,15 +88,12 @@ exports.createContraVoucher = async (req, res) => {
       message: 'Contra voucher created successfully'
     });
 
-
   } catch (error) {
-    console.error(error);
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ success: false, error: Object.values(error.errors).map(val => val.message) });
-    }
+    console.error('Error creating contra voucher:', error);
     res.status(500).json({ success: false, error: 'Server error while creating contra voucher' });
   }
 };
+
 
 
 // Get All Contra Vouchers (with filters & pagination)
@@ -177,85 +188,60 @@ exports.getContraVouchersByStatus = async (req, res) => {
 
 
 
-// Update Contra Voucher
 exports.updateContraVoucher = async (req, res) => {
   try {
-    const { id } = req.params;
-    const updates = req.body;
-    const file = req.file;
+    const updateData = {};
 
-
-    // Basic validation
-    if (updates.voucherType && !['credit', 'debit'].includes(updates.voucherType)) {
-      // Remove uploaded file if validation fails
-      if (file) fs.unlinkSync(file.path);
-      return res.status(400).json({ success: false, message: 'Invalid voucherType' });
+    // Allow updating status if provided
+    if (req.body.status) {
+      updateData.status = req.body.status;
     }
 
-
-    // Handle file upload
-    if (file) {
-      const fileUrl = `/uploads/contra-vouchers/${file.filename}`;
-      updates.$push = { bill_url: { url: fileUrl } };
-    }
-
-
-    // Trim string fields
-    ['recipientName', 'contraType', 'bankLocation', 'remark'].forEach(field => {
-      if (updates[field]) updates[field] = updates[field].trim();
-    });
-
-
-    // Convert amount to number
-    if (updates.amount) {
-      updates.amount = parseFloat(updates.amount);
-      if (isNaN(updates.amount)) {
-        if (file) fs.unlinkSync(file.path);
-        return res.status(400).json({ success: false, message: 'Amount must be a number' });
+    // If bill file uploaded, save file & update billUrl
+    if (req.file) {
+      const uploadDir = path.join(__dirname, "../uploads/contra-vouchers");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
       }
+      const filename = `bill-${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadDir, filename);
+      await fs.promises.writeFile(filePath, req.file.buffer);
+      updateData.billUrl = `/uploads/contra-vouchers/${filename}`;
     }
 
+    // Prevent updating anything else
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Only 'status' and 'billUrl' can be updated.",
+      });
+    }
 
     const updatedVoucher = await ContraVoucher.findByIdAndUpdate(
-      id,
-      updates,
+      req.params.id,
+      { $set: updateData },
       { new: true, runValidators: true }
-    ).populate('branch');
-
+    ).populate("branch");
 
     if (!updatedVoucher) {
-      if (file) fs.unlinkSync(file.path);
-      return res.status(404).json({ success: false, message: 'Contra voucher not found' });
+      return res.status(404).json({
+        success: false,
+        message: "Contra voucher not found",
+      });
     }
-
 
     res.status(200).json({
       success: true,
       data: updatedVoucher,
-      message: 'Contra voucher updated successfully' + (file ? ' with file upload' : '')
     });
-
-
   } catch (error) {
-    console.error('Update error:', error);
-   
-    // Clean up uploaded file if error occurred
-    if (req.file) fs.unlinkSync(req.file.path);
-
-
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        error: Object.values(error.errors).map(val => val.message)
-      });
-    }
+    console.error("Error updating contra voucher:", error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Server error while updating contra voucher'
+      message: "Server error while updating contra voucher",
     });
   }
 };
-
 
 // Delete Contra Voucher
 exports.deleteContraVoucher = async (req, res) => {

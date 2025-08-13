@@ -157,12 +157,11 @@ router.get("/status/:status", workshopReciptController.getWorkShopReceiptVoucher
  *         description: Voucher not found
  */
 router.get("/:id", workshopReciptController.getWorkShopReceiptVoucherById);
-
 /**
  * @swagger
  * /api/v1/workshop-receipts/{id}:
  *   put:
- *     summary: Update a workshop receipt voucher by ID (with optional bill file)
+ *     summary: Update only the status or bill file of a workshop receipt voucher
  *     tags: [WorkShopReciptVouchers]
  *     parameters:
  *       - in: path
@@ -170,26 +169,32 @@ router.get("/:id", workshopReciptController.getWorkShopReceiptVoucherById);
  *         required: true
  *         schema:
  *           type: string
+ *         description: The ID of the workshop receipt voucher
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
- *             allOf:
- *               - $ref: '#/components/schemas/WorkShopReciptVoucher'
- *               - type: object
- *                 properties:
- *                   bill:
- *                     type: string
- *                     format: binary
- *                     description: Bill file to upload
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, approved, rejected]
+ *                 description: New status for the voucher
+ *               bill:
+ *                 type: string
+ *                 format: binary
+ *                 description: Bill file to upload (replaces existing if any)
  *     responses:
  *       200:
- *         description: Voucher updated
+ *         description: Voucher updated successfully
+ *       400:
+ *         description: Invalid input or no valid fields provided
  *       404:
  *         description: Voucher not found
  */
 router.put("/:id", upload.single("bill"), workshopReciptController.updateWorkShopReceiptVoucher);
+
 
 /**
  * @swagger

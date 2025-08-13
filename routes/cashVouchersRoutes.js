@@ -109,7 +109,7 @@ const upload = multer({
  *             schema:
  *               $ref: '#/components/schemas/CashVoucher'
  */
-router.post("/", upload.single("bill"), cashVoucherController.createCashVoucher);
+router.post("/", upload.single("billUrl"), cashVoucherController.createCashVoucher);
 
 
 /**
@@ -248,9 +248,9 @@ router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherByVouch
 /**
  * @swagger
  * /api/v1/cash-vouchers/{id}:
- *   patch:
- *     summary: Partially update a cash voucher by ID
- *     description: Send only the fields you want to update. Fields not included in the request will remain unchanged.
+ *   put:
+ *     summary: Update only status or bill of a cash voucher
+ *     description: Allows updating the voucher's status and/or uploading a bill file. All other fields will be ignored.
  *     tags: [Cash Vouchers]
  *     parameters:
  *       - in: path
@@ -266,32 +266,14 @@ router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherByVouch
  *           schema:
  *             type: object
  *             properties:
- *               voucherType:
- *                 type: string
- *                 enum: [credit, debit]
- *               recipientName:
- *                 type: string
- *               expenseType:
- *                 type: string
- *               amount:
- *                 type: number
- *               cashLocation:
- *                 type: string
- *               branch:
- *                 type: string
- *                 description: Must be a valid MongoDB ObjectId
- *               remark:
- *                 type: string
  *               status:
  *                 type: string
  *                 enum: [pending, approved, rejected]
- *               date:
- *                 type: string
- *                 format: date-time
+ *                 description: The new status of the voucher
  *               bill:
  *                 type: string
  *                 format: binary
- *                 description: Optional bill file (image or PDF)
+ *                 description: Bill file (image or PDF)
  *     responses:
  *       200:
  *         description: Voucher updated successfully
@@ -300,13 +282,17 @@ router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherByVouch
  *             schema:
  *               $ref: '#/components/schemas/CashVoucher'
  *       400:
- *         description: Invalid request data (e.g., invalid ObjectId for branch)
+ *         description: Invalid request data (e.g., no updatable fields provided)
  *       404:
  *         description: Voucher not found
  *       500:
  *         description: Server error
  */
-router.patch("/:id", upload.single("bill"), cashVoucherController.updateCashVoucher);
+router.put(
+  "/:id",
+  upload.single("billUrl"),
+  cashVoucherController.updateCashVoucher
+);
 
 
 /**
