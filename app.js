@@ -306,7 +306,6 @@ app.use(cors({
   exposedHeaders: ['Authorization']
 }));
 
-// Security middleware with Swagger UI compatibility
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
