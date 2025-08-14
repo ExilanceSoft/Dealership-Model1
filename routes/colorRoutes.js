@@ -19,7 +19,6 @@ const { logAction } = require('../middlewares/audit');
  *       type: object
  *       required:
  *         - name
- *         - hex_code
  *       properties:
  *         _id:
  *           type: string
@@ -27,9 +26,6 @@ const { logAction } = require('../middlewares/audit');
  *         name:
  *           type: string
  *           example: Midnight Black
- *         hex_code:
- *           type: string
- *           example: "#000000"
  *         status:
  *           type: string
  *           enum: [active, inactive]
@@ -47,14 +43,10 @@ const { logAction } = require('../middlewares/audit');
  *       type: object
  *       required:
  *         - name
- *         - hex_code
  *       properties:
  *         name:
  *           type: string
  *           example: Midnight Black
- *         hex_code:
- *           type: string
- *           example: "#000000"
  *         models:
  *           type: array
  *           items:
@@ -67,9 +59,11 @@ const { logAction } = require('../middlewares/audit');
  *         name:
  *           type: string
  *           example: Midnight Black Updated
- *         hex_code:
- *           type: string
- *           example: "#010101"
+ *         models:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
  * 
  *     ModelAssignment:
  *       type: object
@@ -270,24 +264,6 @@ router.get('/:colorId', colorController.getColorById);
  *         description: Color not found
  *       500:
  *         description: Server error
- */
-
-// And update the ColorUpdate schema to include models:
-/**
- *     ColorUpdate:
- *       type: object
- *       properties:
- *         name:
- *           type: string
- *           example: Midnight Black Updated
- *         hex_code:
- *           type: string
- *           example: "#010101"
- *         models:
- *           type: array
- *           items:
- *             type: string
- *           example: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"]
  */
 router.put(
   '/:colorId',

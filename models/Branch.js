@@ -81,6 +81,32 @@ const BranchSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Add to the BranchSchema
+opening_balance: {
+  type: Number,
+  default: 0,
+  min: [0, 'Opening balance cannot be negative']
+},
+opening_balance_history: [{
+  amount: {
+    type: Number,
+    required: true
+  },
+  date: {
+    type: Date,
+    default: Date.now
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  note: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Note cannot exceed 500 characters']
+  }
+}],
   logo2: {
     type: String,
     default: ''

@@ -1166,7 +1166,7 @@ exports.getChassisNumbersByModel = async (req, res, next) => {
 exports.getVehiclesByStatus = async (req, res, next) => {
   try {
     const { status } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 1000 } = req.query;
 
     // Validate status
     const validStatuses = ['not_approved', 'in_stock', 'in_transit', 'sold', 'service', 'damaged'];

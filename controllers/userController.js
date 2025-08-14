@@ -76,10 +76,12 @@ exports.getUser = async (req, res) => {
   }
 };
 
+// userController.js - Updated updateUser function
+// In userController.js - Complete updateUser function with permissions handling
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const { permissions, expiresAt, ...updates } = req.body;
 
     // Prevent updating sensitive fields
     delete updates.roles;
@@ -135,12 +137,52 @@ exports.updateUser = async (req, res) => {
       }
     }
 
+    // Handle permissions update if provided
+    if (permissions && Array.isArray(permissions)) {
+      // Verify the permissions exist and are active
+      const permissionDocs = await Permission.find({ 
+        _id: { $in: permissions },
+        $or: [
+          { is_active: true },
+          { isActive: true },
+          { $and: [{ is_active: { $exists: false } }, { isActive: { $exists: false } }] }
+        ]
+      });
+      
+      if (permissionDocs.length !== permissions.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'One or more permissions not found or inactive'
+        });
+      }
+
+      // Check if requesting user has permission to assign these permissions
+      const canAssignAll = await req.user.hasPermission('USER', 'MANAGE');
+      if (!canAssignAll) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to assign these permissions'
+        });
+      }
+
+      // Replace all existing permissions with new ones
+      updates.permissions = permissions.map(permissionId => ({
+        permission: permissionId,
+        grantedBy: req.user._id,
+        expiresAt: expiresAt ? new Date(expiresAt) : null
+      }));
+    }
+
     const user = await User.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true
     })
     .select(getUserProjection)
     .populate('roles')
+    .populate({
+      path: 'permissions.permission',
+      select: 'name module action category'
+    })
     .populate('branchDetails');
     
     if (!user) {
@@ -157,7 +199,10 @@ exports.updateUser = async (req, res) => {
       entityId: user._id,
       user: req.user.id,
       ip: req.ip,
-      metadata: updates
+      metadata: {
+        ...updates,
+        ...(permissions && { permissionsUpdated: true, permissionCount: permissions.length })
+      }
     });
     
     res.status(200).json({ 
@@ -166,9 +211,17 @@ exports.updateUser = async (req, res) => {
     });
   } catch (err) {
     console.error('Error updating user:', err);
+    
+    let errorMessage = 'Error updating user';
+    if (err.name === 'ValidationError') {
+      errorMessage = Object.values(err.errors).map(val => val.message).join(', ');
+    } else if (err.message.includes('permission')) {
+      errorMessage = err.message;
+    }
+
     res.status(500).json({ 
       success: false, 
-      message: 'Error updating user',
+      message: errorMessage,
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
@@ -236,7 +289,7 @@ exports.getUserPermissions = async (req, res) => {
     // For non-SuperAdmins, verify the requested user is from their branch
     if (!req.user.isSuperAdmin()) {
       const requestedUser = await User.findById(id);
-      if (!requestedUser || requestedUser.branch.toString() !== req.user.branch.toString()) {
+      if (!requestedUser || requestedUser.branch?.toString() !== req.user.branch?.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Not authorized to access this user'
@@ -246,7 +299,10 @@ exports.getUserPermissions = async (req, res) => {
     
     const user = await User.findById(id)
       .select(getUserProjection)
-      .populate('roles permissions.permission delegatedAccess.user delegatedAccess.permissions');
+      .populate({
+        path: 'roles permissions.permission delegatedAccess.user delegatedAccess.permissions',
+        select: 'name module action' // Only select necessary fields
+      });
       
     if (!user) {
       return res.status(404).json({ 
@@ -255,7 +311,7 @@ exports.getUserPermissions = async (req, res) => {
       });
     }
     
-    // Get all effective permissions
+    // Safely get all effective permissions
     const allPermissions = await user.getAllPermissions();
     
     res.status(200).json({ 
@@ -267,7 +323,7 @@ exports.getUserPermissions = async (req, res) => {
           email: user.email
         },
         permissions: allPermissions.map(p => ({
-          id: p._id,
+          id: p._id?.toString(), // Safely handle possible undefined _id
           name: p.name,
           module: p.module,
           action: p.action

@@ -458,3 +458,216 @@ exports.deleteBranch = async (req, res) => {
     });
   }
 };
+exports.addOpeningBalance = async (req, res) => {
+  try {
+    const { amount, note } = req.body;
+
+    // Validate amount
+    if (typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be a positive number'
+      });
+    }
+
+    // Find branch
+    const branch = await Branch.findById(req.params.id);
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
+    // Add to history and update balance
+    branch.opening_balance_history.push({
+      amount,
+      note: note || 'Initial opening balance',
+      updatedBy: req.user.id
+    });
+
+    branch.opening_balance = amount;
+    await branch.save();
+
+    // Log the action
+    await AuditLog.create({
+      action: 'CREATE',
+      entity: 'Branch Opening Balance',
+      entityId: branch._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        amount,
+        previousBalance: 0,
+        newBalance: amount,
+        note
+      },
+      status: 'SUCCESS'
+    });
+
+    res.status(201).json({
+      success: true,
+      data: branch
+    });
+  } catch (err) {
+    console.error('Error adding opening balance:', err);
+    
+    await AuditLog.create({
+      action: 'CREATE',
+      entity: 'Branch Opening Balance',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message,
+      metadata: req.body
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error adding opening balance',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+exports.updateOpeningBalance = async (req, res) => {
+  try {
+    const { amount, note } = req.body;
+
+    // Validate amount
+    if (typeof amount !== 'number' || amount < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be a positive number'
+      });
+    }
+
+    // Find and update branch
+    const branch = await Branch.findById(req.params.id);
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
+    const previousBalance = branch.opening_balance;
+
+    // Add to history and update balance
+    branch.opening_balance_history.push({
+      amount,
+      note: note || `Balance updated from ${previousBalance} to ${amount}`,
+      updatedBy: req.user.id
+    });
+
+    branch.opening_balance = amount;
+    await branch.save();
+
+    // Log the action
+    await AuditLog.create({
+      action: 'UPDATE',
+      entity: 'Branch Opening Balance',
+      entityId: branch._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        amount,
+        previousBalance,
+        newBalance: amount,
+        note
+      },
+      status: 'SUCCESS'
+    });
+
+    res.status(200).json({
+      success: true,
+      data: branch
+    });
+  } catch (err) {
+    console.error('Error updating opening balance:', err);
+    
+    await AuditLog.create({
+      action: 'UPDATE',
+      entity: 'Branch Opening Balance',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message,
+      metadata: req.body
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error updating opening balance',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+exports.resetOpeningBalance = async (req, res) => {
+  try {
+    const { note } = req.body;
+
+    // Find and update branch
+    const branch = await Branch.findById(req.params.id);
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
+    const previousBalance = branch.opening_balance;
+
+    // Add to history and reset balance
+    branch.opening_balance_history.push({
+      amount: 0,
+      note: note || `Balance reset from ${previousBalance} to 0`,
+      updatedBy: req.user.id
+    });
+
+    branch.opening_balance = 0;
+    await branch.save();
+
+    // Log the action
+    await AuditLog.create({
+      action: 'DELETE',
+      entity: 'Branch Opening Balance',
+      entityId: branch._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        previousBalance,
+        newBalance: 0,
+        note
+      },
+      status: 'SUCCESS'
+    });
+
+    res.status(200).json({
+      success: true,
+      data: branch
+    });
+  } catch (err) {
+    console.error('Error resetting opening balance:', err);
+    
+    await AuditLog.create({
+      action: 'DELETE',
+      entity: 'Branch Opening Balance',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message,
+      metadata: req.body
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting opening balance',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};

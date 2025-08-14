@@ -446,5 +446,167 @@ router.delete('/:id',
   logAction('DELETE', 'Branch'), 
   branchController.deleteBranch
 );
+/**
+ * @swagger
+ * /api/v1/branches/{id}/opening-balance:
+ *   post:
+ *     summary: Add opening balance to a branch (SuperAdmin only)
+ *     tags: [Branches]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Opening balance amount
+ *                 example: 10000
+ *               note:
+ *                 type: string
+ *                 description: Optional note about the balance
+ *                 example: "Initial opening balance"
+ *             required:
+ *               - amount
+ *     responses:
+ *       201:
+ *         description: Opening balance added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Branch'
+ *       400:
+ *         description: Invalid amount or missing required fields
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not SuperAdmin)
+ *       404:
+ *         description: Branch not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/opening-balance', 
+  protect, 
+  authorize('SUPERADMIN'), 
+  logAction('CREATE', 'Branch Opening Balance'), 
+  branchController.addOpeningBalance
+);
+
+/**
+ * @swagger
+ * /api/v1/branches/{id}/opening-balance:
+ *   patch:
+ *     summary: Update branch opening balance (SuperAdmin only)
+ *     tags: [Branches]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: New opening balance amount
+ *                 example: 15000
+ *               note:
+ *                 type: string
+ *                 description: Optional note about the update
+ *                 example: "Updated opening balance"
+ *             required:
+ *               - amount
+ *     responses:
+ *       200:
+ *         description: Opening balance updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Branch'
+ *       400:
+ *         description: Invalid amount or missing required fields
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not SuperAdmin)
+ *       404:
+ *         description: Branch not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:id/opening-balance', 
+  protect, 
+  authorize('SUPERADMIN'), 
+  logAction('UPDATE', 'Branch Opening Balance'), 
+  branchController.updateOpeningBalance
+);
+
+/**
+ * @swagger
+ * /api/v1/branches/{id}/opening-balance:
+ *   delete:
+ *     summary: Reset branch opening balance to zero (SuperAdmin only)
+ *     tags: [Branches]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 description: Optional note about the reset
+ *                 example: "Reset opening balance"
+ *     responses:
+ *       200:
+ *         description: Opening balance reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Branch'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not SuperAdmin)
+ *       404:
+ *         description: Branch not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/opening-balance', 
+  protect, 
+  authorize('SUPERADMIN'), 
+  logAction('DELETE', 'Branch Opening Balance'), 
+  branchController.resetOpeningBalance
+);
 
 module.exports = router;

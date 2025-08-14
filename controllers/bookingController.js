@@ -253,45 +253,23 @@ exports.createBooking = async (req, res) => {
             });
         }
 
-        // Check user permissions and branch
-        const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-        let branchId = req.body.branch;
-        
-        if (!isSuperAdmin) {
-            if (!req.user.branch) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Your account is not associated with any branch'
-                });
-            }
-            branchId = req.user.branch;
-            
-            if (req.body.branch && req.body.branch.toString() !== req.user.branch.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You can only create bookings for your own branch'
-                });
-            }
-        } else {
-            if (!req.body.branch) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Branch selection is required'
-                });
-            }
-            
-            const branchExists = await mongoose.model('Branch').exists({ _id: req.body.branch });
-            if (!branchExists) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid branch selected'
-                });
-            }
+        // Check if branch is provided and exists
+        if (!req.body.branch) {
+            return res.status(400).json({
+                success: false,
+                message: 'Branch selection is required'
+            });
         }
-
-        // Sales Executive Validation
-        const currentUser = await User.findById(req.user.id).populate('roles');
-        const isCurrentUserSalesExecutive = currentUser.roles.some(r => r.name === 'SALES_EXECUTIVE');
+        
+        const branchExists = await mongoose.model('Branch').exists({ _id: req.body.branch });
+        if (!branchExists) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid branch selected'
+            });
+        }
+        
+        const branchId = req.body.branch;
 
         // Handle sales executive selection
         if (req.body.sales_executive) {
@@ -311,81 +289,15 @@ exports.createBooking = async (req, res) => {
                 });
             }
 
-            const isSelectedUserSalesExecutive = salesExecutive.roles.some(r => r.name === 'SALES_EXECUTIVE');
-            
-            if (!isSelectedUserSalesExecutive) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Selected user must have SALES_EXECUTIVE role'
-                });
-            }
-
             if (!salesExecutive.branch || salesExecutive.branch.toString() !== branchId.toString()) {
                 return res.status(400).json({
                     success: false,
                     message: 'Sales executive must belong to the selected branch'
                 });
             }
-
-            // Check if selected sales executive is frozen
-            if (salesExecutive.isFrozen) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Selected sales executive is frozen due to: ${salesExecutive.freezeReason}`
-                });
-            }
-        } else if (!isSuperAdmin) {
-            // Default to current user if not specified and user is sales executive
-            if (isCurrentUserSalesExecutive) {
-                req.body.sales_executive = req.user.id;
-            } else {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Sales executive selection is required'
-                });
-            }
-        }
-        // Check if current sales executive is frozen (when creating own booking)
-        if (isCurrentUserSalesExecutive && currentUser.isFrozen) {
-            return res.status(400).json({
-                success: false,
-                message: `Your account is frozen due to: ${currentUser.freezeReason}. Please submit pending documents before creating new bookings.`
-            });
-        }
-        // Check for pending documents if current user is sales executive
-        if (isCurrentUserSalesExecutive) {
-            const latestBooking = await Booking.findOne({
-                $or: [
-                    { createdBy: req.user.id },
-                    { salesExecutive: req.user.id }
-                ],
-                status: { $in: ['PENDING_APPROVAL'] }
-            }).sort({ createdAt: -1 });
-
-            if (latestBooking) {
-                const [kyc, financeLetter] = await Promise.all([
-                    KYC.findOne({ booking: latestBooking._id }),
-                    latestBooking.payment.type === 'FINANCE' 
-                        ? FinanceLetter.findOne({ booking: latestBooking._id })
-                        : Promise.resolve(null)
-                ]);
-
-                const missingDocuments = [];
-                if (!kyc || kyc.status !== 'NOT_SUBMITTED') missingDocuments.push('KYC');
-                if (latestBooking.payment.type === 'FINANCE' && (!financeLetter || financeLetter.status !== 'NOT_SUBMITTED')) {
-                    missingDocuments.push('Finance Letter');
-                }
-
-                if (missingDocuments.length > 0) {
-                    const now = new Date();
-                    if (currentUser.documentBufferTime && now > currentUser.documentBufferTime) {
-                        return res.status(400).json({
-                            success: false,
-                            message: `You have pending document submissions for booking ${latestBooking.bookingNumber}. Please submit all required documents before creating new bookings.`
-                        });
-                    }
-                }
-            }
+        } else {
+            // Default to current user if not specified
+            req.body.sales_executive = req.user.id;
         }
 
         // Validate salutation
@@ -682,9 +594,7 @@ exports.createBooking = async (req, res) => {
 
         // Check discount scenarios
         const modelHasDiscount = model.model_discount && model.model_discount > 0;
-        const userDiscountLimit = isCurrentUserSalesExecutive ? (req.user.discount || 0) : 0;
         const isApplyingDiscount = req.body.discount && req.body.discount.value > 0;
-        const discountExceedsLimit = isApplyingDiscount && req.body.discount.value > userDiscountLimit;
 
         // Initialize variables for status and form generation
         let status = 'DRAFT';
@@ -692,27 +602,10 @@ exports.createBooking = async (req, res) => {
         let approvalNote = '';
 
         // Determine status based on discount scenarios
-        if (modelHasDiscount) {
+        if (modelHasDiscount || isApplyingDiscount) {
             status = 'PENDING_APPROVAL';
             requiresApproval = true;
-            approvalNote = 'Model discount requires approval';
-        } else if (isApplyingDiscount) {
-            if (isCurrentUserSalesExecutive) {
-                if (discountExceedsLimit) {
-                    status = 'PENDING_APPROVAL (Discount_Exceeded)';
-                    requiresApproval = true;
-                    approvalNote = 'Discount exceeds sales executive limit';
-                } else {
-                    status = 'PENDING_APPROVAL';
-                    requiresApproval = true;
-                    approvalNote = 'Discount within limit requires approval';
-                }
-            } else {
-                // Non-sales executive applying discount - requires approval
-                status = 'PENDING_APPROVAL';
-                requiresApproval = true;
-                approvalNote = 'Discount requires approval (non-SALES_EXECUTIVE user)';
-            }
+            approvalNote = 'Discount requires approval';
         } else {
             // No discounts - status remains DRAFT
             status = 'DRAFT';
@@ -738,7 +631,7 @@ exports.createBooking = async (req, res) => {
                 amount: req.body.discount.value,
                 type: req.body.discount.type === 'percentage' ? 'PERCENTAGE' : 'FIXED',
                 approvalStatus: 'PENDING',
-                approvalNote: discountExceedsLimit ? 'Discount exceeds limit' : 'Discount within limit',
+                approvalNote: 'Discount applied',
                 isModelDiscount: false,
                 appliedOn: new Date()
             });
@@ -820,15 +713,6 @@ exports.createBooking = async (req, res) => {
         const qrCode = await qrController.generateQRCode(booking._id);
         booking.qrCode = qrCode;
         await booking.save();
-
-        // Handle sales executive document buffer time
-        if (isCurrentUserSalesExecutive) {
-            await User.findByIdAndUpdate(req.user.id, {
-                documentBufferTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours in milliseconds
-                isFrozen: false,
-                freezeReason: ''
-            });
-        }
 
         // Populate the booking with all necessary data
         const populatedBooking = await Booking.findById(booking._id)
@@ -1269,7 +1153,7 @@ exports.approveBooking = async (req, res) => {
     // 2. Check user permissions
     const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
     const isManagerOrAdmin = req.user.roles.some(r => 
-      ['MANAGER', 'ADMIN'].includes(r.name)
+      ['MANAGER', 'ADMIN','SUPERADMIN'].includes(r.name)
     );
 
     if (!isSuperAdmin && !isManagerOrAdmin) {
@@ -3002,7 +2886,7 @@ exports.allocateChassisNumber = async (req, res) => {
     // Check user permissions
     const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
     const isManagerOrAdmin = req.user.roles.some(r => 
-      ['MANAGER', 'ADMIN'].includes(r.name)
+      ['MANAGER', 'ADMIN','SUPERADMIN'].includes(r.name)
     );
 
     if (!isSuperAdmin && !isManagerOrAdmin) {

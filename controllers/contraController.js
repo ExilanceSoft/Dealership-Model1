@@ -2,6 +2,7 @@ const ContraVoucher = require('../models/ContraVoucherModel');
 const fs = require('fs');
 const path = require('path');
 const Branch = require('../models/Branch'); // Assuming you have this model
+const mongoose = require('mongoose');
 
 
 // Create Contra Voucher

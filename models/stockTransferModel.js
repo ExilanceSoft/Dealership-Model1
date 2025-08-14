@@ -9,13 +9,17 @@ const transferItemSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['in_stock','completed', 'cancelled'],
+    enum: ['in_stock', 'completed', 'cancelled'],
     default: 'in_stock'
   },
   receivedAt: Date,
   receivedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  challanDocument: {
+    type: String,
+    trim: true
   },
   notes: {
     type: String,
@@ -60,6 +64,15 @@ const stockTransferSchema = new mongoose.Schema({
     type: String,
     enum: ['in_stock', 'completed', 'cancelled'],
     default: 'in_stock'
+  },
+  challanStatus: {
+    type: String,
+    enum: ['pending', 'uploaded'],
+    default: 'pending'
+  },
+  challanDocument: {
+    type: String,
+    trim: true
   },
   initiatedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -114,17 +127,12 @@ stockTransferSchema.pre('save', async function(next) {
   next();
 });
 
-// Validate transfer data before saving
+// Validate transfer data before saving - REMOVED ALL VEHICLE LOCATION VALIDATIONS
 stockTransferSchema.pre('save', async function(next) {
   try {
     // Skip validation if not modified
     if (!this.isModified()) return next();
    
-    // Validate branches are different
-    if (this.fromBranch.equals(this.toBranch)) {
-      throw new Error('Source and destination branches cannot be the same');
-    }
-
     // Validate branches exist
     const [fromBranch, toBranch] = await Promise.all([
       mongoose.model('Branch').findById(this.fromBranch).select('_id is_active'),
@@ -138,12 +146,12 @@ stockTransferSchema.pre('save', async function(next) {
       throw new Error('One or both branches are inactive');
     }
 
-    // Validate vehicles exist and are at source branch
+    // Validate vehicles exist (but don't check their location)
     if (this.isNew || this.isModified('items')) {
       const vehicleIds = this.items.map(item => item.vehicle);
       const vehicles = await mongoose.model('Vehicle').find(
         { _id: { $in: vehicleIds } },
-        { _id: 1, unloadLocation: 1, status: 1, chassisNumber: 1 }
+        { _id: 1, chassisNumber: 1 }
       );
 
       // Check all vehicles exist
@@ -152,30 +160,6 @@ stockTransferSchema.pre('save', async function(next) {
           !vehicles.some(v => v._id.equals(id))
         );
         throw new Error(`Vehicles not found: ${missingIds.join(', ')}`);
-      }
-
-      // Verify vehicles are at source branch and in stock
-      const invalidLocation = vehicles.filter(v =>
-        !v.unloadLocation.equals(this.fromBranch)
-      );
-      const invalidStatus = vehicles.filter(v =>
-        v.status !== 'in_stock'
-      );
-
-      if (invalidLocation.length > 0) {
-        throw new Error(
-          `Some vehicles are not at source branch: ${
-            invalidLocation.map(v => `${v.chassisNumber} (${v._id})`).join(', ')
-          }`
-        );
-      }
-
-      if (invalidStatus.length > 0) {
-        throw new Error(
-          `Some vehicles are not in 'in_stock' status: ${
-            invalidStatus.map(v => `${v.chassisNumber} (${v._id} - ${v.status})`).join(', ')
-          }`
-        );
       }
     }
 
@@ -186,17 +170,16 @@ stockTransferSchema.pre('save', async function(next) {
 });
 
 // Update vehicle locations when status is pending
-// In stockTransferModel.js
 stockTransferSchema.post('save', async function(doc, next) {
   try {
-    if (doc.status === 'in_stock') { // Update immediately when transfer is created
+    if (doc.status === 'in_stock') {
       const vehicleIds = doc.items.map(item => item.vehicle);
       
       await mongoose.model('Vehicle').updateMany(
         { _id: { $in: vehicleIds } },
         {
-          unloadLocation: doc.toBranch, // Update to destination branch
-          status: 'in_stock' // Keep status as in_stock
+          unloadLocation: doc.toBranch,
+          status: 'in_stock'
         }
       );
     }
@@ -206,7 +189,6 @@ stockTransferSchema.post('save', async function(doc, next) {
     next(err);
   }
 });
-
 // Virtuals for populated data
 stockTransferSchema.virtual('fromBranchDetails', {
   ref: 'Branch',
@@ -245,7 +227,7 @@ stockTransferSchema.virtual('vehicleDetails', {
   localField: 'items.vehicle',
   foreignField: '_id',
   options: {
-    select: 'chassisNumber model type color status unloadLocation', // Keep color as embedded
+    select: 'chassisNumber model type color status unloadLocation',
     populate: [
       { path: 'model', select: 'model_name type' }
     ]
@@ -273,7 +255,6 @@ stockTransferSchema.methods.markAsInTransit = async function(userId) {
 };
 
 // Method to complete a transfer
-// In stockTransferModel.js
 stockTransferSchema.methods.completeTransfer = async function(userId) {
   this.status = 'completed';
   this.receivedBy = userId;
@@ -315,4 +296,3 @@ stockTransferSchema.methods.cancelTransfer = async function(userId, reason) {
 };
 
 module.exports = mongoose.model('StockTransfer', stockTransferSchema);
-

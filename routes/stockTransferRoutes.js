@@ -1,10 +1,51 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const stockTransferController = require('../controllers/stockTransferController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const AppError = require('../utils/appError');
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Use absolute path to avoid any relative path issues
+    const uploadDir = path.join(process.cwd(), 'uploads', 'transfers');
+    
+    // Create directory with better error handling
+    fs.mkdir(uploadDir, { recursive: true }, (err) => {
+      if (err) {
+        console.error('Failed to create upload directory:', err);
+        return cb(new AppError('Failed to create upload directory', 500));
+      }
+      cb(null, uploadDir);
+    });
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    cb(null, `challan-${uniqueSuffix}${ext}`);
+  }
+});
+const fileFilter = (req, file, cb) => {
+  const filetypes = /pdf|jpeg|jpg|png/;
+  const mimetype = filetypes.test(file.mimetype);
+  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
 
+  if (mimetype && extname) {
+    return cb(null, true);
+  }
+  cb(new AppError('Only PDF, JPEG, JPG, and PNG files are allowed', 400), false);
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: { 
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
 /**
  * @swagger
  * tags:
@@ -573,6 +614,73 @@ router.get(
   '/branches/:branchId/vehicles',
   stockTransferController.getVehiclesAtBranch
 );
-
+/**
+ * @swagger
+ * /api/v1/transfers/{transferId}/challan:
+ *   post:
+ *     summary: Upload a challan document for a transfer (Admin+)
+ *     description: Upload a single document/challan for a stock transfer
+ *     tags: [Stock Transfer]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transferId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439013
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               challan:
+ *                 type: string
+ *                 format: binary
+ *                 description: The document file to upload (PDF, JPG, PNG)
+ *     responses:
+ *       200:
+ *         description: Challan document uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   $ref: '#/components/schemas/StockTransferResponse'
+ *       400:
+ *         description: Invalid file or transfer ID
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         description: Transfer not found
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+  '/:transferId/challan',
+  protect,
+  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  upload.single('challan'),
+  (err, req, res, next) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return next(new AppError('File size too large. Maximum 5MB allowed.', 400));
+      }
+      return next(err);
+    }
+    next();
+  },
+  logAction('UPLOAD_TRANSFER_CHALLAN', 'StockTransfer'),
+  stockTransferController.uploadTransferChallan
+);
 
 module.exports = router;
