@@ -90,8 +90,6 @@ ContraVoucherSchema.pre('save', async function (next) {
     next(err);
   }
 });
-
-
 module.exports = mongoose.model('ContraVoucher', ContraVoucherSchema);
 
 

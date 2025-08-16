@@ -1,6 +1,7 @@
 const Broker = require('../models/Broker');
 const Branch = require('../models/Branch');
 const AuditLog = require('../models/AuditLog');
+const BrokerLedger = require('../models/BrokerLedger');
 
 const validateBranchData = (branchData) => {
   if (!branchData.branch) {
@@ -24,7 +25,7 @@ const validateBranchData = (branchData) => {
     if (!branchData.commissionRange) {
       throw new Error('Commission range is required for VARIABLE type');
     }
-    const validRanges = ['1 - 20000', '20001-40000', '40001-60000', '60001'];
+    const validRanges = ['1-20000', '20001-40000', '40001-60000', '60001'];
     if (!validRanges.includes(branchData.commissionRange)) {
       throw new Error('Invalid commission range');
     }
@@ -92,6 +93,14 @@ exports.createOrAddBroker = async (req, res) => {
         mobile,
         email,
         branches: completeBranchesData,
+        createdBy: userId
+      });
+
+      // Initialize ledger for the new broker
+      await BrokerLedger.create({
+        broker: broker._id,
+        totalAmount: 0,
+        balanceAmount: 0,
         createdBy: userId
       });
     }

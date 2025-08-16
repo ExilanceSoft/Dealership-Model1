@@ -1,8 +1,17 @@
+// routes/permissionRoutes.js
 const express = require('express');
 const router = express.Router();
 const permissionController = require('../controllers/permissionController');
-const { protect, authorize } = require('../middlewares/auth');
+const { protect } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 const { logAction } = require('../middlewares/audit');
+
+/**
+ * @swagger
+ * tags:
+ *   name: Permissions
+ *   description: Permission management
+ */
 
 /**
  * @swagger
@@ -17,204 +26,73 @@ const { logAction } = require('../middlewares/audit');
  *       properties:
  *         id:
  *           type: string
- *           description: The auto-generated ID of the permission
+ *           description: The auto-generated ID
+ *           example: "60d21b4667d0d8992e610c85"
  *         name:
  *           type: string
- *           description: Unique name of the permission (uppercase)
+ *           description: "Unique permission name (format: MODULE_ACTION)"
+ *           example: "BANK_READ"
  *         description:
  *           type: string
- *           description: Description of what the permission allows
+ *           description: "Description of what the permission allows"
+ *           example: "Allows reading bank information"
  *         module:
  *           type: string
- *           description: The module this permission applies to
+ *           description: "The module this permission applies to"
+ *           example: "BANK"
  *         action:
  *           type: string
- *           enum: [CREATE, READ, UPDATE, DELETE, MANAGE, ALL]
- *           description: The action allowed by this permission
+ *           description: "The action this permission allows"
+ *           enum: ["CREATE", "READ", "UPDATE", "DELETE", "MANAGE", "APPROVE", "ALL"]
+ *           example: "READ"
+ *         category:
+ *           type: string
+ *           description: "Category for grouping permissions"
+ *           example: "FINANCE"
  *         is_active:
  *           type: boolean
+ *           description: "Whether the permission is active"
  *           default: true
- *           description: Whether the permission is active
  *         createdAt:
  *           type: string
  *           format: date-time
- *           description: Creation timestamp
+ *           description: "Creation timestamp"
  *         updatedAt:
  *           type: string
  *           format: date-time
- *           description: Last update timestamp
- *       example:
- *         id: 5f8d04b3ab35de3a3427d9f3
- *         name: MANAGE_USERS
- *         description: Allows full management of user accounts
- *         module: USERS
- *         action: MANAGE
- *         is_active: true
- *         createdAt: 2020-10-20T14:56:51.778Z
- *         updatedAt: 2020-10-20T14:56:51.778Z
- * 
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
+ *           description: "Last update timestamp"
  */
-
-/**
- * @swagger
- * tags:
- *   name: Permissions
- *   description: The permissions management API
- */
-
-/**
- * @swagger
- * /api/v1/permissions:
- *   post:
- *     summary: Create a new permission
- *     tags: [Permissions]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Permission'
- *           example:
- *             name: VIEW_REPORTS
- *             description: Allows viewing all reports
- *             module: REPORTS
- *             action: READ
- *     responses:
- *       201:
- *         description: The permission was successfully created
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Permission'
- *       400:
- *         description: Missing required fields or invalid data
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: Forbidden (not SuperAdmin)
- *       409:
- *         description: Permission with this name already exists
- *       500:
- *         description: Internal server error
- */
-router.post('/', 
-  protect, 
-  authorize('SUPERADMIN'), 
-  logAction('CREATE', 'Permission'), 
-  permissionController.createPermission
-);
-
 /**
  * @swagger
  * /api/v1/permissions:
  *   get:
- *     summary: Returns the list of all permissions
+ *     summary: List all active permissions
+ *     description: Returns a list of active permissions. Public endpoint for frontend permission matrix.
  *     tags: [Permissions]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: includeInactive
+ *         name: page
  *         schema:
- *           type: boolean
- *         description: Include inactive permissions (default false)
- *     responses:
- *       200:
- *         description: The list of permissions
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Permission'
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: Forbidden (not SuperAdmin or Admin)
- *       500:
- *         description: Internal server error
- */
-// router.get('/', 
-//   protect, 
-//   authorize('SUPERADMIN', 'ADMIN'), 
-//   permissionController.getPermissions
-// );
-router.get('/', permissionController.getPermissions);
-
-/**
- * @swagger
- * /api/v1/permissions/{id}:
- *   put:
- *     summary: Update a permission by ID
- *     tags: [Permissions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 200
+ *       - in: query
+ *         name: module
  *         schema:
  *           type: string
- *         required: true
- *         description: The permission ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Permission'
- *           example:
- *             description: Updated description for this permission
- *             is_active: false
- *     responses:
- *       200:
- *         description: The permission was updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Permission'
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: Forbidden (not SuperAdmin)
- *       404:
- *         description: Permission not found
- *       500:
- *         description: Internal server error
- */
-router.put('/:id', 
-  protect, 
-  authorize('SUPERADMIN'), 
-  logAction('UPDATE', 'Permission'), 
-  permissionController.updatePermission
-);
-
-/**
- * @swagger
- * /api/v1/permissions/{id}:
- *   delete:
- *     summary: Delete a permission by ID (soft delete)
- *     tags: [Permissions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
+ *           description: Filter by module name
+ *       - in: query
+ *         name: search
  *         schema:
  *           type: string
- *         required: true
- *         description: The permission ID
+ *           description: Search in name, description or module
  *     responses:
  *       200:
- *         description: The permission was deactivated
+ *         description: List of permissions
  *         content:
  *           application/json:
  *             schema:
@@ -222,25 +100,56 @@ router.put('/:id',
  *               properties:
  *                 success:
  *                   type: boolean
- *                 message:
- *                   type: string
- *               example:
- *                 success: true
- *                 message: Permission deactivated successfully
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: Forbidden (not SuperAdmin)
- *       404:
- *         description: Permission not found
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Permission'
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
-router.delete('/:id', 
-  protect, 
-  authorize('SUPERADMIN'), 
-  logAction('DELETE', 'Permission'), 
-  permissionController.deletePermission
+router.get('/', permissionController.getPermissions);
+
+/**
+ * @swagger
+ * /api/v1/permissions/{id}:
+ *   get:
+ *     summary: Get a permission by ID
+ *     description: Fetch a single permission by its ID. Requires PERMISSION.READ permission.
+ *     tags: [Permissions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Permission details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Permission'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/:id',
+  protect,
+  requirePermission('PERMISSION.READ'),
+  permissionController.getPermissionById
 );
 
 module.exports = router;

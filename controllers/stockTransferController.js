@@ -1,10 +1,13 @@
 const StockTransfer = require('../models/stockTransferModel');
-const VehicleInward  = require('../models/vehicleInwardModel');
+const VehicleInward = require('../models/vehicleInwardModel');
 const Branch = require('../models/Branch');
 const AppError = require('../utils/appError');
 const logger = require('../config/logger');
+const fs = require('fs');
+const path = require('path')
 const mongoose = require('mongoose');
 const { generateTrackingNumber } = require('../utils/trackingNumberGenerator');
+
 // Helper function to validate transfer data (simplified)
 const validateTransferData = (data) => {
   const errors = [];
@@ -12,7 +15,6 @@ const validateTransferData = (data) => {
   if (!data.fromBranch) errors.push('Source branch is required');
   if (!data.toBranch) errors.push('Destination branch is required');
   if (!data.items || data.items.length === 0) errors.push('At least one vehicle is required for transfer');
-  if (data.fromBranch === data.toBranch) errors.push('Source and destination branches cannot be the same');
   
   return errors.length > 0 ? errors : null;
 };
@@ -25,12 +27,15 @@ const populateOptions = [
   { path: 'receivedByDetails', select: 'name email' },
   {
     path: 'items.vehicle',
-    select: 'chassisNumber model type colors status unloadLocation',
+    select: 'chassisNumber model modelName type colors color status unloadLocation',
     populate: [
-      { path: 'model', select: 'model_name' }
+      { path: 'model', select: 'model_name manufacturer variant fuel_type' }, // <-- Model details
+      { path: 'colors', select: 'name' }, // <-- Array of color names
+      { path: 'color.id', select: 'name' } // <-- Single color name (if you use color object)
     ]
   }
 ];
+
 exports.createTransfer = async (req, res) => {
   try {
     const { fromBranch, toBranch, expectedDeliveryDate, items, notes } = req.body;
@@ -47,19 +52,20 @@ exports.createTransfer = async (req, res) => {
     );
 
     // 2. Create transfer record
-    const transfer = await StockTransfer.create({
+       const transfer = await StockTransfer.create({
       fromBranch,
       toBranch,
       expectedDeliveryDate: expectedDeliveryDate || new Date(),
       items: items.map(item => ({
         vehicle: item.vehicle,
         status: 'completed',
-        notes: item.notes || ''
+        notes: item.notes || '',
       })),
       initiatedBy: req.user._id,
       notes,
       transferDate: new Date(),
-      status: 'completed'
+      status: 'completed',
+      challanStatus: 'pending' // Initialize as pending
     });
 
     // 3. Return simple success response
@@ -72,7 +78,6 @@ exports.createTransfer = async (req, res) => {
 
   } catch (error) {
     console.error('Transfer error:', error);
-    // Still return success even if error occurs
     res.status(200).json({
       status: 'success',
       message: 'Request processed',
@@ -353,3 +358,99 @@ exports.getVehiclesAtBranch = async (req, res, next) => {
     next(new AppError('Failed to get vehicles', 500));
   }
 };
+
+exports.uploadTransferChallan = async (req, res, next) => {
+  try {
+    const { transferId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(transferId)) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return next(new AppError('Invalid transfer ID format', 400));
+    }
+
+    if (!req.file) {
+      return next(new AppError('Please upload a document file', 400));
+    }
+
+    const transfer = await StockTransfer.findById(transferId);
+    if (!transfer) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return next(new AppError('No transfer found with that ID', 404));
+    }
+
+    // Store only the filename (not full path)
+    const filename = path.basename(req.file.path);
+    const relativePath = `uploads/transfers/${filename}`;
+
+    // Delete old file if exists
+    if (transfer.challanDocument) {
+      const oldPath = path.join(__dirname, '../..', transfer.challanDocument);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+    }
+
+    transfer.challanDocument = relativePath;
+    transfer.challanStatus = 'uploaded'; // Set status to uploaded
+    await transfer.save();
+
+    const updatedTransfer = await StockTransfer.findById(transferId)
+      .populate(populateOptions);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        transfer: updatedTransfer
+      }
+    });
+  } catch (err) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    logger.error(`Error uploading transfer challan: ${err.message}`);
+    next(new AppError('Failed to upload transfer challan', 500));
+  }
+};
+
+// exports.getTransferChallan = async (req, res, next) => {
+//   try {
+//     const { transferId } = req.params;
+    
+//     if (!mongoose.Types.ObjectId.isValid(transferId)) {
+//       return next(new AppError('Invalid transfer ID format', 400));
+//     }
+
+//     const transfer = await StockTransfer.findById(transferId);
+    
+//     if (!transfer) {
+//       return next(new AppError('No transfer found with that ID', 404));
+//     }
+
+//     if (!transfer.challanDocument) {
+//       return next(new AppError('No challan document uploaded for this transfer', 404));
+//     }
+
+//     // Construct the URL for the file
+//     const fileUrl = `http://${req.get('host')}/api/v1/${transfer.challanDocument}`;
+
+//     // Or if you want to serve the file directly:
+//     const filePath = path.join(__dirname, '../..', transfer.challanDocument);
+//     if (!fs.existsSync(filePath)) {
+//       return next(new AppError('Challan document not found on server', 404));
+//     }
+
+//     const ext = path.extname(filePath).toLowerCase();
+//     let contentType = 'application/octet-stream';
+    
+//     if (ext === '.pdf') contentType = 'application/pdf';
+//     else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+//     else if (ext === '.png') contentType = 'image/png';
+
+//     res.sendFile(filePath, {
+//       headers: {
+//         'Content-Type': contentType
+//       }
+//     });
+//   } catch (err) {
+//     logger.error(`Error getting transfer challan: ${err.message}`);
+//     next(new AppError('Failed to get transfer challan', 500));
+//   }
+// };

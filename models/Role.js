@@ -1,231 +1,158 @@
+// models/Role.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const RoleSchema = new mongoose.Schema({
-  // 1. Role name must be unique
-  name: {
-    type: String,
-    required: [true, 'Role name is required'],
-    unique: true,
-    trim: true,
-    uppercase: true,
-    maxlength: [30, 'Role name cannot exceed 30 characters']
+const Permission = require('./Permission');
+const { resolveMixedToIds } = require('../services/permissionBootstrap');
+
+/**
+ * Role schema:
+ * - name: UPPERCASE unique
+ * - permissions: [Permission ObjectId] (can be sent as ObjectIds or "MODULE.ACTION"; we normalize)
+ * - inherits: optional array of parent roles (if you use role inheritance)
+ * - is_active / isActive: support both spellings
+ */
+const RoleSchema = new Schema(
+  {
+    name: { type: String, required: true, unique: true, index: true },
+    description: { type: String, default: '' },
+
+    permissions: [{ type: Schema.Types.ObjectId, ref: 'Permission', required: true }],
+
+    // Optional inheritance (if you use /roles/inherit). Safe to keep even if unused.
+    inherits: [{ type: Schema.Types.ObjectId, ref: 'Role' }],
+
+    is_active: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true }
   },
-  
-  // 2. Description explains the role's purpose
-  description: {
-    type: String,
-    required: [true, 'Description is required'],
-    trim: true,
-    maxlength: [200, 'Description cannot exceed 200 characters']
-  },
-  
-  // 3. Permissions assigned to this role
-  permissions: [{
-  type: mongoose.Schema.Types.ObjectId,
-  ref: 'Permission',
-  validate: {
-    validator: async function(permissionIds) {
-      const count = await mongoose.model('Permission').countDocuments({ 
-        _id: { $in: permissionIds },
-        is_active: true
-      });
-      return count === permissionIds.length;
-    },
-    message: 'One or more permissions are invalid or inactive'
-  }
-}],
-  
-  // 4. Roles this role inherits from
-  inheritedRoles: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Role',
-    validate: {
-      validator: async function(roleIds) {
-        if (roleIds.includes(this._id)) return false; // Prevent self-inheritance
-        const count = await mongoose.model('Role').countDocuments({ 
-          _id: { $in: roleIds },
-          is_active: true
-        });
-        return count === roleIds.length;
-      },
-      message: 'One or more roles are invalid, inactive, or circular reference'
-    }
-  }],
-  
-  // 5. System roles cannot be modified
-  isSystemRole: {
-    type: Boolean,
-    default: false
-  },
-  
-  // 6. SuperAdmin role has all permissions
-  isSuperAdmin: {
-    type: Boolean,
-    default: false
-  },
-  
-  // 7. Whether the role is active
-  is_active: {
-    type: Boolean,
-    default: true
-  },
-  
-  // 8. Who created this role
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  
-  // 9. Who last updated this role
-  updatedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }
-}, { 
-  // 10. Add timestamps and virtuals
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  { timestamps: true }
+);
+
+/* -------------------------
+   Normalization hooks
+-------------------------- */
+
+RoleSchema.pre('save', function nextSave(next) {
+  if (this.name) this.name = String(this.name).toUpperCase();
+  next();
 });
 
-// 11. Method to get all permissions (including inherited)
-RoleSchema.methods.getAllPermissions = async function() {
-  if (this.isSuperAdmin) {
-    return [{ 
-      _id: 'ALL_PERMISSIONS',
-      name: 'ALL',
-      module: 'ALL',
-      action: 'ALL',
-      category: 'SYSTEM'
-    }];
+/**
+ * Before validation:
+ * - Normalize `permissions` to ObjectIds
+ *   • Accept 24-hex ObjectId strings
+ *   • Accept "MODULE.ACTION" keys (resolve via catalog)
+ * - De-duplicate
+ */
+RoleSchema.pre('validate', async function normalizePermissions(next) {
+  try {
+    if (!Array.isArray(this.permissions)) {
+      this.permissions = [];
+      return next();
+    }
+
+    // Flatten to strings
+    const raw = this.permissions.map(v => (v && v._id ? String(v._id) : String(v)));
+
+    const hasKey = raw.some(s => typeof s === 'string' && s.includes('.'));
+    const isHex = s => typeof s === 'string' && /^[a-f0-9]{24}$/i.test(s);
+
+    let ids = raw.filter(isHex);
+
+    // If any key present or any non-hex values, resolve the whole list
+    if (hasKey || ids.length !== raw.length) {
+      ids = await resolveMixedToIds(raw);
+    }
+    this.permissions = Array.from(new Set(ids));
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/**
+ * Validator: ensure each Permission exists and is "active".
+ * Active means is_active:true OR isActive:true OR (both flags missing → treat as active).
+ */
+RoleSchema.path('permissions').validate({
+  validator: async function (arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return false;
+    const ids = arr.map(v => (v && v._id ? v._id : v));
+
+    const count = await Permission.countDocuments({
+      _id: { $in: ids },
+      $or: [
+        { is_active: true },
+        { isActive: true },
+        { $and: [{ is_active: { $exists: false } }, { isActive: { $exists: false } }] }
+      ]
+    });
+
+    return count === ids.length;
+  },
+  message: 'One or more permissions are invalid or inactive'
+});
+
+/* -------------------------
+   Instance helpers
+-------------------------- */
+
+/**
+ * getAllPermissions(asDocs=false)
+ * Returns the union of this role's permissions plus inherited roles' permissions.
+ * - If `asDocs` is false (default): returns array of Permission _id strings
+ * - If `asDocs` is true: returns Permission documents (active ones), sorted by module/action
+ */
+RoleSchema.methods.getAllPermissions = async function getAllPermissions(asDocs = false) {
+  // BFS across inheritance graph (if used)
+  const visited = new Set();
+  const queue = [this._id];
+
+  const roleIds = [];
+  while (queue.length) {
+    const rid = String(queue.shift());
+    if (visited.has(rid)) continue;
+    visited.add(rid);
+    roleIds.push(rid);
+
+    // Load inherits lazily to avoid heavy populations
+    // Only pull inherits field to expand the graph
+    // eslint-disable-next-line no-await-in-loop
+    const r = await mongoose.model('Role').findById(rid, { inherits: 1 }).lean();
+    const parents = (r?.inherits || []).map(x => String(x));
+    for (const p of parents) queue.push(p);
   }
 
-  const directPermissions = await mongoose.model('Permission')
-    .find({ _id: { $in: this.permissions }, is_active: true })
+  // Gather all permission IDs across these roles
+  const roleDocs = await mongoose.model('Role').find(
+    { _id: { $in: roleIds } },
+    { permissions: 1 }
+  ).lean();
+
+  const permIdSet = new Set();
+  for (const rd of roleDocs) {
+    for (const pid of (rd.permissions || [])) {
+      permIdSet.add(String(pid));
+    }
+  }
+
+  if (!asDocs) return Array.from(permIdSet);
+
+  // Return active Permission docs
+  const docs = await Permission.find(
+    {
+      _id: { $in: Array.from(permIdSet) },
+      $or: [
+        { is_active: true },
+        { isActive: true },
+        { $and: [{ is_active: { $exists: false } }, { isActive: { $exists: false } }] }
+      ]
+    }
+  )
+    .sort({ module: 1, action: 1 })
     .lean();
 
-  let inheritedPermissions = [];
-  if (this.inheritedRoles && this.inheritedRoles.length > 0) {
-    const roles = await mongoose.model('Role')
-      .find({ _id: { $in: this.inheritedRoles }, is_active: true });
-    
-    for (const role of roles) {
-      const permissions = await role.getAllPermissions();
-      inheritedPermissions = [...inheritedPermissions, ...permissions];
-    }
-  }
-
-  const allPermissions = [...directPermissions, ...inheritedPermissions];
-  const uniquePermissions = [];
-  const seen = new Set();
-
-  for (const perm of allPermissions) {
-    if (!seen.has(perm._id.toString())) {
-      seen.add(perm._id.toString());
-      uniquePermissions.push(perm);
-    }
-  }
-
-  return uniquePermissions;
+  return docs;
 };
 
-// 16. Check if role has specific permission
-RoleSchema.methods.hasPermission = async function(module, action) {
-  if (this.isSuperAdmin) return true;
-  
-  const permissions = await this.getAllPermissions();
-  return permissions.some(p => 
-    p.module === module.toUpperCase() && 
-    (p.action === 'ALL' || p.action === action.toUpperCase())
-  );
-};
-
-// 17. Indexes for performance
-RoleSchema.index({ name: 1 });
-RoleSchema.index({ isSuperAdmin: 1 });
-RoleSchema.index({ is_active: 1 });
-RoleSchema.index({ isSystemRole: 1 });
-
-// 18. Prevent modification of system roles
-RoleSchema.pre('save', async function(next) {
-  if (this.isSystemRole && this.isModified()) {
-    throw new Error('System roles cannot be modified');
-  }
-  next();
-});
-// Add to RoleSchema after existing code
-RoleSchema.pre('save', async function(next) {
-  if (this.isModified('inheritedRoles')) {
-    // 1. Prevent self-inheritance
-    if (this.inheritedRoles.some(id => id.equals(this._id))) {
-      throw new Error('Role cannot inherit from itself');
-    }
-
-    // 2. Verify all inherited roles exist
-    const existingRoles = await Role.countDocuments({
-      _id: { $in: this.inheritedRoles },
-      is_active: true
-    });
-    
-    if (existingRoles !== this.inheritedRoles.length) {
-      throw new Error('One or more inherited roles are invalid or inactive');
-    }
-
-    // 3. Check for circular inheritance
-    const checkCircular = async (roleId, targetId) => {
-      const role = await Role.findById(roleId);
-      if (role.inheritedRoles.some(id => id.equals(targetId))) {
-        return true;
-      }
-      
-      for (const inheritedId of role.inheritedRoles) {
-        if (await checkCircular(inheritedId, targetId)) {
-          return true;
-        }
-      }
-      return false;
-    };
-
-    for (const inheritedId of this.inheritedRoles) {
-      if (await checkCircular(inheritedId, this._id)) {
-        throw new Error('Circular role inheritance detected');
-      }
-    }
-  }
-  next();
-});
-
-// Add this method to check effective permissions
-RoleSchema.methods.getEffectivePermissions = async function() {
-  const directPermissions = await Permission.find({
-    _id: { $in: this.permissions },
-    is_active: true
-  });
-
-  let inheritedPermissions = [];
-  
-  for (const roleId of this.inheritedRoles) {
-    const role = await Role.findById(roleId);
-    if (role) {
-      const permissions = await role.getEffectivePermissions();
-      inheritedPermissions = [...inheritedPermissions, ...permissions];
-    }
-  }
-
-  const allPermissions = [...directPermissions, ...inheritedPermissions];
-  const uniquePermissions = [];
-  const seen = new Set();
-
-  for (const perm of allPermissions) {
-    const permId = perm._id.toString();
-    if (!seen.has(permId)) {
-      seen.add(permId);
-      uniquePermissions.push(perm);
-    }
-  }
-
-  return uniquePermissions;
-};
-// 19. Export the model
 module.exports = mongoose.model('Role', RoleSchema);

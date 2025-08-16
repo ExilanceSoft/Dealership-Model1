@@ -8,7 +8,6 @@ const colorSchema = new mongoose.Schema({
     trim: true,
     maxlength: [50, 'Color name cannot exceed 50 characters']
   },
-
   status: {
     type: String,
     enum: ['active', 'inactive'],

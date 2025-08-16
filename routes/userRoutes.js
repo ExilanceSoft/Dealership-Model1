@@ -4,6 +4,8 @@ const userController = require('../controllers/userController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 // const userStatusMiddleware = require('../middleware/userStatusMiddleware');
+const { requirePermission } = require('../middlewares/requirePermission');
+
 
 
 /**
@@ -86,11 +88,14 @@ const { logAction } = require('../middlewares/audit');
  *       500:
  *         description: Internal server error
  */
-router.get('/', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
+router.get(
+  '/',
+  protect,
+  requirePermission('USER.READ'),
   userController.getUsers
 );
+
+
 /**
  * @swagger
  * /api/v1/users/frozen-sales-executives:
@@ -123,7 +128,7 @@ router.get('/',
  */
 router.get('/frozen-sales-executives', 
   protect, 
-  authorize('MANAGER', 'ADMIN', 'SUPERADMIN'),
+  requirePermission('USER.READ'),
   userController.getFrozenSalesExecutives
 );
 /**
@@ -165,7 +170,7 @@ router.get('/frozen-sales-executives',
  */
 router.get('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
+  requirePermission('USER.READ'), 
   userController.getUser
 );
 
@@ -173,7 +178,7 @@ router.get('/:id',
  * @swagger
  * /api/v1/users/{id}:
  *   put:
- *     summary: Update user (Admin+)
+ *     summary: Update a user
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -189,25 +194,7 @@ router.get('/:id',
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: "Updated Name"
- *               email:
- *                 type: string
- *                 format: email
- *                 example: "updated@example.com"
- *               mobile:
- *                 type: string
- *                 example: "9876543210"
- *               discount:
- *                 type: number
- *                 description: Discount amount (only for SALES_EXECUTIVE)
- *                 example: 100
- *               isActive:
- *                 type: boolean
- *                 example: true
+ *             $ref: '#/components/schemas/UserUpdateRequest'
  *     responses:
  *       200:
  *         description: User updated successfully
@@ -222,20 +209,21 @@ router.get('/:id',
  *                 data:
  *                   $ref: '#/components/schemas/User'
  *       400:
- *         description: Validation error (invalid email, mobile, etc.) or trying to set discount for non-SALES_EXECUTIVE
+ *         description: Validation error
  *       401:
  *         description: Unauthorized (missing or invalid token)
  *       403:
- *         description: Forbidden (not Admin+ or trying to modify protected fields)
+ *         description: Forbidden (insufficient permissions)
  *       404:
  *         description: User not found
  *       500:
  *         description: Internal server error
  */
-router.put('/:id',
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
-  logAction('UPDATE', 'User'), 
+router.put(
+  '/:id',
+  protect,
+  requirePermission('USER.UPDATE'),
+  logAction('UPDATE', 'User'),
   userController.updateUser
 );
 
@@ -284,7 +272,7 @@ router.put('/:id',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN'), 
+  requirePermission('USER.DELETE'), 
   logAction('DELETE', 'User'), 
   userController.deleteUser
 );
@@ -345,7 +333,7 @@ router.delete('/:id',
  */
 router.get('/:id/permissions', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
+  requirePermission('USER.READ'), 
   userController.getUserPermissions
 );
 
@@ -411,7 +399,7 @@ router.get('/:id/permissions',
  */
 router.post('/assign-permissions', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','MANAGER','SALES_EXECUTIVE'), 
+  requirePermission('USER.CREATE'), 
   logAction('ASSIGN_USER_PERMISSIONS', 'User'), 
   userController.assignUserPermissions
 );
@@ -525,7 +513,7 @@ router.post('/delegate-permissions',
  */
 router.post('/:userId/extend-buffer', 
   protect, 
-  authorize('USER', 'MANAGE'), 
+  requirePermission('USER.UPDATE'),
   userController.extendBufferTime
 );
 
@@ -558,7 +546,7 @@ router.post('/:userId/extend-buffer',
  */
 router.get('/:userId/buffer-history', 
   protect, 
-  authorize('USER', 'READ'), 
+  requirePermission('USER.READ'), 
   userController.getBufferHistory
 );
 
@@ -623,7 +611,7 @@ router.get('/:userId/buffer-history',
 router.post(
   '/:id/extend-deadline',
   protect,
-  authorize(['MANAGER', 'ADMIN','SUPERADMIN']),
+  requirePermission('USER.UPDATE'),
   logAction('EXTEND_DEADLINE', 'User'),
   userController.extendDocumentDeadline
 );
@@ -681,7 +669,7 @@ router.post(
 router.post(
   '/:id/unfreeze',
   protect,
-  authorize(['MANAGER', 'ADMIN','SUPERADMIN']),
+  requirePermission('USER.UPDATE'),
   logAction('UNFREEZE_USER', 'User'),
   userController.unfreezeUser
 );

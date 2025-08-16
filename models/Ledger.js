@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const ledgerSchema = new mongoose.Schema({
   booking: {
@@ -6,21 +7,25 @@ const ledgerSchema = new mongoose.Schema({
     ref: 'Booking',
     required: true
   },
-  insurance: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Insurance',
-    required: function() {
-      return this.type === 'INSURANCE_PAYMENT';
-    }
-  },
   type: {
     type: String,
-    enum: ['BOOKING_PAYMENT', 'INSURANCE_PAYMENT'],
+    enum: ['BOOKING_PAYMENT', 'INSURANCE_PAYMENT', 'DEBIT_ENTRY'],
     default: 'BOOKING_PAYMENT'
   },
   paymentMode: {
     type: String,
-    enum: ['Cash', 'Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'],
+    enum: [
+      'Cash', 
+      'Bank', 
+      'Finance Disbursement', 
+      'Exchange', 
+      'Pay Order',
+      'Late Payment',
+      'Penalty',
+      'Cheque Bounce',
+      'Insurance Endorsement',
+      'Other Debit'
+    ],
     required: true
   },
   amount: {
@@ -33,32 +38,43 @@ const ledgerSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  
   cashLocation: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CashLocation',
     required: function() {
-      return this.paymentMode === 'Cash';
+      return this.paymentMode === 'Cash' && this.type !== 'DEBIT_ENTRY';
     }
   },
   bank: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bank',
     required: function() {
-      return ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(this.paymentMode);
+      return ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(this.paymentMode) && 
+             this.type !== 'DEBIT_ENTRY';
     }
   },
- transactionReference: {
-  type: String,
-  trim: true,
-  required: function() {
-    // Make this always return false to make it optional
-    return false; 
-  }
-},
+  transactionReference: {
+    type: String,
+    trim: true
+  },
+  debitReason: {
+    type: String,
+    required: function() {
+      return this.isDebit;
+    }
+  },
   remark: {
     type: String,
     trim: true
+  },
+  isDebit: {
+    type: Boolean,
+    default: false
+  },
+  debitStatus: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending'
   },
   receiptDate: {
     type: Date,
@@ -70,12 +86,14 @@ const ledgerSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+// Apply pagination plugin
+ledgerSchema.plugin(mongoosePaginate);
+
 // Indexes
 ledgerSchema.index({ booking: 1 });
-ledgerSchema.index({ insurance: 1 });
-ledgerSchema.index({ type: 1 });
-ledgerSchema.index({ paymentMode: 1 });
-ledgerSchema.index({ receiptDate: 1 });
+ledgerSchema.index({ isDebit: 1 });
+ledgerSchema.index({ debitStatus: 1 });
+ledgerSchema.index({ receiptDate: -1 });
 
 // Virtuals
 ledgerSchema.virtual('bankDetails', {
@@ -100,12 +118,14 @@ ledgerSchema.virtual('receivedByDetails', {
   options: { select: 'name email' }
 });
 
-ledgerSchema.virtual('insuranceDetails', {
-  ref: 'Insurance',
-  localField: 'insurance',
+ledgerSchema.virtual('bookingDetails', {
+  ref: 'Booking',
+  localField: 'booking',
   foreignField: '_id',
   justOne: true,
-  options: { select: 'policyNumber premiumAmount insuranceProvider' }
+  options: { select: 'bookingNumber customerDetails.name modelDetails.name' }
 });
 
-module.exports = mongoose.model('Ledger', ledgerSchema);
+const Ledger = mongoose.model('Ledger', ledgerSchema);
+
+module.exports = Ledger;

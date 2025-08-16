@@ -10,7 +10,6 @@ const { logAction } = require('../middlewares/audit');
  *   name: Ledger
  *   description: Financial ledger management
  */
-
 /**
  * @swagger
  * components:
@@ -175,7 +174,6 @@ router.post(
   ledgerController.addReceipt
 );
 
-// Add this to ledgerRoutes.js
 /**
  * @swagger
  * /api/v1/ledger/booking-counts:
@@ -287,6 +285,7 @@ router.get(
   protect,
   ledgerController.getBranchLedgerSummary
 );
+
 /**
  * @swagger
  * /api/v1/ledger/{bookingId}:
@@ -381,7 +380,6 @@ router.get(
   ledgerController.getLedgerSummary
 );
 
-// Add this to ledgerRoutes.js
 /**
  * @swagger
  * /api/v1/ledger/report/{bookingId}:
@@ -568,6 +566,134 @@ router.put(
   authorize('SALES_EXECUTIVE', 'ADMIN', 'SUPERADMIN'),
   logAction('UPDATE', 'Ledger'),
   ledgerController.updateLedgerEntry
+);
+
+/**
+ * @swagger
+ * /api/v1/ledger/debit:
+ *   post:
+ *     summary: Add a new debit entry to ledger
+ *     tags: [Ledger]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - bookingId
+ *               - paymentMode
+ *               - amount
+ *               - debitReason
+ *             properties:
+ *               bookingId:
+ *                 type: string
+ *                 example: 507f1f77bcf86cd799439012
+ *               paymentMode:
+ *                 type: string
+ *                 enum: [Late Payment, Penalty, Cheque Bounce, Insurance Endorsement, Other Debit]
+ *                 example: Penalty
+ *               amount:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 500
+ *               debitReason:
+ *                 type: string
+ *                 example: Late payment penalty
+ *               remark:
+ *                 type: string
+ *                 example: Customer was 10 days late
+ *     responses:
+ *       201:
+ *         description: Debit entry added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     ledger:
+ *                       $ref: '#/components/schemas/LedgerEntry'
+ *                     booking:
+ *                       type: object
+ *                       properties:
+ *                         balanceAmount:
+ *                           type: number
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not authorized)
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/debit',
+  protect,
+  authorize('ADMIN', 'SUPERADMIN', 'ACCOUNTANT'),
+  logAction('CREATE', 'Debit Ledger'),
+  ledgerController.addDebit
+);
+
+/**
+ * @swagger
+ * /api/v1/ledger/debit/booking/{bookingId}:
+ *   get:
+ *     summary: Get debit entries for a booking
+ *     tags: [Ledger]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439012
+ *     responses:
+ *       200:
+ *         description: List of debit entries for the booking
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: integer
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     debits:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/LedgerEntry'
+ *       400:
+ *         description: Invalid booking ID
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: No entries found
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/debit/booking/:bookingId',
+  protect,
+  authorize('ADMIN', 'SUPERADMIN', 'ACCOUNTANT', 'SALES_EXECUTIVE'),
+  ledgerController.getDebitsByBooking
 );
 
 module.exports = router;

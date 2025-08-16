@@ -67,11 +67,10 @@ exports.addReceipt = async (req, res, next) => {
       receivedBy: req.user.id,
       cashLocation: paymentMode === 'Cash' ? cashLocation : undefined,
       bank: ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode) ? bank : undefined,
-      transactionReference: transactionReference || undefined, // Will be saved if provided, otherwise undefined
+      transactionReference: transactionReference || undefined,
       remark
     });
 
-    // Rest of your code remains the same...
     // Generate unique receipt number
     const receiptNumber = `RCPT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -175,13 +174,6 @@ exports.getLedgerSummary = async (req, res, next) => {
   }
 };
 
-// exports.getLedgerDataInId =   async (req, res, next) => {
-//   try{
-//     const {id} =model_name
-//     const ledger = await ledger.amount
-//     res.status(200).json
-//   }
-// }
 exports.updateLedgerEntry = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -307,7 +299,6 @@ exports.updateLedgerEntry = async (req, res, next) => {
     next(err);
   }
 };
-
 
 exports.getBankList = async (req, res, next) => {
   try {
@@ -499,7 +490,6 @@ exports.getLedgerReport = async (req, res, next) => {
   }
 };
 
-// Add this to ledgerController.js
 exports.getBookingTypeCounts = async (req, res, next) => {
   try {
     // Get counts for different booking statuses
@@ -672,168 +662,94 @@ exports.getBranchLedgerSummary = async (req, res, next) => {
     next(err);
   }
 };
-//   try {
-//     const { bookingId } = req.params;
 
-//     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-//       return next(new AppError('Invalid booking ID format', 400));
-//     }
-
-//     // Get booking details with all necessary population
-//     const booking = await Booking.findById(bookingId)
-//       .populate('customerDetails')
-//       .populate('salesExecutiveDetails', 'name')
-//       .populate('modelDetails', 'name')
-//       .populate('colorDetails', 'name')
-//       .populate('branchDetails', 'name') // Add branch details population
-//       .populate({
-//         path: 'payment.financer',
-//         select: 'name',
-//         model: 'FinanceProvider'
-//       });
-
-//     if (!booking) {
-//       return next(new AppError('No booking found with that ID', 404));
-//     }
-
-//     // Get all ledger entries for this booking
-//     const ledgerEntries = await Ledger.find({ booking: bookingId })
-//       .populate('bankDetails', 'name ifscCode branchDetails')
-//       .populate('cashLocationDetails', 'name branchDetails')
-//       .populate('receivedByDetails', 'name')
-//       .sort({ createdAt: 1 });
-
-//     // Prepare entries with running balance
-//     let balance = booking.discountedAmount;
-//     const formattedEntries = [];
+exports.addDebit = async (req, res, next) => {
+  try {
+    const { bookingId, paymentMode, amount, debitReason, remark } = req.body;
     
-//     // Branch-wise totals
-//     const branchTotals = {};
-//     let overallTotalCredit = 0;
-//     let overallTotalDebit = 0;
+    // Validate required fields
+    if (!bookingId || !paymentMode || !amount || !debitReason) {
+      return next(new AppError('Booking ID, payment mode, amount and debit reason are required', 400));
+    }
 
-//     // Add initial booking entry (as debit)
-//     formattedEntries.push({
-//       date: booking.createdAt.toLocaleDateString('en-GB'),
-//       description: `${booking.modelDetails?.name || 'N/A'} ${booking.colorDetails?.name || 'N/A'} SALES PRICE AGAINST BOOKING`,
-//       receiptNo: booking.bookingNumber,
-//       status: 'Active',
-//       credit: 0,
-//       debit: booking.discountedAmount,
-//       balance: balance,
-//       branch: booking.branchDetails?.name || 'N/A'
-//     });
+    // Validate amount
+    if (amount <= 0) {
+      return next(new AppError('Amount must be greater than 0', 400));
+    }
 
-//     // Initialize branch totals for the booking branch
-//     const bookingBranchId = booking.branch;
-//     const bookingBranchName = booking.branchDetails?.name || 'N/A';
-//     branchTotals[bookingBranchId] = {
-//       name: bookingBranchName,
-//       totalCredit: 0,
-//       totalDebit: booking.discountedAmount,
-//       finalBalance: booking.discountedAmount
-//     };
+    // Validate payment mode is a debit type
+    const debitTypes = ['Late Payment', 'Penalty', 'Cheque Bounce', 'Insurance Endorsement', 'Other Debit'];
+    if (!debitTypes.includes(paymentMode)) {
+      return next(new AppError('Invalid payment mode for debit entry', 400));
+    }
 
-//     overallTotalDebit += booking.discountedAmount;
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return next(new AppError('No booking found with that ID', 404));
+    }
 
-//     // Add all payment entries (as credits that reduce the balance)
-//     ledgerEntries.forEach(entry => {
-//       balance -= entry.amount;
-      
-//       let description = '';
-//       let branchId = bookingBranchId;
-//       let branchName = bookingBranchName;
+    // Create ledger entry
+    const ledgerEntry = await Ledger.create({
+      booking: bookingId,
+      type: 'DEBIT_ENTRY',
+      paymentMode,
+      amount,
+      debitReason,
+      isDebit: true,
+      receivedBy: req.user.id,
+      remark
+    });
 
-//       // Determine branch for this entry
-//       if (entry.paymentMode === 'Cash' && entry.cashLocationDetails?.branchDetails) {
-//         branchId = entry.cashLocationDetails.branchDetails._id;
-//         branchName = entry.cashLocationDetails.branchDetails.name;
-//       } else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(entry.paymentMode) && 
-//                  entry.bankDetails?.branchDetails) {
-//         branchId = entry.bankDetails.branchDetails._id;
-//         branchName = entry.bankDetails.branchDetails.name;
-//       }
+    // Update booking balance
+    booking.balanceAmount = (booking.balanceAmount || 0) + amount;
+    booking.ledgerEntries.push(ledgerEntry._id);
+    await booking.save();
 
-//       if (entry.paymentMode === 'Cash') {
-//         description = `Cash Payment - ${entry.cashLocationDetails?.name || 'N/A'}`;
-//       } else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(entry.paymentMode)) {
-//         description = `${entry.paymentMode} - ${entry.bankDetails?.name || 'N/A'} (Ref: ${entry.transactionReference})`;
-//       } else {
-//         description = `${entry.paymentMode} Payment`;
-//       }
+    // Populate the response
+    const populatedLedger = await Ledger.findById(ledgerEntry._id)
+      .populate('receivedByDetails', 'name email')
+      .populate('bookingDetails', 'bookingNumber customerDetails.name');
 
-//       // Initialize branch totals if not exists
-//       if (!branchTotals[branchId]) {
-//         branchTotals[branchId] = {
-//           name: branchName,
-//           totalCredit: 0,
-//           totalDebit: 0,
-//           finalBalance: 0
-//         };
-//       }
+    res.status(201).json({
+      status: 'success',
+      data: {
+        ledger: populatedLedger,
+        booking: {
+          balanceAmount: booking.balanceAmount
+        }
+      }
+    });
+  } catch (err) {
+    logger.error(`Error adding debit: ${err.message}`);
+    next(new AppError('Failed to add debit entry', 500));
+  }
+};
 
-//       // Update branch totals
-//       branchTotals[branchId].totalCredit += entry.amount;
-//       branchTotals[branchId].finalBalance = branchTotals[branchId].totalDebit - branchTotals[branchId].totalCredit;
+exports.getDebitsByBooking = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
 
-//       // Update overall totals
-//       overallTotalCredit += entry.amount;
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return next(new AppError('Invalid booking ID format', 400));
+    }
 
-//       formattedEntries.push({
-//         date: entry.createdAt.toLocaleDateString('en-GB'),
-//         description: description,
-//         receiptNo: entry._id.toString().slice(-6).toUpperCase(),
-//         status: 'Active',
-//         credit: entry.amount,
-//         debit: 0,
-//         balance: balance,
-//         branch: branchName
-//       });
-//     });
+    const debits = await Ledger.find({ 
+      booking: bookingId, 
+      isDebit: true 
+    })
+    .populate('receivedByDetails', 'name email')
+    .sort({ createdAt: -1 });
 
-//     // Calculate final overall balance
-//     const finalBalance = balance;
-
-//     // Convert branchTotals object to array
-//     const branchTotalsArray = Object.values(branchTotals);
-
-//     // Prepare response
-//     const response = {
-//       customerDetails: {
-//         name: `${booking.customerDetails.salutation || ''} ${booking.customerDetails.name}`.trim(),
-//         address: `${booking.customerDetails.address}, ${booking.customerDetails.taluka}, ${booking.customerDetails.district}, ${booking.customerDetails.pincode}`,
-//         phone: booking.customerDetails.mobile1,
-//         aadharNo: booking.customerDetails.aadharNumber || 'N/A',
-//         panNo: booking.customerDetails.panNo || 'N/A'
-//       },
-//       vehicleDetails: {
-//         chassisNo: booking.chassisNumber || 'N/A',
-//         engineNo: booking.engineNumber || 'N/A',
-//         model: booking.modelDetails?.name || 'N/A',
-//         color: booking.colorDetails?.name || 'N/A'
-//       },
-//       financeDetails: {
-//         financer: booking.payment.type === 'FINANCE' 
-//           ? (booking.payment.financer?.name || 'N/A') 
-//           : '---Select Financer Name----'
-//       },
-//       salesExecutive: booking.salesExecutiveDetails?.name || 'N/A',
-//       ledgerDate: new Date().toLocaleDateString('en-GB'),
-//       entries: formattedEntries,
-//       branchTotals: branchTotalsArray,
-//       overallTotals: {
-//         totalCredit: overallTotalCredit,
-//         totalDebit: overallTotalDebit,
-//         finalBalance: finalBalance
-//       }
-//     };
-
-//     res.status(200).json({
-//       status: 'success',
-//       data: response
-//     });
-//   } catch (err) {
-//     logger.error(`Error getting ledger report: ${err.message}`);
-//     next(err);
-//   }
-// };
+    res.status(200).json({
+      status: 'success',
+      results: debits.length,
+      data: {
+        debits
+      }
+    });
+  } catch (err) {
+    logger.error(`Error getting debits by booking: ${err.message}`);
+    next(new AppError('Failed to get debits for booking', 500));
+  }
+};

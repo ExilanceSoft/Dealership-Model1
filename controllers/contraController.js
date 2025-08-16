@@ -3,6 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const Branch = require('../models/Branch'); // Assuming you have this model
 const mongoose = require('mongoose');
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
 
 // Create Contra Voucher
 exports.createContraVoucher = async (req, res) => {

@@ -7,14 +7,11 @@ const mongoose = require('mongoose');
 // Create a new color
 exports.createColor = async (req, res, next) => {
   try {
-    const { name, hex_code } = req.body;
+    const { name } = req.body;
 
     // Validate input
     if (!name || typeof name !== 'string') {
       return next(new AppError('Color name is required and must be a string', 400));
-    }
-    if (!hex_code || typeof hex_code !== 'string') {
-      return next(new AppError('Hex code is required and must be a string', 400));
     }
 
     // Check if color already exists
@@ -25,7 +22,6 @@ exports.createColor = async (req, res, next) => {
 
     const newColor = await Color.create({
       name,
-      hex_code,
       models: req.body.models || []
     });
 
@@ -111,15 +107,14 @@ exports.getColorById = async (req, res, next) => {
 };
 
 // Update a color
-// Update a color
 exports.updateColor = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.colorId)) {
       return next(new AppError('Invalid color ID format', 400));
     }
 
-    const { name, hex_code, models } = req.body;
-    const updateData = { name, hex_code };
+    const { name, models } = req.body;
+    const updateData = { name };
 
     // If models are provided in the request
     if (models && Array.isArray(models)) {
@@ -403,7 +398,7 @@ exports.getColorsByModelId = async (req, res, next) => {
     const colors = await Color.find({ 
       _id: { $in: model.colors },
       status: 'active' // Only get active colors
-    }).select('name hex_code');
+    }).select('name');
 
     res.status(200).json({
       status: 'success',

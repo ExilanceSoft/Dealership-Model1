@@ -8,7 +8,7 @@ const receiptSchema = new mongoose.Schema({
   },
   receiptNumber: {
     type: String,
-    required: false // No longer required
+    required: false 
   },
   amount: {
     type: Number,

@@ -12,7 +12,6 @@ exports.createInsuranceProvider = async (req, res) => {
         message: 'Please provide provider name'
       });
     }
-
     const existingProvider = await InsuranceProvider.findOne({ 
       provider_name: { $regex: new RegExp(`^${provider_name}$`, 'i') }
     });

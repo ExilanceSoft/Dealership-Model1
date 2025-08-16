@@ -517,9 +517,8 @@ router.get('/insurance-status/:status', protect, bookingController.getBookingsBy
 router.post('/', 
   protect, 
   // validateSalesExecutive,
-  authorize('BOOKING', 'CREATE'), 
+  // authorize('BOOKING', 'CREATE'), 
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),
-  logAction('CREATE', 'Booking'), 
   bookingController.createBooking
 );
 
@@ -591,7 +590,7 @@ router.post('/',
  */
 router.get('/stats', 
   protect,
-  authorize('BOOKING', 'READ'),
+  // authorize('BOOKING', 'READ'),
   bookingController.getBookingStats
 );
 /**
@@ -621,7 +620,7 @@ router.get('/stats',
 router.get('/pending-updates', 
   protect, 
   // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  authorize('BOOKING', 'APPROVE'),
+  // authorize('BOOKING', 'APPROVE'),
   async (req, res) => {
     try {
       const branchId = req.user.isSuperAdmin ? null : req.user.branch;
@@ -726,7 +725,7 @@ router.get('/pending-updates',
 router.get('/', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'READ'),  // Changed to permission check
+  // authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getAllBookings
 );
 
@@ -764,7 +763,7 @@ router.get('/',
 router.get('/:id', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'READ'),  // Changed to permission check
+  // authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getBookingById
 );
 /**
@@ -821,7 +820,7 @@ router.get('/:id',
 router.put('/:id', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'UPDATE'),  // Changed to permission check
+  // authorize('BOOKING', 'UPDATE'),  // Changed to permission check
   logAction('UPDATE', 'Booking'), 
   bookingController.updateBooking
 );
@@ -909,7 +908,7 @@ router.put('/:id',
 router.put('/:id/approve', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'APPROVE'),  // Specific approve permission
+  // authorize('BOOKING', 'APPROVE'),  // Specific approve permission
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
 );
@@ -1009,7 +1008,7 @@ router.put('/:id/approve',
 router.put('/:id/allocate', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'ALLOCATE'),  // Specific approve permission
+  // authorize('BOOKING', 'ALLOCATE'),  // Specific approve permission
   logAction('ALLOCATE', 'Booking'), 
   bookingController.allocateChassisNumber
 );
@@ -1155,7 +1154,7 @@ router.put('/:id/allocate',
 router.get('/:id/form', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'READ'),
+  // authorize('BOOKING', 'READ'),
   bookingController.getBookingForm
 );
 /**
@@ -1215,7 +1214,7 @@ router.get('/:id/form',
 router.post('/:id/reject', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'APPROVE'),  // Uses same permission as approve
+  // authorize('BOOKING', 'APPROVE'),  // Uses same permission as approve
   logAction('REJECT', 'Booking'), 
   bookingController.rejectBooking
 );
@@ -1270,7 +1269,7 @@ router.post('/:id/reject',
 router.post('/:id/complete', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'COMPLETE'),  // Specific complete permission
+  // authorize('BOOKING', 'COMPLETE'),  // Specific complete permission
   logAction('COMPLETE', 'Booking'), 
   bookingController.completeBooking
 );
@@ -1311,7 +1310,7 @@ router.post('/:id/complete',
 router.get('/chassis/:chassisNumber', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'READ'),
+  // authorize('BOOKING', 'READ'),
   bookingController.getBookingByChassisNumber
 );
 /**
@@ -1371,7 +1370,7 @@ router.get('/chassis/:chassisNumber',
 router.post('/:id/cancel', 
   protect, 
   // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  authorize('BOOKING', 'CANCEL'),  // Specific cancel permission
+  // authorize('BOOKING', 'CANCEL'),  // Specific cancel permission
   logAction('CANCEL', 'Booking'), 
   bookingController.cancelBooking
 );
@@ -1419,7 +1418,7 @@ router.post('/:id/cancel',
 router.get('/:id/receipt', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'READ'),  // Only need read access
+  // authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateBookingReceipt
 );
 
@@ -1459,7 +1458,7 @@ router.get('/:id/receipt',
 router.get('/:id/helmet-invoice', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'READ'),  // Only need read access
+  // authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateHelmetInvoice
 );
 
@@ -1505,7 +1504,7 @@ router.get('/:id/helmet-invoice',
 router.get('/:id/accessories-challan', 
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  authorize('BOOKING', 'READ'),  // Only need read access
+  // authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateAccessoriesChallan
 );
 /**
@@ -1553,7 +1552,7 @@ router.get('/:id/accessories-challan',
 router.get('/:id/documents',
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  authorize('BOOKING', 'READ'),
+  // authorize('BOOKING', 'READ'),
   bookingController.getBookingWithDocuments
 );
 
@@ -1601,7 +1600,7 @@ router.get('/:id/documents',
 router.get('/:id/ready-for-delivery',
   protect,
   // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  authorize('BOOKING', 'READ'),
+  // authorize('BOOKING', 'READ'),
   bookingController.checkReadyForDelivery
 );
 /**
@@ -1642,7 +1641,7 @@ router.get('/:id/ready-for-delivery',
 router.get('/:id/qr-code', 
   protect, 
   // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  authorize('BOOKING', 'READ'),
+  // authorize('BOOKING', 'READ'),
   async (req, res) => {
     try {
       const qrCode = await qrController.generateQRCode(req.params.id);
@@ -1830,7 +1829,7 @@ router.post('/:id/submit-update',
 router.post('/:id/approve-update', 
   protect, 
   // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  authorize('BOOKING', 'APPROVE'),
+  // authorize('BOOKING', 'APPROVE'),
   logAction('APPROVE_UPDATE', 'Booking'),
   async (req, res) => {
     try {
@@ -1891,7 +1890,7 @@ router.post('/:id/approve-update',
  */
 router.post('/:id/reject-update', 
   protect, 
-  authorize('BOOKING', 'APPROVE'),
+  // authorize('BOOKING', 'APPROVE'),
   logAction('REJECT_UPDATE', 'Booking'),
   async (req, res) => {
     try {
@@ -2028,7 +2027,7 @@ router.get('/:id/update-form', bookingController.getUpdateForm);
  */
 router.get('/:id/pending-update', 
   protect, 
-  authorize('BOOKING', 'APPROVE'),
+  // authorize('BOOKING', 'APPROVE'),
   async (req, res) => {
     try {
       const pendingUpdate = await qrController.getPendingUpdateRequestById(req.params.id);

@@ -498,7 +498,10 @@ exports.addOpeningBalance = async (req, res) => {
   try {
     const { amount, note } = req.body;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Validate amount
     if (typeof amount !== 'number' || amount <= 0) {
       return res.status(400).json({
@@ -507,7 +510,10 @@ exports.addOpeningBalance = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Find branch
     const branch = await Branch.findById(req.params.id);
     if (!branch) {
@@ -517,7 +523,10 @@ exports.addOpeningBalance = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Add to history and update balance
     branch.opening_balance_history.push({
       amount,
@@ -525,11 +534,17 @@ exports.addOpeningBalance = async (req, res) => {
       updatedBy: req.user.id
     });
 
+<<<<<<< HEAD
 
     branch.opening_balance = amount;
     await branch.save();
 
 
+=======
+    branch.opening_balance = amount;
+    await branch.save();
+
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Log the action
     await AuditLog.create({
       action: 'CREATE',
@@ -546,14 +561,21 @@ exports.addOpeningBalance = async (req, res) => {
       status: 'SUCCESS'
     });
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     res.status(201).json({
       success: true,
       data: branch
     });
   } catch (err) {
     console.error('Error adding opening balance:', err);
+<<<<<<< HEAD
    
+=======
+    
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     await AuditLog.create({
       action: 'CREATE',
       entity: 'Branch Opening Balance',
@@ -565,7 +587,10 @@ exports.addOpeningBalance = async (req, res) => {
       metadata: req.body
     });
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     res.status(500).json({
       success: false,
       message: 'Error adding opening balance',
@@ -574,12 +599,18 @@ exports.addOpeningBalance = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
 exports.updateOpeningBalance = async (req, res) => {
   try {
     const { amount, note } = req.body;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Validate amount
     if (typeof amount !== 'number' || amount < 0) {
       return res.status(400).json({
@@ -588,7 +619,10 @@ exports.updateOpeningBalance = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Find and update branch
     const branch = await Branch.findById(req.params.id);
     if (!branch) {
@@ -598,10 +632,15 @@ exports.updateOpeningBalance = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
 
     const previousBalance = branch.opening_balance;
 
 
+=======
+    const previousBalance = branch.opening_balance;
+
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Add to history and update balance
     branch.opening_balance_history.push({
       amount,
@@ -609,11 +648,17 @@ exports.updateOpeningBalance = async (req, res) => {
       updatedBy: req.user.id
     });
 
+<<<<<<< HEAD
 
     branch.opening_balance = amount;
     await branch.save();
 
 
+=======
+    branch.opening_balance = amount;
+    await branch.save();
+
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Log the action
     await AuditLog.create({
       action: 'UPDATE',
@@ -630,14 +675,21 @@ exports.updateOpeningBalance = async (req, res) => {
       status: 'SUCCESS'
     });
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     res.status(200).json({
       success: true,
       data: branch
     });
   } catch (err) {
     console.error('Error updating opening balance:', err);
+<<<<<<< HEAD
    
+=======
+    
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     await AuditLog.create({
       action: 'UPDATE',
       entity: 'Branch Opening Balance',
@@ -649,7 +701,10 @@ exports.updateOpeningBalance = async (req, res) => {
       metadata: req.body
     });
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     res.status(500).json({
       success: false,
       message: 'Error updating opening balance',
@@ -658,12 +713,18 @@ exports.updateOpeningBalance = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
 exports.resetOpeningBalance = async (req, res) => {
   try {
     const { note } = req.body;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Find and update branch
     const branch = await Branch.findById(req.params.id);
     if (!branch) {
@@ -673,10 +734,15 @@ exports.resetOpeningBalance = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
 
     const previousBalance = branch.opening_balance;
 
 
+=======
+    const previousBalance = branch.opening_balance;
+
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Add to history and reset balance
     branch.opening_balance_history.push({
       amount: 0,
@@ -684,11 +750,17 @@ exports.resetOpeningBalance = async (req, res) => {
       updatedBy: req.user.id
     });
 
+<<<<<<< HEAD
 
     branch.opening_balance = 0;
     await branch.save();
 
 
+=======
+    branch.opening_balance = 0;
+    await branch.save();
+
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     // Log the action
     await AuditLog.create({
       action: 'DELETE',
@@ -704,14 +776,21 @@ exports.resetOpeningBalance = async (req, res) => {
       status: 'SUCCESS'
     });
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     res.status(200).json({
       success: true,
       data: branch
     });
   } catch (err) {
     console.error('Error resetting opening balance:', err);
+<<<<<<< HEAD
    
+=======
+    
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     await AuditLog.create({
       action: 'DELETE',
       entity: 'Branch Opening Balance',
@@ -723,11 +802,18 @@ exports.resetOpeningBalance = async (req, res) => {
       metadata: req.body
     });
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c
     res.status(500).json({
       success: false,
       message: 'Error resetting opening balance',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> 5cdb029eca8c23f7d6a9287b47370035af113c5c

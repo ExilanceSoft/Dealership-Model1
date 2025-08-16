@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Role = require('./Role'); 
+const Permission = require('./Permission');
 // 1. Define User Schema with comprehensive field definitions
 const UserSchema = new mongoose.Schema({
   name: {
@@ -76,28 +77,28 @@ roles: {
 
 
   // 3. Direct permissions with grant tracking
-  permissions: [{
-    permission: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Permission',
-      required: true
-    },
-    grantedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    expiresAt: {
-      type: Date,
-      validate: {
-        validator: function(date) {
-          return !date || date > new Date();
-        },
-        message: 'Expiration date must be in the future'
-      }
+// In User.js - Update the permissions field in the schema
+permissions: [{
+  permission: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Permission',
+    required: true
+  },
+  grantedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  expiresAt: {
+    type: Date,
+    validate: {
+      validator: function(date) {
+        return !date || date > new Date();
+      },
+      message: 'Expiration date must be in the future'
     }
-  }],
-
+  }
+}],
   // 4. Delegated access permissions
   delegatedAccess: [{
     user: {
@@ -216,9 +217,48 @@ UserSchema.methods.isSuperAdmin = async function() {
   return this.roles.some(role => role.isSuperAdmin);
 };
 
+UserSchema.methods.isSuperAdminByRole = async function () {
+  const roles = this.roles || [];
+  if (!roles.length) return false;
+
+  // If already populated, cheap check:
+  if (this.populated && this.populated('roles')) {
+    return roles.some(r =>
+      r && r.is_active !== false && String(r.name || '').toUpperCase() === 'SUPERADMIN'
+    );
+  }
+
+  const roleIds = roles.map(r => (r && r._id) ? r._id : r);
+  const count = await Role.countDocuments({
+    _id: { $in: roleIds },
+    is_active: { $ne: false },
+    name: /^superadmin$/i
+  });
+  return count > 0;
+};
+UserSchema.methods.listEffectivePermissionIds = async function () {
+  const roles = await Role.find({ _id: { $in: (this.roles || []) } })
+    .select('permissions is_active')
+    .populate({ path: 'permissions', select: '_id' })
+    .lean();
+
+  const ids = new Set();
+  for (const r of roles) {
+    if (!r || r.is_active === false) continue;
+    for (const p of (r.permissions || [])) ids.add(String(p?._id || p));
+  }
+  // user overrides (store as IDs)
+  const grants = (this.overrides?.grants || []).map(x => String(x?._id || x));
+  const revokes = (this.overrides?.revokes || []).map(x => String(x?._id || x));
+  for (const g of grants) ids.add(g);
+  for (const rv of revokes) ids.delete(rv);
+  return Array.from(ids);
+};
+
+// 11. Method to get all permissions (roles + direct + delegated)
 // 11. Method to get all permissions (roles + direct + delegated)
 UserSchema.methods.getAllPermissions = async function() {
-  // 12. SuperAdmin has all permissions
+  // SuperAdmin has all permissions
   if (await this.isSuperAdmin()) {
     return [{
       _id: 'ALL_PERMISSIONS',
@@ -229,37 +269,58 @@ UserSchema.methods.getAllPermissions = async function() {
     }];
   }
 
-  // 13. Get permissions from all assigned roles
+  // Get permissions from all assigned roles
   let rolePermissions = [];
-  for (const roleId of this.roles) {
-    const role = await mongoose.model('Role').findById(roleId);
-    if (role) {
-      const permissions = await role.getAllPermissions();
-      rolePermissions = [...rolePermissions, ...permissions];
+  for (const roleId of this.roles || []) {
+    try {
+      const role = await mongoose.model('Role').findById(roleId);
+      if (role) {
+        const permissions = await role.getAllPermissions(true); // Get as documents
+        rolePermissions = [...rolePermissions, ...(permissions || [])];
+      }
+    } catch (err) {
+      console.error(`Error getting permissions for role ${roleId}:`, err);
     }
   }
 
-  // 14. Get active direct permissions (not expired)
+  // Get active direct permissions (not expired)
   const now = new Date();
   const directPermissions = await mongoose.model('Permission').find({
-    _id: { $in: this.permissions.filter(p => !p.expiresAt || p.expiresAt > now)
-      .map(p => p.permission) },
+    _id: { 
+      $in: (this.permissions || [])
+        .filter(p => p?.permission && (!p.expiresAt || p.expiresAt > now))
+        .map(p => p.permission)
+        .filter(id => id) // Filter out any undefined/null
+    },
     is_active: true
   }).lean();
 
-  // 15. Get active delegated permissions (not expired)
-  const activeDelegated = this.delegatedAccess.filter(d => d.expiresAt > now);
+  // Get active delegated permissions (not expired)
+  const activeDelegated = (this.delegatedAccess || []).filter(d => 
+    d?.expiresAt && d.expiresAt > now && d.permissions
+  );
+  
   const delegatedPermissions = await mongoose.model('Permission').find({
-    _id: { $in: activeDelegated.flatMap(d => d.permissions) },
+    _id: { 
+      $in: activeDelegated.flatMap(d => 
+        (d.permissions || []).map(p => p).filter(id => id)
+      ) // Added missing closing bracket here
+    },
     is_active: true
   }).lean();
 
-  // 16. Combine and deduplicate all permissions
-  const allPermissions = [...rolePermissions, ...directPermissions, ...delegatedPermissions];
+  // Combine and deduplicate all permissions
+  const allPermissions = [
+    ...(rolePermissions || []),
+    ...(directPermissions || []),
+    ...(delegatedPermissions || [])
+  ];
+
   const uniquePermissions = [];
   const seen = new Set();
 
   for (const perm of allPermissions) {
+    if (!perm?._id) continue;
     const permId = perm._id.toString();
     if (!seen.has(permId)) {
       seen.add(permId);
@@ -271,22 +332,23 @@ UserSchema.methods.getAllPermissions = async function() {
 };
 
 // 17. Method to check specific permission
-UserSchema.methods.hasPermission = async function(module, action) {
-  // 18. SuperAdmin always has permission
-  if (await this.isSuperAdmin()) return true;
-  
-  // 19. Normalize input parameters
-  const normalizedModule = module.toUpperCase();
-  const normalizedAction = action.toUpperCase();
-  
-  // 20. Get all permissions
-  const permissions = await this.getAllPermissions();
-  
-  // 21. Check for matching permission
-  return permissions.some(p => 
-    p.module === normalizedModule && 
-    (p.action === 'ALL' || p.action === normalizedAction)
-  );
+UserSchema.methods.hasPermission = async function (key) {
+  if (await this.isSuperAdminByRole()) return true;
+
+  const k = String(key).toUpperCase();
+  // Build effective keys from effective IDs
+  const effIds = await this.listEffectivePermissionIds();
+  if (!effIds.length) return false;
+
+  const perms = await Permission.find({ _id: { $in: effIds } })
+    .select('module action name')
+    .lean();
+
+  return perms.some(p => {
+    const mod = String(p.module || (p.name || '').split(/[_\.]/)[0] || '').toUpperCase();
+    const act = String(p.action || (p.name || '').split(/[_\.]/)[1] || '').toUpperCase();
+    return `${mod}.${act}` === k;
+  });
 };
 
 // 22. Pre-save hook for role validation
