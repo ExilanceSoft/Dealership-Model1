@@ -665,11 +665,11 @@ exports.getBranchLedgerSummary = async (req, res, next) => {
 
 exports.addDebit = async (req, res, next) => {
   try {
-    const { bookingId, paymentMode, amount, debitReason, remark } = req.body;
+    const { bookingId, amount, debitReason, remark } = req.body;
     
     // Validate required fields
-    if (!bookingId || !paymentMode || !amount || !debitReason) {
-      return next(new AppError('Booking ID, payment mode, amount and debit reason are required', 400));
+    if (!bookingId || !amount || !debitReason) {
+      return next(new AppError('Booking ID, amount and debit reason are required', 400));
     }
 
     // Validate amount
@@ -677,10 +677,9 @@ exports.addDebit = async (req, res, next) => {
       return next(new AppError('Amount must be greater than 0', 400));
     }
 
-    // Validate payment mode is a debit type
-    const debitTypes = ['Late Payment', 'Penalty', 'Cheque Bounce', 'Insurance Endorsement', 'Other Debit'];
-    if (!debitTypes.includes(paymentMode)) {
-      return next(new AppError('Invalid payment mode for debit entry', 400));
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return next(new AppError('Authentication required', 401));
     }
 
     // Find the booking
@@ -689,11 +688,10 @@ exports.addDebit = async (req, res, next) => {
       return next(new AppError('No booking found with that ID', 404));
     }
 
-    // Create ledger entry
+    // Create ledger entry (without paymentMode)
     const ledgerEntry = await Ledger.create({
       booking: bookingId,
       type: 'DEBIT_ENTRY',
-      paymentMode,
       amount,
       debitReason,
       isDebit: true,
@@ -725,6 +723,7 @@ exports.addDebit = async (req, res, next) => {
     next(new AppError('Failed to add debit entry', 500));
   }
 };
+
 
 exports.getDebitsByBooking = async (req, res, next) => {
   try {

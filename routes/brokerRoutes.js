@@ -4,6 +4,7 @@ const brokerController = require('../controllers/brokerController');
 const { protect, authorize, roleAuthorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const path = require('path');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -45,9 +46,9 @@ const path = require('path');
  *           example: 1000
  *         commissionRange:
  *           type: string
- *           enum: [20k-40k, 40k-60k, 60k-80k, 80k-100k, 100k+]
+ *           enum: ['1-20000', '20001-40000', '40001-60000', '60001']
  *           description: Predefined commission range (required for VARIABLE type)
- *           example: "40k-60k"
+ *           example: "40001-60000"
  *         isActive:
  *           type: boolean
  *           default: true
@@ -80,6 +81,10 @@ const path = require('path');
  *           type: string
  *           description: 10-digit mobile number
  *           example: "9876543210"
+ *         otp_required:
+ *           type: boolean
+ *           description: Whether OTP is required for this broker
+ *           example: true
  *         email:
  *           type: string
  *           format: email
@@ -124,6 +129,10 @@ const path = require('path');
  *           type: string
  *           format: email
  *           example: "john.doe@example.com"
+ *         otp_required:
+ *           type: boolean
+ *           description: Whether OTP is required for this broker
+ *           example: true
  *         branchesData:
  *           type: array
  *           items:
@@ -146,8 +155,8 @@ const path = require('path');
  *                 example: 1000
  *               commissionRange:
  *                 type: string
- *                 enum: [20k-40k, 40k-60k, 60k-80k, 80k-100k, 100k+]
- *                 example: "40k-60k"
+ *                 enum: ['1-20000', '20001-40000', '40001-60000', '60001']
+ *                 example: "40001-60000"
  *               isActive:
  *                 type: boolean
  *                 default: true
@@ -178,6 +187,7 @@ const path = require('path');
  *                 name: "John Doe"
  *                 mobile: "9876543210"
  *                 email: "john.doe@example.com"
+ *                 otp_required: true
  *                 branchesData: [
  *                   {
  *                     branch: "507f1f77bcf86cd799439011",
@@ -188,7 +198,7 @@ const path = require('path');
  *                   {
  *                     branch: "507f1f77bcf86cd799439012",
  *                     commissionType: "VARIABLE",
- *                     commissionRange: "40k-60k",
+ *                     commissionRange: "40001-60000",
  *                     isActive: true
  *                   }
  *                 ]
@@ -223,9 +233,123 @@ const path = require('path');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('BROKER.CREATE'),
   logAction('CREATE_OR_ADD_BROKER', 'Broker'),
   brokerController.createOrAddBroker
+);
+
+/**
+ * @swagger
+ * /api/v1/brokers/verify-otp:
+ *   post:
+ *     summary: Verify broker OTP
+ *     description: Verify OTP received by broker during booking
+ *     tags: [Brokers]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - brokerId
+ *               - otp
+ *             properties:
+ *               brokerId:
+ *                 type: string
+ *                 format: objectId
+ *                 example: "507f1f77bcf86cd799439013"
+ *               otp:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "OTP verified successfully"
+ *                 verified:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid OTP or expired
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/verify-otp',
+  protect,
+  brokerController.verifyBrokerOTP
+);
+
+/**
+ * @swagger
+ * /api/v1/brokers/{brokerId}/toggle-otp:
+ *   post:
+ *     summary: Toggle OTP requirement for a broker
+ *     description: Enable or disable OTP requirement for a broker
+ *     tags: [Brokers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: objectId
+ *         description: ID of the broker to toggle OTP requirement
+ *     responses:
+ *       200:
+ *         description: OTP requirement toggled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     otp_required:
+ *                       type: boolean
+ *                       example: false
+ *                 message:
+ *                   type: string
+ *                   example: "OTP requirement disabled successfully"
+ *       400:
+ *         description: Invalid broker ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/:brokerId/toggle-otp',
+  protect,
+  requirePermission('BROKER.UPDATE'),
+  logAction('TOGGLE_OTP_REQUIREMENT', 'Broker'),
+  brokerController.toggleBrokerOTPRequirement
 );
 
 /**
@@ -272,7 +396,7 @@ router.post(
 router.get(
   '/branch/:branchId',
   protect,
-  roleAuthorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('BROKER.READ'),
   brokerController.getBrokersByBranch
 );
 
@@ -280,9 +404,9 @@ router.get(
  * @swagger
  * /api/v1/brokers/{brokerId}:
  *   put:
- *     summary: Update basic broker details
+ *     summary: Update broker details including branches
  *     description: |
- *       - Updates broker name, mobile, or email
+ *       - Updates broker name, mobile, email, OTP requirement, and branches
  *       - Requires Admin+ privileges
  *     tags: [Brokers]
  *     security:
@@ -312,6 +436,32 @@ router.get(
  *               email:
  *                 type: string
  *                 example: "updated.email@example.com"
+ *               otp_required:
+ *                 type: boolean
+ *                 example: false
+ *               branchesData:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     branch:
+ *                       type: string
+ *                       format: objectId
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     commissionType:
+ *                       type: string
+ *                       enum: [FIXED, VARIABLE]
+ *                       example: "VARIABLE"
+ *                     fixedCommission:
+ *                       type: number
+ *                       example: 1000
+ *                     commissionRange:
+ *                       type: string
+ *                       enum: ['1-20000', '20001-40000', '40001-60000', '60001']
+ *                       example: "40001-60000"
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
  *     responses:
  *       200:
  *         description: Broker details updated successfully
@@ -339,7 +489,7 @@ router.get(
 router.put(
   '/:brokerId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('BROKER.UPDATE'),
   logAction('UPDATE_BROKER', 'Broker'),
   brokerController.updateBroker
 );
@@ -395,7 +545,7 @@ router.put(
 router.delete(
   '/:brokerId/branch/:branchId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('BROKER.DELETE'),
   logAction('REMOVE_BROKER_BRANCH', 'Broker'),
   brokerController.removeBrokerBranch
 );
@@ -452,7 +602,7 @@ router.delete(
 router.get(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('BROKER.READ'),
   brokerController.getAllBrokers
 );
 
@@ -497,7 +647,7 @@ router.get(
 router.get(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('BROKER.READ'),
   brokerController.getBrokerById
 );
 
@@ -549,9 +699,55 @@ router.get(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('BROKER.DELETE'),
   logAction('DELETE_BROKER', 'Broker'),
   brokerController.deleteBroker
+);
+
+/**
+ * @swagger
+ * /api/v1/brokers/{brokerId}/send-otp:
+ *   post:
+ *     summary: Send OTP to broker's mobile
+ *     description: Send OTP to broker for verification during booking
+ *     tags: [Brokers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: objectId
+ *         description: ID of the broker to send OTP to
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully or not required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "OTP sent successfully"
+ *                 otpRequired:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid broker ID
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/:brokerId/send-otp',
+  protect,
+  brokerController.sendBrokerOTP
 );
 
 module.exports = router;

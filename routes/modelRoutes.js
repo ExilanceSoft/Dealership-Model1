@@ -3,6 +3,7 @@ const router = express.Router();
 const modelController = require('../controllers/modelController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -186,7 +187,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('MODEL.CREATE'),
   logAction('CREATE', 'Model'),
   modelController.createModel
 );
@@ -204,7 +205,12 @@ router.post(
  *         name: branch_id
  *         schema:
  *           type: string
- *         description: Filter by branch ID
+ *         description: Filter by branch ID (mutually exclusive with subdealer_id)
+ *       - in: query
+ *         name: subdealer_id
+ *         schema:
+ *           type: string
+ *         description: Filter by subdealer ID (mutually exclusive with branch_id)
  *       - in: query
  *         name: status
  *         schema:
@@ -243,16 +249,53 @@ router.post(
  *                             type: string
  *                           prices:
  *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 value:
+ *                                   type: number
+ *                                 header:
+ *                                   type: object
+ *                                   properties:
+ *                                     _id:
+ *                                       type: string
+ *                                     header_key:
+ *                                       type: string
+ *                                     category_key:
+ *                                       type: string
+ *                                 branch:
+ *                                   type: object
+ *                                   properties:
+ *                                     _id:
+ *                                       type: string
+ *                                     name:
+ *                                       type: string
+ *                                     city:
+ *                                       type: string
+ *                                 subdealer:
+ *                                   type: object
+ *                                   properties:
+ *                                     _id:
+ *                                       type: string
+ *                                     name:
+ *                                       type: string
+ *                                     location:
+ *                                       type: string
+ *                                     type:
+ *                                       type: string
+ *                                     discount:
+ *                                       type: number
  *                           createdAt:
  *                             type: string
  *       400:
- *         description: Invalid branch ID
+ *         description: Invalid parameters or mutually exclusive filters
  *       500:
  *         description: Server error
  */
 router.get(
   '/with-prices',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.getAllModelsWithPrices
 );
 /**
@@ -287,6 +330,7 @@ router.get(
 router.get(
   '/:modelId',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.getModelById
 );
 
@@ -332,7 +376,7 @@ router.get(
 router.put(
   '/:modelId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('MODEL.UPDATE'),
   logAction('UPDATE', 'Model'),
   modelController.updateModel
 );
@@ -378,7 +422,7 @@ router.put(
 router.put(
   '/:modelId/prices',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('MODEL.UPDATE'),
   logAction('UPDATE', 'ModelPrices'),
   modelController.updateModelPrices
 );
@@ -413,7 +457,7 @@ router.put(
 router.delete(
   '/:modelId',
   protect,
-  authorize('SUPERADMIN','SALES_EXECUTIVE'),
+  requirePermission('MODEL.DELETE'),
   logAction('DELETE', 'Model'),
   modelController.deleteModel
 );
@@ -474,6 +518,7 @@ router.delete(
 router.get(
   '/',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.getAllModels
 );
 
@@ -481,13 +526,30 @@ router.get(
  * @swagger
  * /api/v1/models/all/status:
  *   get:
- *     summary: Get all models with any status (Admin+)
+ *     summary: Get models with branch or subdealer filtering
+ *     description: |
+ *       Retrieves models with optional branch/subdealer filtering.
+ *       - Superadmins can see all or filter by specific branch/subdealer
+ *       - Regular users automatically see only their assigned branch/subdealer
  *     tags: [Models]
- *     security:
- *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: branch_id
+ *         schema:
+ *           type: string
+ *         description: |
+ *           Optional branch ID to filter by.
+ *           (Mutually exclusive with subdealer_id)
+ *       - in: query
+ *         name: subdealer_id
+ *         schema:
+ *           type: string
+ *         description: |
+ *           Optional subdealer ID to filter by.
+ *           (Mutually exclusive with branch_id)
  *     responses:
  *       200:
- *         description: List of all models
+ *         description: Successfully retrieved models
  *         content:
  *           application/json:
  *             schema:
@@ -495,28 +557,60 @@ router.get(
  *               properties:
  *                 status:
  *                   type: string
- *                   example: success
  *                 results:
  *                   type: number
- *                   example: 10
  *                 data:
  *                   type: object
  *                   properties:
  *                     models:
  *                       type: array
  *                       items:
- *                         $ref: '#/components/schemas/Model'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not Admin+)
+ *                         $ref: '#/components/schemas/ModelWithBranchOrSubdealerInfo'
+ *       400:
+ *         description: Invalid ID or mutually exclusive filters
  *       500:
  *         description: Server error
+ * 
+ * components:
+ *   schemas:
+ *     ModelWithBranchOrSubdealerInfo:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *         model_name:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [active, inactive]
+ *         prices:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               header_id:
+ *                 type: string
+ *               header_key:
+ *                 type: string
+ *               category_key:
+ *                 type: string
+ *               branch_id:
+ *                 type: string
+ *               branch_name:
+ *                 type: string
+ *               branch_city:
+ *                 type: string
+ *               subdealer_id:
+ *                 type: string
+ *               subdealer_name:
+ *                 type: string
+ *               subdealer_location:
+ *                 type: string
  */
 router.get(
   '/all/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('MODEL.READ'),
   modelController.getAllModelsStatus
 );
 
@@ -576,6 +670,7 @@ router.get(
 router.get(
   '/:modelId/with-prices',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.getModelWithPrices
 );
 
@@ -611,6 +706,7 @@ router.get(
 router.get(
   '/:modelId/details',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.getModelDetails
 );
 
@@ -646,7 +742,7 @@ router.get(
 router.delete(
   '/cleanup',
   protect,
-  authorize('SUPERADMIN','SALES_EXECUTIVE'),
+  requirePermission('MODEL.DELETE'),
   logAction('CLEANUP', 'Models'),
   modelController.cleanupModels
 );
@@ -696,6 +792,7 @@ router.delete(
 router.get(
   '/base-models',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.identifyBaseModels
 );
 
@@ -755,6 +852,7 @@ router.get(
 router.post(
   '/base-model',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.getBaseModelForSelectedModels
 );
 
@@ -823,9 +921,93 @@ router.post(
 router.put(
   '/:modelId/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('MODEL.UPDATE'),
   logAction('UPDATE_STATUS', 'Model'),
   modelController.updateModelStatus
+);
+
+/**
+ * @swagger
+ * /api/v1/models/{modelId}/prices:
+ *   put:
+ *     tags: [Models]
+ *     summary: Update model prices and discount
+ *     description: Update pricing information and discount for a specific model
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: modelId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 68749fff57f0087c3d50ea9b
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               prices:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     value:
+ *                       type: number
+ *                       example: 50000
+ *                     header_id:
+ *                       type: string
+ *                       example: 507f1f77bcf86cd799439012
+ *                     branch_id:
+ *                       type: string
+ *                       example: 507f1f77bcf86cd799439013
+ *               model_discount:
+ *                 type: number
+ *                 example: 1000
+ *     responses:
+ *       200:
+ *         description: Success response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     model:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         model_name:
+ *                           type: string
+ *                         prices:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               value:
+ *                                 type: number
+ *                               header_id:
+ *                                 type: string
+ *                               header_key:
+ *                                 type: string
+ *                               branch_id:
+ *                                 type: string
+ *                               branch_name:
+ *                                 type: string
+ */
+router.put(
+  '/:modelId/prices',
+  protect,
+  requirePermission('MODEL.UPDATE'),
+  logAction('UPDATE', 'ModelPrices'),
+  modelController.updateModelPrices
 );
 
 // Add this to modelRoutes.js
@@ -884,6 +1066,7 @@ router.put(
 router.get(
   '/csd',
   protect,
+  requirePermission('MODEL.READ'),
   modelController.getAllCSDModels
 );
 module.exports = router;

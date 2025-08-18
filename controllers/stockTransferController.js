@@ -36,53 +36,70 @@ const populateOptions = [
   }
 ];
 
-exports.createTransfer = async (req, res) => {
+exports.createTransfer = async (req, res, next) => {
+  // Remove transactions for standalone MongoDB
   try {
     const { fromBranch, toBranch, expectedDeliveryDate, items, notes } = req.body;
 
-    // 1. Update all vehicles without validation
-    const vehicleIds = items.map(i => i.vehicle);
-    await VehicleInward.updateMany(
-      { _id: { $in: vehicleIds } },
+    // Validation (same as before)
+    if (!fromBranch || !toBranch || !items?.length) {
+      throw new AppError('Missing required fields', 400);
+    }
+
+    // Verify branches
+    const branches = await Branch.find({ _id: { $in: [fromBranch, toBranch] } });
+    if (branches.length !== 2) {
+      throw new AppError('Branch not found', 404);
+    }
+
+    // Process vehicles
+    const vehicleIds = [...new Set(items.map(i => i.vehicle))];
+    if (vehicleIds.length !== items.length) {
+      throw new AppError('Duplicate vehicles', 400);
+    }
+
+    // Update vehicles
+    const updateResult = await VehicleInward.updateMany(
+      { _id: { $in: vehicleIds }, unloadLocation: fromBranch, status: 'in_stock' },
       { 
         unloadLocation: toBranch,
         status: 'in_stock',
-        lastUpdatedBy: req.user._id 
+        lastUpdatedBy: req.user._id
       }
     );
 
-    // 2. Create transfer record
-       const transfer = await StockTransfer.create({
+    if (updateResult.modifiedCount !== vehicleIds.length) {
+      throw new AppError('Some vehicles not available', 400);
+    }
+
+    // Create transfer record
+    const transfer = await StockTransfer.create({
       fromBranch,
       toBranch,
       expectedDeliveryDate: expectedDeliveryDate || new Date(),
       items: items.map(item => ({
         vehicle: item.vehicle,
         status: 'completed',
-        notes: item.notes || '',
+        notes: item.notes || ''
       })),
       initiatedBy: req.user._id,
       notes,
       transferDate: new Date(),
       status: 'completed',
-      challanStatus: 'pending' // Initialize as pending
+      challanStatus: 'pending'
     });
 
-    // 3. Return simple success response
-    res.status(200).json({
+    res.status(201).json({
       status: 'success',
-      message: 'Transfer completed successfully',
-      transferId: transfer._id,
-      vehiclesTransferred: vehicleIds
+      data: {
+        transferId: transfer._id,
+        vehicles: vehicleIds,
+        message: 'Transfer completed'
+      }
     });
 
   } catch (error) {
-    console.error('Transfer error:', error);
-    res.status(200).json({
-      status: 'success',
-      message: 'Request processed',
-      note: 'Some operations may not have completed fully'
-    });
+    next(error);
   }
 };
 exports.getAllTransfers = async (req, res, next) => {

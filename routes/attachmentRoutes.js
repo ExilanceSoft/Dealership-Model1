@@ -3,6 +3,7 @@ const router = express.Router();
 const attachmentController = require('../controllers/attachmentController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -192,7 +193,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('ATTACHMENTS.CREATE'),
   logAction('CREATE', 'Attachment'),
   attachmentController.uploadAttachmentFile,
   attachmentController.createAttachment
@@ -231,6 +232,7 @@ router.post('/',
  */
 router.get('/',
   protect,
+  requirePermission('ATTACHMENTS.READ'),
   attachmentController.getAllAttachments
 );
 
@@ -277,6 +279,7 @@ router.get('/',
  */
 router.get('/model/:modelId',
   protect,
+  requirePermission('ATTACHMENTS.READ'),
   attachmentController.getAttachmentsForModel
 );
 
@@ -321,6 +324,7 @@ router.get('/model/:modelId',
  */
 router.get('/:id',
   protect,
+  requirePermission('ATTACHMENTS.READ'),
   attachmentController.getAttachmentById
 );
 
@@ -403,7 +407,7 @@ router.get('/:id',
  */
 router.put('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('ATTACHMENTS.UPDATE'),
   logAction('UPDATE', 'Attachment'),
   attachmentController.uploadAttachmentFile,
   attachmentController.updateAttachment
@@ -439,7 +443,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('ATTACHMENTS.DELETE'),
   logAction('DELETE', 'Attachment'),
   attachmentController.deleteAttachment
 );
@@ -508,6 +512,7 @@ router.delete('/:id',
  */
 router.get('/whatsapp/:id',
   protect,
+  requirePermission('ATTACHMENTS.READ'),
   attachmentController.generateWhatsAppLink
 );
 
@@ -554,6 +559,7 @@ router.get('/whatsapp/:id',
  */
 router.post('/whatsapp/share',
   protect,
+  requirePermission('ATTACHMENTS.CREATE'),
   attachmentController.shareOnWhatsApp
 );
 

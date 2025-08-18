@@ -5,6 +5,7 @@ const financeLetterController = require('../controllers/financeLetterController'
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -54,6 +55,7 @@ const upload = multer({
  */
 router.get('/:bookingId', 
   protect,
+  requirePermission('FINANCE_LETTER.READ'),
   logAction('VIEW_FINANCE_LETTER', 'FINANCE_LETTER'),
   financeLetterController.getFinanceLetterByBooking
 );
@@ -117,6 +119,7 @@ router.get('/:bookingId',
  */
 router.post('/:bookingId/submit',
   protect,
+  requirePermission('FINANCE_LETTER.CREATE'),
   upload.single('financeLetter'),
   logAction('SUBMIT_FINANCE_LETTER', 'FINANCE_LETTER'),
   financeLetterController.submitFinanceLetter
@@ -191,7 +194,7 @@ router.post('/:bookingId/submit',
  */
 router.post('/:bookingId/verify',
   protect,
-  authorize('ADMIN', 'MANAGER'),
+  requirePermission('FINANCE_LETTER.UPDATE'),
   logAction('VERIFY_FINANCE_LETTER', 'FINANCE_LETTER'),
   financeLetterController.verifyFinanceLetterByBooking
 );
@@ -244,6 +247,7 @@ router.post('/:bookingId/verify',
  */
 router.get('/:bookingId/status',
   protect,
+  requirePermission('FINANCE_LETTER.READ'),
   logAction('VIEW_FINANCE_LETTER_STATUS', 'FINANCE_LETTER'),
   financeLetterController.getFinanceLetterStatusByBooking
 );
@@ -285,6 +289,7 @@ router.get('/:bookingId/status',
  */
 router.get('/:bookingId/download',
   protect,
+  requirePermission('FINANCE_LETTER.READ'),
   logAction('DOWNLOAD_FINANCE_LETTER', 'FINANCE_LETTER'),
   financeLetterController.downloadFinanceLetter
 );

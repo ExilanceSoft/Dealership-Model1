@@ -6,12 +6,32 @@ const { validateSalesExecutive } = require('../middlewares/validateSalesExecutiv
 const pdfController = require('../controllers/pdfController');
 const { logAction } = require('../middlewares/audit');
 const qrController = require('../controllers/qrController');
+const multer = require('multer');
 const Vehicle = require('../models/vehicleInwardModel');
-
-
+const { requirePermission } = require('../middlewares/requirePermission');
 // const { checkSalesExecutiveStatus } = require('../middlewares/userStatusMiddleware');
-
 // router.use(protect);
+const path = require('path');
+
+
+// Configure storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads/claims');
+    require('fs').mkdirSync(uploadDir, { recursive: true }); // Create folder if not exists
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { files: 6 } // Max 6 files
+});
+
 /**
  * @swagger
  * tags:
@@ -516,6 +536,7 @@ router.get('/insurance-status/:status', protect, bookingController.getBookingsBy
  */
 router.post('/', 
   protect, 
+  requirePermission('BOOKING.CREATE'),
   // validateSalesExecutive,
   // authorize('BOOKING', 'CREATE'), 
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),
@@ -590,7 +611,7 @@ router.post('/',
  */
 router.get('/stats', 
   protect,
-  // authorize('BOOKING', 'READ'),
+  requirePermission('BOOKING.READ'),
   bookingController.getBookingStats
 );
 /**
@@ -619,6 +640,7 @@ router.get('/stats',
  */
 router.get('/pending-updates', 
   protect, 
+  requirePermission('BOOKING.READ'),
   // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
   // authorize('BOOKING', 'APPROVE'),
   async (req, res) => {
@@ -724,8 +746,7 @@ router.get('/pending-updates',
  */
 router.get('/', 
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  // authorize('BOOKING', 'READ'),  // Changed to permission check
+  requirePermission('BOOKING.READ'),
   bookingController.getAllBookings
 );
 
@@ -762,6 +783,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect,
+  requirePermission('BOOKING.READ'),
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   // authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getBookingById
@@ -819,8 +841,7 @@ router.get('/:id',
  */
 router.put('/:id', 
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  // authorize('BOOKING', 'UPDATE'),  // Changed to permission check
+  requirePermission('BOOKING.UPDATE'),
   logAction('UPDATE', 'Booking'), 
   bookingController.updateBooking
 );
@@ -907,8 +928,7 @@ router.put('/:id',
  */
 router.put('/:id/approve', 
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  // authorize('BOOKING', 'APPROVE'),  // Specific approve permission
+  requirePermission('BOOKING.BOOKING_ACTIONS'),
   logAction('APPROVE', 'Booking'), 
   bookingController.approveBooking
 );
@@ -916,11 +936,17 @@ router.put('/:id/approve',
  * @swagger
  * /api/v1/bookings/{id}/allocate:
  *   put:
- *     summary: Allocate chassis number to a booking
+ *     summary: Allocate or update chassis number with optional claim
  *     description: |
- *       Assigns a 17-character chassis number to a booking and updates status to ALLOCATED.
- *       Requires ADMIN or MANAGER role.
+ *       - Allocates or updates chassis number
+ *       - Allows unlimited changes before allocation
+ *       - Allows only one change after allocation (requires reason)
+ *       - Optional claim with documents (max 6 files)
  *     tags: [Bookings]
+ *     consumes:
+ *       - multipart/form-data
+ *     produces:
+ *       - application/json
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -930,11 +956,16 @@ router.put('/:id/approve',
  *         schema:
  *           type: string
  *           format: objectId
- *         description: Booking ID to allocate chassis number to
+ *         description: Booking ID
+ *       - in: query
+ *         name: reason
+ *         schema:
+ *           type: string
+ *         description: Required when changing chassis after allocation
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -943,11 +974,29 @@ router.put('/:id/approve',
  *               chassisNumber:
  *                 type: string
  *                 pattern: '^[A-Z0-9]{17}$'
- *                 description: 17-character alphanumeric chassis number
  *                 example: "MA6FRE4521KM12345"
+ *               hasClaim:
+ *                 type: boolean
+ *                 default: false
+ *               priceClaim:
+ *                 type: number
+ *                 minimum: 0
+ *               description:
+ *                 type: string
+ *               documents:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       200:
- *         description: Chassis number allocated successfully
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       400:
+ *         description: Bad Request
  *         content:
  *           application/json:
  *             schema:
@@ -955,61 +1004,23 @@ router.put('/:id/approve',
  *               properties:
  *                 success:
  *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/Booking'
  *                 message:
  *                   type: string
- *                   example: "Chassis number allocated successfully"
- *       400:
- *         description: Invalid input (bad ID format, invalid chassis number, or duplicate)
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *             examples:
- *               invalidId:
+ *               missingReason:
  *                 value:
  *                   success: false
- *                   message: "Invalid booking ID format"
- *               invalidChassis:
- *                 value:
- *                   success: false
- *                   message: "Chassis number must be exactly 17 alphanumeric characters"
- *               duplicateChassis:
- *                 value:
- *                   success: false
- *                   message: "Chassis number already assigned to another booking"
- *       403:
- *         description: Unauthorized to allocate chassis numbers
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: "Unauthorized to allocate chassis numbers"
+ *                   message: "Reason is required for chassis number change after allocation"
  *       404:
- *         description: Booking not found or not in valid status
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               message: "Booking not found or not in a valid status for allocation"
+ *         description: Not Found
  *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Server Error
  */
-router.put('/:id/allocate', 
+router.put(
+  '/:id/allocate',
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  // authorize('BOOKING', 'ALLOCATE'),  // Specific approve permission
-  logAction('ALLOCATE', 'Booking'), 
+  requirePermission('BOOKING.BOOKING_ACTIONS'),
+  upload.array('documents'),
   bookingController.allocateChassisNumber
 );
 // Add this to your routes file
@@ -1153,6 +1164,7 @@ router.put('/:id/allocate',
  */
 router.get('/:id/form', 
   protect,
+  requirePermission('BOOKING.READ'),
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   // authorize('BOOKING', 'READ'),
   bookingController.getBookingForm
@@ -1213,6 +1225,7 @@ router.get('/:id/form',
  */
 router.post('/:id/reject', 
   protect,
+  requirePermission('BOOKING.BOOKING_ACTIONS'),
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   // authorize('BOOKING', 'APPROVE'),  // Uses same permission as approve
   logAction('REJECT', 'Booking'), 
@@ -1268,6 +1281,7 @@ router.post('/:id/reject',
  */
 router.post('/:id/complete', 
   protect,
+  requirePermission('BOOKING.BOOKING_ACTIONS'),
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   // authorize('BOOKING', 'COMPLETE'),  // Specific complete permission
   logAction('COMPLETE', 'Booking'), 
@@ -1309,8 +1323,7 @@ router.post('/:id/complete',
  */
 router.get('/chassis/:chassisNumber', 
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  // authorize('BOOKING', 'READ'),
+  requirePermission('BOOKING.READ'),
   bookingController.getBookingByChassisNumber
 );
 /**
@@ -1369,8 +1382,7 @@ router.get('/chassis/:chassisNumber',
  */
 router.post('/:id/cancel', 
   protect, 
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  // authorize('BOOKING', 'CANCEL'),  // Specific cancel permission
+  requirePermission('BOOKING.BOOKING_ACTIONS'),
   logAction('CANCEL', 'Booking'), 
   bookingController.cancelBooking
 );
@@ -1417,8 +1429,7 @@ router.post('/:id/cancel',
  */
 router.get('/:id/receipt', 
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  // authorize('BOOKING', 'READ'),  // Only need read access
+  requirePermission('BOOKING.READ'),
   pdfController.generateBookingReceipt
 );
 
@@ -1457,6 +1468,7 @@ router.get('/:id/receipt',
  */
 router.get('/:id/helmet-invoice', 
   protect,
+   requirePermission('BOOKING.READ'),
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   // authorize('BOOKING', 'READ'),  // Only need read access
   pdfController.generateHelmetInvoice
@@ -1503,8 +1515,7 @@ router.get('/:id/helmet-invoice',
  */
 router.get('/:id/accessories-challan', 
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
-  // authorize('BOOKING', 'READ'),  // Only need read access
+  requirePermission('BOOKING.READ'),
   pdfController.generateAccessoriesChallan
 );
 /**
@@ -1551,8 +1562,7 @@ router.get('/:id/accessories-challan',
  */
 router.get('/:id/documents',
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  // authorize('BOOKING', 'READ'),
+  requirePermission('BOOKING.READ'),
   bookingController.getBookingWithDocuments
 );
 
@@ -1599,8 +1609,7 @@ router.get('/:id/documents',
  */
 router.get('/:id/ready-for-delivery',
   protect,
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  // authorize('BOOKING', 'READ'),
+  requirePermission('BOOKING.READ'),
   bookingController.checkReadyForDelivery
 );
 /**
@@ -1640,8 +1649,7 @@ router.get('/:id/ready-for-delivery',
  */
 router.get('/:id/qr-code', 
   protect, 
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  // authorize('BOOKING', 'READ'),
+  requirePermission('BOOKING.READ'),
   async (req, res) => {
     try {
       const qrCode = await qrController.generateQRCode(req.params.id);
@@ -1828,8 +1836,7 @@ router.post('/:id/submit-update',
  */
 router.post('/:id/approve-update', 
   protect, 
-  // authorize('SUPERADMIN','SALES_EXECUTIVE'), 
-  // authorize('BOOKING', 'APPROVE'),
+  requirePermission('BOOKING.BOOKING_ACTIONS'),
   logAction('APPROVE_UPDATE', 'Booking'),
   async (req, res) => {
     try {
@@ -1889,8 +1896,8 @@ router.post('/:id/approve-update',
  *         description: Server error
  */
 router.post('/:id/reject-update', 
-  protect, 
-  // authorize('BOOKING', 'APPROVE'),
+  protect,
+  requirePermission('BOOKING.CREATE'),
   logAction('REJECT_UPDATE', 'Booking'),
   async (req, res) => {
     try {
@@ -2027,7 +2034,7 @@ router.get('/:id/update-form', bookingController.getUpdateForm);
  */
 router.get('/:id/pending-update', 
   protect, 
-  // authorize('BOOKING', 'APPROVE'),
+  requirePermission('BOOKING.READ'),
   async (req, res) => {
     try {
       const pendingUpdate = await qrController.getPendingUpdateRequestById(req.params.id);
@@ -2050,6 +2057,19 @@ router.get('/:id/pending-update',
   }
 );
 
+router.post('/verify-broker-otp', protect, async (req, res) => {
+    const { otp } = req.body;
+    if (!otp) return res.status(400).json({ success: false, message: 'OTP is required' });
 
+    if (req.session?.broker_otp && req.session?.broker_otp === otp) {
+        // Clear session OTP after verification
+        const brokerId = req.session.broker_id;
+        delete req.session.broker_otp;
+        delete req.session.broker_id;
 
+        return res.status(200).json({ success: true, message: 'OTP verified successfully', broker_id: brokerId });
+    }
+
+    return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+});
 module.exports = router;

@@ -6,6 +6,7 @@ const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 // Configure multer for file uploads
 const insuranceUploadPath = path.join(__dirname, '../uploads/insurance');
@@ -133,7 +134,7 @@ router.route('/')
    */
   .get(
     protect,
-    authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+    requirePermission('INSURANCE.READ'),
     insuranceController.getAllInsurances
   )
   
@@ -205,7 +206,7 @@ router.route('/')
    */
   .post(
     protect,
-    authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+    requirePermission('INSURANCE.CREATE'),
     upload.fields([
       { name: 'document', maxCount: 1 },
       { name: 'document1', maxCount: 1 },
@@ -258,7 +259,7 @@ router.route('/')
 router.get(
   '/status/:status',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('INSURANCE.READ'),
   logAction('READ', 'Insurance'),
   insuranceController.getInsuranceByStatus
 );
@@ -302,7 +303,7 @@ router.route('/:id')
    */
   .get(
     protect,
-    authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+    requirePermission('INSURANCE.READ'),
     logAction('READ', 'Insurance'),
     insuranceController.getInsuranceById
   )
@@ -375,7 +376,7 @@ router.route('/:id')
    */
   .put(
     protect,
-    authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+    requirePermission('INSURANCE.UPDATE'),
     upload.fields([
       { name: 'document', maxCount: 1 },
       { name: 'document1', maxCount: 1 },
@@ -413,7 +414,7 @@ router.route('/:id')
    */
   .delete(
     protect,
-    authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+    requirePermission('INSURANCE.DELETE'),
     logAction('DELETE', 'Insurance'),
     insuranceController.deleteInsurance
   );
@@ -485,7 +486,7 @@ router.route('/:id')
 router.put(
   '/booking/:bookingId',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('INSURANCE.UPDATE'),
   upload.fields([
     { name: 'document', maxCount: 1 },
     { name: 'document1', maxCount: 1 },

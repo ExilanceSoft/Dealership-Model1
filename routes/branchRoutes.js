@@ -6,6 +6,7 @@ const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
 // const validateSalesExecutive  = require('../middlewares/validateSalesExecutive');
 // const bookingController = require('../controllers/bookingController');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 
 // Configure multer for file uploads
@@ -177,7 +178,7 @@ const upload = multer({
  */
 router.post('/',
   protect,
-  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('BRANCH.CREATE'),
   upload.fields([{ name: 'logo1', maxCount: 1 }, { name: 'logo2', maxCount: 1 }]),
   logAction('CREATE', 'Branch'), 
   branchController.createBranch
@@ -241,7 +242,7 @@ router.post('/',
  */
 router.get('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
+  requirePermission('BRANCH.READ'), 
   branchController.getBranches
 );
 
@@ -279,7 +280,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
+  requirePermission('BRANCH.READ'), 
   branchController.getBranch
 );
 
@@ -350,7 +351,7 @@ router.get('/:id',
  */
 router.put('/:id', 
   protect, 
-  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('BRANCH.UPDATE'), 
   upload.fields([{ name: 'logo1', maxCount: 1 }, { name: 'logo2', maxCount: 1 }]),
   logAction('UPDATE', 'Branch'), 
   branchController.updateBranch
@@ -403,7 +404,7 @@ router.put('/:id',
  */
 router.patch('/:id/status', 
   protect, 
-  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('BRANCH.UPDATE'), 
   logAction('UPDATE', 'Branch'), 
   branchController.updateBranchStatus
 );
@@ -442,7 +443,7 @@ router.patch('/:id/status',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('BRANCH.DELETE'), 
   logAction('DELETE', 'Branch'), 
   branchController.deleteBranch
 );
@@ -498,7 +499,7 @@ router.delete('/:id',
  */
 router.post('/:id/opening-balance', 
   protect, 
-  authorize('SUPERADMIN'), 
+  requirePermission('BRANCH.CREATE'), 
   logAction('CREATE', 'Branch Opening Balance'), 
   branchController.addOpeningBalance
 );
@@ -555,7 +556,7 @@ router.post('/:id/opening-balance',
  */
 router.patch('/:id/opening-balance', 
   protect, 
-  authorize('SUPERADMIN'), 
+  requirePermission('BRANCH.UPDATE'), 
   logAction('UPDATE', 'Branch Opening Balance'), 
   branchController.updateOpeningBalance
 );
@@ -604,7 +605,7 @@ router.patch('/:id/opening-balance',
  */
 router.delete('/:id/opening-balance', 
   protect, 
-  authorize('SUPERADMIN'), 
+  requirePermission('BRANCH.DELETE'), 
   logAction('DELETE', 'Branch Opening Balance'), 
   branchController.resetOpeningBalance
 );

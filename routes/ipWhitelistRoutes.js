@@ -3,6 +3,7 @@ const router = express.Router();
 const ipController = require('../controllers/ipWhitelistController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -40,7 +41,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
+  requirePermission('IP_WHITELIST.CREATE'),
   logAction('CREATE', 'IP Whitelist'), 
   ipController.addIP
 );
@@ -59,7 +60,7 @@ router.post('/',
  */
 router.get('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
+  requirePermission('IP_WHITELIST.READ'), 
   ipController.getIPs
 );
 
@@ -83,7 +84,7 @@ router.get('/',
  */
 router.delete('/:id', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'), 
+  requirePermission('IP_WHITELIST.DELETE'), 
   logAction('DELETE', 'IP Whitelist'), 
   ipController.removeIP
 );

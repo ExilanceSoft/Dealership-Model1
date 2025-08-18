@@ -3,6 +3,7 @@ const router = express.Router();
 const insuranceProviderController = require('../controllers/insuranceProviderController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -81,7 +82,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('INSURANCE_PROVIDER.CREATE'),
   logAction('CREATE_INSURANCE_PROVIDER'),
   insuranceProviderController.createInsuranceProvider
 );
@@ -146,6 +147,7 @@ router.post(
 router.get(
   '/',
   protect,
+  requirePermission('INSURANCE_PROVIDER.READ'),
   insuranceProviderController.getInsuranceProviders
 );
 
@@ -181,6 +183,7 @@ router.get(
 router.get(
   '/:id',
   protect,
+  requirePermission('INSURANCE_PROVIDER.READ'),
   insuranceProviderController.getInsuranceProvider
 );
 
@@ -226,7 +229,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('INSURANCE_PROVIDER.UPDATE'),
   logAction('UPDATE_INSURANCE_PROVIDER'),
   insuranceProviderController.updateInsuranceProvider
 );
@@ -278,7 +281,7 @@ router.put(
 router.patch(
   '/:id/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('INSURANCE_PROVIDER.UPDATE'),
   logAction('UPDATE_INSURANCE_PROVIDER_STATUS'),
   insuranceProviderController.updateInsuranceProviderStatus
 );
@@ -313,7 +316,7 @@ router.patch(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN','SALES_EXECUTIVE'),
+  requirePermission('INSURANCE_PROVIDER.DELETE'),
   logAction('DELETE_INSURANCE_PROVIDER'),
   insuranceProviderController.deleteInsuranceProvider
 );

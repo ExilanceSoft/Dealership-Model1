@@ -62,7 +62,7 @@ const { requirePermission } = require('../middlewares/requirePermission');
  * @swagger
  * /api/v1/users:
  *   get:
- *     summary: Get all users (Admin+)
+ *     summary: Get all users
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -84,7 +84,7 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *       401:
  *         description: Unauthorized (missing or invalid token)
  *       403:
- *         description: Forbidden (not Admin+)
+ *         description: Forbidden (not authorized to view these users)
  *       500:
  *         description: Internal server error
  */
@@ -94,7 +94,72 @@ router.get(
   requirePermission('USER.READ'),
   userController.getUsers
 );
-
+/**
+ * @swagger
+ * /api/v1/users/assign-permissions:
+ *   post:
+ *     summary: Assign permissions directly to a user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - permissionIds
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: The ID of the user to assign permissions to
+ *                 example: "60a1b2c3d4e5f6a7b8c9d0e1"
+ *               permissionIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of permission IDs to assign
+ *                 example: ["60a1b2c3d4e5f6a7b8c9d0e2", "60a1b2c3d4e5f6a7b8c9d0e3"]
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Optional expiration date for the permissions
+ *                 example: "2023-12-31T23:59:59Z"
+ *     responses:
+ *       200:
+ *         description: Permissions assigned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "User permissions assigned successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Bad request (missing fields or invalid permission IDs)
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (not Admin+)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/assign-permissions', 
+  protect, 
+  requirePermission('USER.CREATE'), 
+  logAction('ASSIGN_USER_PERMISSIONS', 'User'), 
+  userController.assignUserPermissions
+);
 
 /**
  * @swagger
@@ -337,72 +402,7 @@ router.get('/:id/permissions',
   userController.getUserPermissions
 );
 
-/**
- * @swagger
- * /api/v1/users/assign-permissions:
- *   post:
- *     summary: Assign permissions directly to a user
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - userId
- *               - permissionIds
- *             properties:
- *               userId:
- *                 type: string
- *                 description: The ID of the user to assign permissions to
- *                 example: "60a1b2c3d4e5f6a7b8c9d0e1"
- *               permissionIds:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of permission IDs to assign
- *                 example: ["60a1b2c3d4e5f6a7b8c9d0e2", "60a1b2c3d4e5f6a7b8c9d0e3"]
- *               expiresAt:
- *                 type: string
- *                 format: date-time
- *                 description: Optional expiration date for the permissions
- *                 example: "2023-12-31T23:59:59Z"
- *     responses:
- *       200:
- *         description: Permissions assigned successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "User permissions assigned successfully"
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       400:
- *         description: Bad request (missing fields or invalid permission IDs)
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: Forbidden (not Admin+)
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- */
-router.post('/assign-permissions', 
-  protect, 
-  requirePermission('USER.CREATE'), 
-  logAction('ASSIGN_USER_PERMISSIONS', 'User'), 
-  userController.assignUserPermissions
-);
+
 
 /**
  * @swagger
@@ -676,4 +676,3 @@ router.post(
 
 module.exports = router;
 
-module.exports = router;

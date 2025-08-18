@@ -19,239 +19,115 @@ const superAdminExists = async () => {
     return false;
   }
 };
-
+// authController.js - Add this debug endpoint
+exports.verifyToken = (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ success: false, message: 'No token' });
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ success: true, decoded });
+  } catch (err) {
+    res.status(401).json({ success: false, message: 'Invalid token', error: err.message });
+  }
+};
+// In authController.js - Complete register function with permissions handling
 exports.register = async (req, res) => {
   try {
-    const { name, email, mobile, roleId, branch, discount } = req.body;
+    const { name, email, mobile, roleId, branch, subdealer, discount, permissions } = req.body;
 
-    // Validate required fields
+    // 1. Validate basics
     if (!name || !email || !mobile) {
-      return res.status(400).json({
-        success: false,
-        message: 'Name, email and mobile are required'
-      });
+      return res.status(400).json({ success: false, message: 'Name, email and mobile are required' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
+    }
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return res.status(400).json({ success: false, message: 'Invalid mobile number' });
+    }
+    if (await User.findOne({ $or: [{ mobile }, { email }] })) {
+      return res.status(400).json({ success: false, message: 'User with this mobile or email already exists' });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid email format'
-      });
+    // 2. Validate role
+    if (!roleId) return res.status(400).json({ success: false, message: 'Role ID is required' });
+    const roleToAssign = await Role.findOne({ _id: roleId, is_active: true }).populate('permissions');
+    if (!roleToAssign) return res.status(404).json({ success: false, message: 'Role not found or inactive' });
+
+    // 3. Validate branch/subdealer relationship
+    if (branch && subdealer) {
+      return res.status(400).json({ success: false, message: 'User cannot be associated with both branch and subdealer' });
     }
 
-    // Validate mobile format
-    const mobileRegex = /^[6-9]\d{9}$/;
-    if (!mobileRegex.test(mobile)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid mobile number'
-      });
-    }
-
-    // Check if user exists
-    const existingUser = await User.findOne({ $or: [{ mobile }, { email }] });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'User with this mobile or email already exists'
-      });
-    }
-
-    // Check if SuperAdmin exists
-    const hasExistingSuperAdmin = await superAdminExists();
-    let roleToAssign;
-    let requestingUser = null;
-
-    if (!hasExistingSuperAdmin) {
-      // First user becomes SuperAdmin
-      roleToAssign = await Role.findOneAndUpdate(
-        { name: 'SUPERADMIN' },
-        {
-          name: 'SUPERADMIN',
-          description: 'System Administrator with full access',
-          isSuperAdmin: true,
-          isSystemRole: true,
-          is_active: true,
-          createdBy: null // System-created
-        },
-        { upsert: true, new: true }
-      );
-    } else {
-      // Validate authorization for subsequent registrations
-      const authHeader = req.headers['authorization'];
-      if (!authHeader) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header missing'
-        });
-      }
-
-      const token = authHeader.split(' ')[1];
-      if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Token not provided'
-        });
-      }
-
-      // Verify JWT token
-      let decoded;
-      try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-      } catch (err) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid or expired token'
-        });
-      }
-
-      // Get requesting user
-      requestingUser = await User.findById(decoded.id).populate('roles');
-      if (!requestingUser || requestingUser.status !== 'ACTIVE') {
-        return res.status(401).json({
-          success: false,
-          message: 'User not found or inactive'
-        });
-      }
-
-      // Validate roleId is provided
-      if (!roleId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Role ID is required'
-        });
-      }
-
-      // Get and validate the role to assign
-      roleToAssign = await Role.findOne({
-        _id: roleId,
-        is_active: true
-      });
-      if (!roleToAssign) {
-        return res.status(404).json({
-          success: false,
-          message: 'Role not found or inactive'
-        });
-      }
-
-      // Check permissions
-      const isSuperAdmin = requestingUser.roles.some(role => role.isSuperAdmin);
-      const canRegisterUsers = await requestingUser.hasPermission('USER', 'CREATE');
-
-      if (!isSuperAdmin && !canRegisterUsers) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to register users'
-        });
-      }
-
-      // Only SuperAdmin can create another SuperAdmin
-      if (roleToAssign.isSuperAdmin && !isSuperAdmin) {
-        return res.status(403).json({
-          success: false,
-          message: 'Only SuperAdmin can create another SuperAdmin'
-        });
-      }
-
-      // Validate discount if provided
-      if (discount !== undefined) {
-        if (typeof discount !== 'number' || discount < 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'Discount must be a positive number'
-          });
-        }
-
-        if (discount > 0 && roleToAssign.name !== 'SALES_EXECUTIVE') {
-          return res.status(400).json({
-            success: false,
-            message: 'Discount can only be assigned to SALES_EXECUTIVE users'
-          });
-        }
-      }
-    }
-
-    // Prepare user data
+    // 4. Create user
     const userData = {
       name,
       email,
       mobile,
       roles: [roleToAssign._id],
-      branch: !roleToAssign.isSuperAdmin ? branch : undefined,
-      createdBy: requestingUser ? requestingUser._id : null,
       status: 'ACTIVE'
     };
 
-    // Add discount if applicable
-    if (discount !== undefined && discount > 0) {
-      userData.discount = discount;
+    // Set either branch or subdealer based on role
+    if (!roleToAssign.isSuperAdmin) {
+      if (branch) {
+        userData.branch = branch;
+      } else if (subdealer) {
+        userData.subdealer = subdealer;
+      } else {
+        return res.status(400).json({ success: false, message: 'Either branch or subdealer is required for non-superadmin roles' });
+      }
     }
 
-    // Create user with validation
-    const user = await User.create(userData);
+    if (discount !== undefined && discount > 0) userData.discount = discount;
+    const newUser = await User.create(userData);
 
-    // Log the action if performed by an existing user
-    if (requestingUser) {
-      await AuditLog.create({
-        action: 'CREATE_USER',
-        entity: 'User',
-        entityId: user._id,
-        user: requestingUser._id,
-        ip: req.ip || req.connection.remoteAddress,
-        details: {
-          name: user.name,
-          email: user.email,
-          role: roleToAssign.name,
-          ...(discount && { discount })
-        }
-      });
+    // 5. Handle permissions if provided
+    if (permissions && Array.isArray(permissions) && permissions.length > 0) {
+      const Permission = require('../models/Permission');
+      const permissionDocs = await Permission.find({ _id: { $in: permissions }, is_active: true });
+      if (permissionDocs.length !== permissions.length) {
+        return res.status(400).json({ success: false, message: 'One or more permissions not found or inactive' });
+      }
+
+      const grantedById = req.user ? req.user._id : newUser._id;
+      newUser.permissions = permissions.map(pid => ({
+        permission: pid,
+        grantedBy: grantedById,
+        expiresAt: null
+      }));
+      await newUser.save();
     }
 
-    // Generate and send OTP
+    // 6. OTP handling
     const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-
-    await User.findByIdAndUpdate(user._id, {
-      otp,
-      otpExpires
-    });
-
+    await User.findByIdAndUpdate(newUser._id, { otp, otpExpires: new Date(Date.now() + 10 * 60 * 1000) });
     await sendOTPSMS(mobile, otp);
 
-    // Return success response
     res.status(201).json({
       success: true,
       message: 'User registered successfully. OTP sent for verification.',
-      isSuperAdmin: !hasExistingSuperAdmin,
       data: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        mobile: newUser.mobile,
         role: roleToAssign.name,
-        ...(discount && { discount })
+        branch: newUser.branch,
+        subdealer: newUser.subdealer,
+        directPermissions: permissions?.length || 0,
+        rolePermissions: roleToAssign.permissions.length
       }
     });
 
   } catch (err) {
     console.error('Registration error:', err);
-    
-    let errorMessage = 'Registration failed';
-    if (err.name === 'ValidationError') {
-      errorMessage = Object.values(err.errors).map(val => val.message).join(', ');
-    } else if (err.message.includes('role')) {
-      errorMessage = err.message;
-    }
-
-    res.status(500).json({
-      success: false,
-      message: errorMessage,
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+    res.status(500).json({ success: false, message: err.message || 'Registration failed' });
   }
 };
+
+
 
 exports.requestOTP = async (req, res) => {
   try {
@@ -296,6 +172,7 @@ exports.requestOTP = async (req, res) => {
   }
 };
 
+// ...existing code...
 exports.verifyOTP = async (req, res) => {
   try {
     const { mobile, otp } = req.body;
@@ -313,7 +190,8 @@ exports.verifyOTP = async (req, res) => {
       otpExpires: { $gt: Date.now() } 
     }).populate({
       path: 'roles',
-      match: { is_active: true }
+      match: { is_active: true },
+      populate: { path: 'permissions' }
     });
 
     if (!user) {
@@ -324,7 +202,7 @@ exports.verifyOTP = async (req, res) => {
     }
 
     // Validate each role is active before saving user
-    const roles = await Role.find({ _id: { $in: user.roles } });
+    const roles = user.roles;
     const invalidRole = roles.find(role => !role.is_active);
     if (invalidRole) {
       return res.status(400).json({
@@ -343,6 +221,16 @@ exports.verifyOTP = async (req, res) => {
     }
 
     await user.save({ validateBeforeSave: false });
+
+    // Get all permissions for the user
+    const allPermissions = await user.getAllPermissions();
+    
+    // Format permissions for frontend
+    const formattedPermissions = allPermissions.map(p => ({
+      module: p.module,
+      action: p.action,
+      name: p.name
+    }));
 
     const token = jwt.sign(
       { 
@@ -370,18 +258,25 @@ exports.verifyOTP = async (req, res) => {
         name: user.name,
         email: user.email,
         mobile: user.mobile,
-        roles: roles
+        roles: roles.map(role => ({
+          _id: role._id,
+          name: role.name,
+          description: role.description,
+          isSuperAdmin: role.isSuperAdmin,
+          is_active: role.is_active,
+          permissions: role.permissions
+        })),
+        permissions: formattedPermissions 
       }
     });
   } catch (err) {
     console.error('Error in OTP verification:', err);
     res.status(500).json({ 
       success: false, 
-      message: 'Error verifying OTP' 
+      message: 'Error verifying OTP'
     });
   }
 };
-
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)

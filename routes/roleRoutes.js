@@ -26,6 +26,7 @@ const router = express.Router();
 
 const roleController = require('../controllers/roleController');
 const { protect } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -71,7 +72,9 @@ const { protect } = require('../middlewares/auth');
  *       500:
  *         description: Server error
  */
-router.get('/', protect, roleController.getAllRoles);
+router.get('/', protect, 
+    requirePermission('ROLE.READ'),
+    roleController.getAllRoles);
 
 /**
  * @swagger
@@ -107,7 +110,10 @@ router.get('/', protect, roleController.getAllRoles);
  *       500:
  *         description: Server error
  */
-router.get('/:id', protect, roleController.getRoleById);
+router.get('/:id',
+    protect,
+    requirePermission('ROLE.READ'),
+    roleController.getRoleById);
 
 /**
  * @swagger
@@ -166,7 +172,10 @@ router.get('/:id', protect, roleController.getRoleById);
  *       500:
  *         description: Server error
  */
-router.post('/', protect, roleController.createRole);
+router.post('/', 
+    protect,
+    requirePermission('ROLE.CREATE'),
+    roleController.createRole);
 
 /**
  * @swagger
@@ -224,8 +233,12 @@ router.post('/', protect, roleController.createRole);
  *       500:
  *         description: Server error
  */
-router.put('/:id', protect, roleController.updateRole);
-router.patch('/:id', protect, roleController.updateRole);
+router.put('/:id', protect,
+    requirePermission('ROLE.UPDATE'),
+    roleController.updateRole);
+router.patch('/:id', protect,
+    requirePermission('ROLE.UPDATE'),
+    roleController.updateRole);
 
 /**
  * @swagger
@@ -263,7 +276,10 @@ router.patch('/:id', protect, roleController.updateRole);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', protect, roleController.deleteRole);
+router.delete('/:id',
+     protect,
+     requirePermission('ROLE.DELETE'),
+     roleController.deleteRole);
 
 /**
  * @swagger

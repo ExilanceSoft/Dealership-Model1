@@ -3,6 +3,7 @@ const router = express.Router();
 const rtoController = require("../controllers/rtoProcess");
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -126,7 +127,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   "/",
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('RTO_PROCESS.CREATE'),
   logAction('CREATE', 'RtoProcess'),
   rtoController.createRtoProcess
 );
@@ -152,7 +153,10 @@ router.post(
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/application-numbers', rtoController.getRtoProcessesWithApplicationNumbers);
+router.get('/application-numbers',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+  rtoController.getRtoProcessesWithApplicationNumbers);
 
 
 /**
@@ -176,7 +180,10 @@ router.get('/application-numbers', rtoController.getRtoProcessesWithApplicationN
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/rtotaxpending', rtoController.getRtoProcessesWithRtoTaxPending);
+router.get('/rtotaxpending',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+   rtoController.getRtoProcessesWithRtoTaxPending);
 
 /**
  * @swagger
@@ -212,7 +219,10 @@ router.get('/rtotaxpending', rtoController.getRtoProcessesWithRtoTaxPending);
  *                     rcConfirmation:
  *                       $ref: '#/components/schemas/StatBlock'
  */
-router.get('/stats', rtoController.getRtoProcessStats);
+router.get('/stats',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+  rtoController.getRtoProcessStats);
 
 /**
  * @swagger
@@ -235,7 +245,10 @@ router.get('/stats', rtoController.getRtoProcessStats);
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/rtotaxcompleted', rtoController.getRtoProcessesWithRtoTaxCompleted);
+router.get('/rtotaxcompleted',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+   rtoController.getRtoProcessesWithRtoTaxCompleted);
 
 /**
  * @swagger
@@ -258,7 +271,10 @@ router.get('/rtotaxcompleted', rtoController.getRtoProcessesWithRtoTaxCompleted)
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/rtopaperapproved', rtoController.getRtoProcessesWithRtoPaperStatus);
+router.get('/rtopaperapproved',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+   rtoController.getRtoProcessesWithRtoPaperStatus);
 
 /**
  * @swagger
@@ -281,7 +297,10 @@ router.get('/rtopaperapproved', rtoController.getRtoProcessesWithRtoPaperStatus)
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/rtopaperspending', rtoController.getRtoProcessesWithRtoPaperStatusAsNotSubmitted);
+router.get('/rtopaperspending',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+  rtoController.getRtoProcessesWithRtoPaperStatusAsNotSubmitted);
 
 /**
  * @swagger
@@ -304,7 +323,10 @@ router.get('/rtopaperspending', rtoController.getRtoProcessesWithRtoPaperStatusA
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/hsrpordered', rtoController.getRtoProcessesWithHsrpOrderedStatus);
+router.get('/hsrpordered', 
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+  rtoController.getRtoProcessesWithHsrpOrderedStatus);
 
 /**
  * @swagger
@@ -327,7 +349,10 @@ router.get('/hsrpordered', rtoController.getRtoProcessesWithHsrpOrderedStatus);
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/hsrpinstallation', rtoController.getRtoProcessesWithHsrpInstallationStatus);
+router.get('/hsrpinstallation',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+  rtoController.getRtoProcessesWithHsrpInstallationStatus);
 
 /**
  * @swagger
@@ -350,7 +375,10 @@ router.get('/hsrpinstallation', rtoController.getRtoProcessesWithHsrpInstallatio
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/hsrporderedpending', rtoController.getRtoProcessesWithHsrpOrderedStatusIsfalse);
+router.get('/hsrporderedpending',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+   rtoController.getRtoProcessesWithHsrpOrderedStatusIsfalse);
 
 
 /**
@@ -374,7 +402,10 @@ router.get('/hsrporderedpending', rtoController.getRtoProcessesWithHsrpOrderedSt
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/rcpending', rtoController.getRtoProcessesWithRcConfirmationStatusIsfalse);
+router.get('/rcpending',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+   rtoController.getRtoProcessesWithRcConfirmationStatusIsfalse);
 
 /**
  * @swagger
@@ -397,7 +428,10 @@ router.get('/rcpending', rtoController.getRtoProcessesWithRcConfirmationStatusIs
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/rccompleted', rtoController.getRtoProcessesWithRcConfirmationStatus);
+router.get('/rccompleted',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+   rtoController.getRtoProcessesWithRcConfirmationStatus);
 
 
 /**
@@ -421,7 +455,10 @@ router.get('/rccompleted', rtoController.getRtoProcessesWithRcConfirmationStatus
  *                   items:
  *                     $ref: '#/components/schemas/RtoProcess'
  */
-router.get('/hsrpinstallationpending', rtoController.getRtoProcessesWithHsrpInstallationStatusIsfalse);
+router.get('/hsrpinstallationpending',
+  protect,
+  requirePermission('RTO_PROCESS.READ'),
+   rtoController.getRtoProcessesWithHsrpInstallationStatusIsfalse);
 
 
 /**
@@ -465,7 +502,7 @@ router.get('/hsrpinstallationpending', rtoController.getRtoProcessesWithHsrpInst
 router.get(
   "/",
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('RTO_PROCESS.READ'),
   rtoController.getAllRtoProcesses
 );
 
@@ -494,7 +531,7 @@ router.get(
 router.get(
   "/:id",
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('RTO_PROCESS.READ'),
   rtoController.getRtoProcessById
 );
 
@@ -549,7 +586,7 @@ router.get(
 router.patch(
   "/:id",
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('RTO_PROCESS.UPDATE'),
   logAction('UPDATE', 'RtoProcess'),
   rtoController.updateRtoProcess
 );
@@ -618,7 +655,7 @@ router.patch(
 router.put(
   '/update-rto-details',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('RTO_PROCESS.UPDATE'),
   logAction('BULK_UPDATE', 'RtoProcess'),
   rtoController.updateMultipleRtoProcessesTaxDetails
 );
@@ -646,7 +683,7 @@ router.put(
 router.delete(
   "/:id",
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('RTO_PROCESS.DELETE'),
   logAction('DELETE', 'RtoProcess'),
   rtoController.deleteRtoProcess
 );

@@ -3,6 +3,8 @@ const router = express.Router();
 const contraVoucherController = require('../controllers/contraController');
 const multer = require("multer");
 const path = require("path");
+const { protect, authorize } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -10,7 +12,6 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024 // 100MB limit per file
   },
 });
-
 
 /**
  * @swagger
@@ -29,7 +30,6 @@ const upload = multer({
  *               - recipientName
  *               - contraType
  *               - amount
- *               - bankLocation
  *               - branch
  *             properties:
  *               voucherType:
@@ -40,6 +40,7 @@ const upload = multer({
  *                 type: string
  *               contraType:
  *                 type: string
+ *                 enum: [cash_at_bank, cash_at_home]
  *               amount:
  *                 type: number
  *                 minimum: 0
@@ -47,6 +48,7 @@ const upload = multer({
  *                 type: string
  *               bankLocation:
  *                 type: string
+ *                 description: Required only when contraType is cash_at_bank
  *               status:
  *                 type: string
  *                 enum: [pending, approved, rejected]
@@ -57,8 +59,10 @@ const upload = multer({
  *       201:
  *         description: Contra voucher created successfully
  */
-router.post('/', contraVoucherController.createContraVoucher);
-
+router.post('/',
+  protect,
+  requirePermission('CONTRA_VOUCHER.CREATE'),
+  contraVoucherController.createContraVoucher);
 
 /**
  * @swagger
@@ -77,6 +81,11 @@ router.post('/', contraVoucherController.createContraVoucher);
  *         schema:
  *           type: string
  *           enum: [credit, debit]
+ *       - in: query
+ *         name: contraType
+ *         schema:
+ *           type: string
+ *           enum: [cash_at_bank, cash_at_home]
  *       - in: query
  *         name: startDate
  *         schema:
@@ -99,8 +108,10 @@ router.post('/', contraVoucherController.createContraVoucher);
  *       200:
  *         description: List of all contra vouchers
  */
-router.get('/', contraVoucherController.getAllContraVouchers);
-
+router.get('/',
+  protect,
+  requirePermission('CONTRA_VOUCHER.READ'),
+  contraVoucherController.getAllContraVouchers);
 
 /**
  * @swagger
@@ -119,8 +130,10 @@ router.get('/', contraVoucherController.getAllContraVouchers);
  *       200:
  *         description: List of contra vouchers filtered by status
  */
-router.get('/status/:status', contraVoucherController.getContraVouchersByStatus);
-
+router.get('/status/:status',
+  protect,
+  requirePermission('CONTRA_VOUCHER.READ'),
+   contraVoucherController.getContraVouchersByStatus);
 
 /**
  * @swagger
@@ -140,8 +153,10 @@ router.get('/status/:status', contraVoucherController.getContraVouchersByStatus)
  *       404:
  *         description: Contra voucher not found
  */
-router.get('/:id', contraVoucherController.getContraVoucherById);
-
+router.get('/:id',
+  protect,
+  requirePermission('CONTRA_VOUCHER.READ'),
+  contraVoucherController.getContraVoucherById);
 
 /**
  * @swagger
@@ -170,12 +185,14 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *                 type: string
  *               contraType:
  *                 type: string
+ *                 enum: [cash_at_bank, cash_at_home]
  *               amount:
  *                 type: number
  *               remark:
  *                 type: string
  *               bankLocation:
  *                 type: string
+ *                 description: Required only when contraType is cash_at_bank
  *               status:
  *                 type: string
  *                 enum: [pending, approved, rejected]
@@ -194,10 +211,7 @@ router.get('/:id', contraVoucherController.getContraVoucherById);
  *       500:
  *         description: Server error
  */
-router.put('/:id', upload.single('bill_url'), contraVoucherController.updateContraVoucher);
-
-
-
+router.put('/:id', protect, requirePermission('CONTRA_VOUCHER.UPDATE'), upload.single('bill_url'), contraVoucherController.updateContraVoucher);
 
 /**
  * @swagger
@@ -217,7 +231,9 @@ router.put('/:id', upload.single('bill_url'), contraVoucherController.updateCont
  *       404:
  *         description: Contra voucher not found
  */
-router.delete('/:id', contraVoucherController.deleteContraVoucher);
-
+router.delete('/:id',
+  protect,
+  requirePermission('CONTRA_VOUCHER.DELETE'),
+  contraVoucherController.deleteContraVoucher);
 
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const employeeController = require('../controllers/employeeController');
 const { protect, authorize } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -188,7 +189,7 @@ const { protect, authorize } = require('../middlewares/auth');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'HR', 'SALES_EXECUTIVE'),
+  requirePermission('EMPLOYEE.CREATE'),
   employeeController.createEmployee
 );
 
@@ -281,6 +282,7 @@ router.post(
 router.get(
   '/',
   protect,
+  requirePermission('EMPLOYEE.READ'),
   employeeController.getEmployees
 );
 
@@ -362,6 +364,7 @@ router.get(
 router.get(
   '/:id',
   protect,
+  requirePermission('EMPLOYEE.READ'),
   employeeController.getEmployeeById
 );
 
@@ -449,7 +452,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'HR','SALES_EXECUTIVE'),
+  requirePermission('EMPLOYEE.UPDATE'),
   employeeController.updateEmployee
 );
 
@@ -517,7 +520,7 @@ router.put(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'HR','SALES_EXECUTIVE'),
+  requirePermission('EMPLOYEE.DELETE'),
   employeeController.deleteEmployee
 );
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const ledgerController = require('../controllers/ledgerController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -169,7 +170,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/receipt',
   protect,
-  authorize('SALES_EXECUTIVE', 'ADMIN', 'SUPERADMIN'),
+  requirePermission('LEDGER.CREATE'),
   logAction('CREATE', 'Ledger'),
   ledgerController.addReceipt
 );
@@ -227,7 +228,6 @@ router.post(
  */
 router.get(
   '/booking-counts',
-  protect,
   ledgerController.getBookingTypeCounts
 );
 
@@ -282,7 +282,6 @@ router.get(
  */
 router.get(
   '/summary/branch',
-  protect,
   ledgerController.getBranchLedgerSummary
 );
 
@@ -333,7 +332,6 @@ router.get(
  */
 router.get(
   '/:bookingId',
-  protect,
   ledgerController.getLedgerEntries
 );
 
@@ -376,7 +374,6 @@ router.get(
  */
 router.get(
   '/summary/:bookingId',
-  protect,
   ledgerController.getLedgerSummary
 );
 
@@ -563,7 +560,7 @@ router.get(
 router.put(
   '/update/:receiptId',
   protect,
-  authorize('SALES_EXECUTIVE', 'ADMIN', 'SUPERADMIN'),
+  requirePermission('LEDGER.UPDATE'),
   logAction('UPDATE', 'Ledger'),
   ledgerController.updateLedgerEntry
 );
@@ -640,7 +637,7 @@ router.put(
 router.post(
   '/debit',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'ACCOUNTANT'),
+  requirePermission('LEDGER.CREATE'),
   logAction('CREATE', 'Debit Ledger'),
   ledgerController.addDebit
 );
@@ -691,8 +688,6 @@ router.post(
  */
 router.get(
   '/debit/booking/:bookingId',
-  protect,
-  authorize('ADMIN', 'SUPERADMIN', 'ACCOUNTANT', 'SALES_EXECUTIVE'),
   ledgerController.getDebitsByBooking
 );
 

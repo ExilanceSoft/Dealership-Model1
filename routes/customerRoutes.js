@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const customerController = require('../controllers/customerController');
 const { protect, authorize } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -107,7 +108,8 @@ const { protect, authorize } = require('../middlewares/auth');
  *         description: Server error
  */
 router.post('/', 
-  protect, 
+  protect,
+  requirePermission('CUSTOMER.CREATE'),
   customerController.createCustomer
 );
 
@@ -179,7 +181,8 @@ router.post('/',
  *         description: Server error
  */
 router.get('/', 
-  protect, 
+  protect,
+  requirePermission('CUSTOMER.READ'),
   customerController.getAllCustomers
 );
 
@@ -222,6 +225,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect, 
+  requirePermission('CUSTOMER.READ'),
   customerController.getCustomer
 );
 
@@ -274,7 +278,8 @@ router.get('/:id',
  *         description: Server error
  */
 router.patch('/:id', 
-  protect, 
+  protect,
+  requirePermission('CUSTOMER.UPDATE'),
   customerController.updateCustomer
 );
 
@@ -307,7 +312,7 @@ router.patch('/:id',
  */
 router.delete('/:id', 
   protect, 
-  authorize('ADMIN'), 
+  requirePermission('CUSTOMER.DELETE'),
   customerController.deleteCustomer
 );
 

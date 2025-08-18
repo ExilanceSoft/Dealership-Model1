@@ -3,6 +3,7 @@ const router = express.Router();
 const bankController = require('../controllers/bankController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -122,7 +123,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('BANK.CREATE'),
   logAction('CREATE', 'Bank'),
   bankController.createBank
 );
@@ -180,7 +181,7 @@ router.post('/',
  */
 router.get('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('BANK.READ'),
   bankController.getAllBanks
 );
 
@@ -217,7 +218,7 @@ router.get('/',
  */
 router.get('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('BANK.READ'),
   bankController.getBankById
 );
 
@@ -262,7 +263,7 @@ router.get('/:id',
  */
 router.put('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('BANK.UPDATE'),
   logAction('UPDATE', 'Bank'),
   bankController.updateBank
 );
@@ -308,7 +309,7 @@ router.put('/:id',
  */
 router.patch('/:id/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('BANK.UPDATE'),
   logAction('UPDATE_STATUS', 'Bank'),
   bankController.updateBankStatus
 );
@@ -342,7 +343,7 @@ router.patch('/:id/status',
  */
 router.delete('/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('BANK.DELETE'),
   logAction('DELETE', 'Bank'),
   bankController.deleteBank
 );

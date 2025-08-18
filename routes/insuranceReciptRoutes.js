@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const insuranceController = require('../controllers/insuranceRecipt');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -78,7 +79,9 @@ const insuranceController = require('../controllers/insuranceRecipt');
  *       500:
  *         description: Server error
  */
-router.post('/', insuranceController.createInsurance);
+router.post('/',
+    requirePermission('INSURANCE_RECIPT.CREATE'),
+    insuranceController.createInsurance);
 
 /**
  * @swagger
@@ -92,7 +95,9 @@ router.post('/', insuranceController.createInsurance);
  *       500:
  *         description: Server error
  */
-router.get('/', insuranceController.getAllInsurance);
+router.get('/', 
+    requirePermission('INSURANCE_RECIPT.READ'),
+    insuranceController.getAllInsurance);
 
 /**
  * @swagger
@@ -115,7 +120,9 @@ router.get('/', insuranceController.getAllInsurance);
  *       500:
  *         description: Server error
  */
-router.get('/:id', insuranceController.getInsuranceById);
+router.get('/:id',
+    requirePermission('INSURANCE_RECIPT.READ'),
+    insuranceController.getInsuranceById);
 
 /**
  * @swagger
@@ -144,7 +151,9 @@ router.get('/:id', insuranceController.getInsuranceById);
  *       500:
  *         description: Server error
  */
-router.put('/:id', insuranceController.updateInsurance);
+router.put('/:id',
+    requirePermission('INSURANCE_RECIPT.UPDATE'),
+    insuranceController.updateInsurance);
 
 /**
  * @swagger
@@ -167,6 +176,8 @@ router.put('/:id', insuranceController.updateInsurance);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', insuranceController.deleteInsurance);
+router.delete('/:id',
+    requirePermission('INSURANCE_RECIPT.DELETE'),
+    insuranceController.deleteInsurance);
 
 module.exports = router;

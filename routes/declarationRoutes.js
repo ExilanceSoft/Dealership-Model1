@@ -3,6 +3,7 @@ const router = express.Router();
 const declarationController = require('../controllers/declarationController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -144,7 +145,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('DECLARATION.CREATE'),
   logAction('CREATE', 'Declaration'),
   declarationController.createDeclaration
 );
@@ -203,7 +204,7 @@ router.post('/',
  */
 router.get('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('DECLARATION.READ'),
   declarationController.getAllDeclarations
 );
 
@@ -240,7 +241,7 @@ router.get('/',
  */
 router.get('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('DECLARATION.READ'),
   declarationController.getDeclarationById
 );
 
@@ -285,7 +286,7 @@ router.get('/:id',
  */
 router.patch('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('DECLARATION.UPDATE'),
   logAction('UPDATE', 'Declaration'),
   declarationController.updateDeclaration
 );
@@ -331,7 +332,7 @@ router.patch('/:id',
  */
 router.patch('/:id/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('DECLARATION.UPDATE'),
   logAction('UPDATE_STATUS', 'Declaration'),
   declarationController.updateDeclarationStatus
 );
@@ -365,7 +366,7 @@ router.patch('/:id/status',
  */
 router.delete('/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('DECLARATION.DELETE'),
   logAction('DELETE', 'Declaration'),
   declarationController.deleteDeclaration
 );

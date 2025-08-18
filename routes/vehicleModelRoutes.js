@@ -3,6 +3,7 @@ const router = express.Router();
 const vehicleModelController = require('../controllers/vehicleModelController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -39,7 +40,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/', 
   protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
+  requirePermission('VEHICLE_MODEL.CREATE'),
   logAction('CREATE', 'VehicleModel'), 
   vehicleModelController.createModel
 );
@@ -62,7 +63,11 @@ router.post('/',
  *       500:
  *         description: Server error
  */
-router.get('/', vehicleModelController.getAllModels);
+router.get('/',
+  
+  protect,
+  requirePermission('VEHICLE_MODEL.READ'),
+  vehicleModelController.getAllModels);
 
 /**
  * @swagger
@@ -88,7 +93,10 @@ router.get('/', vehicleModelController.getAllModels);
  *       500:
  *         description: Server error
  */
-router.get('/:id', vehicleModelController.getModelById);
+router.get('/:id',
+  protect,
+  requirePermission('VEHICLE_MODEL.READ'),
+   vehicleModelController.getModelById);
 
 /**
  * @swagger
@@ -124,10 +132,10 @@ router.get('/:id', vehicleModelController.getModelById);
  *       500:
  *         description: Server error
  */
-router.put('/:id', 
-  protect, 
-  authorize('SUPERADMIN', 'ADMIN'), 
-  logAction('UPDATE', 'VehicleModel'), 
+router.put('/:id',
+  protect,
+  requirePermission('VEHICLE_MODEL.UPDATE'),
+  logAction('UPDATE', 'VehicleModel'),
   vehicleModelController.updateModel
 );
 
@@ -157,9 +165,9 @@ router.put('/:id',
  *       500:
  *         description: Server error
  */
-router.delete('/:id', 
-  protect, 
-  authorize('SUPERADMIN'), 
+router.delete('/:id',
+  protect,
+  requirePermission('VEHICLE_MODEL.DELETE'),
   logAction('DELETE', 'VehicleModel'),
   vehicleModelController.deleteModel
 );

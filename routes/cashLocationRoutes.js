@@ -3,6 +3,7 @@ const router = express.Router();
 const cashLocationController = require('../controllers/cashLocationController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -130,7 +131,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('CASH_LOCATION.CREATE'),
   logAction('CREATE', 'CashLocation'),
   cashLocationController.createCashLocation
 );
@@ -188,7 +189,7 @@ router.post('/',
  */
 router.get('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('CASH_LOCATION.READ'),
   cashLocationController.getAllCashLocations
 );
 
@@ -225,7 +226,7 @@ router.get('/',
  */
 router.get('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('CASH_LOCATION.READ'),
   cashLocationController.getCashLocationById
 );
 
@@ -270,7 +271,7 @@ router.get('/:id',
  */
 router.put('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('CASH_LOCATION.UPDATE'),
   logAction('UPDATE', 'CashLocation'),
   cashLocationController.updateCashLocation
 );
@@ -316,7 +317,7 @@ router.put('/:id',
  */
 router.patch('/:id/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('CASH_LOCATION.UPDATE'),
   logAction('UPDATE_STATUS', 'CashLocation'),
   cashLocationController.updateCashLocationStatus
 );
@@ -350,7 +351,7 @@ router.patch('/:id/status',
  */
 router.delete('/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('CASH_LOCATION.DELETE'),
   logAction('DELETE', 'CashLocation'),
   cashLocationController.deleteCashLocation
 );

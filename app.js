@@ -160,7 +160,10 @@ const contraVoucherRoutes = require('./routes/contraVoucherRoutes');
 const insuranceReciptRoutes = require('./routes/insuranceReciptRoutes');
 const newInsuranceRoutes = require('./routes/newInsuranceRoutes');
 const brokerLedgerRoutes = require('./routes/brokerLedgerRoutes');
-
+const allCashReciptRoutes = require('./routes/allCashReciptRoutes');
+const workshopReciptRoutes = require('./routes/workshopReciptRoutes');
+const subdealerRoutes = require('./routes/subdealerRoutes');
+const subDealerModelsRoutes = require('./routes/SubDealerModelsRoutes');
 
 // -------------------------------
 // Route mounts
@@ -209,7 +212,10 @@ app.use('/api/v1/contra-vouchers', contraVoucherRoutes);
 app.use('/api/v1/insurance-recipt', insuranceReciptRoutes);
 app.use('/api/v1/new-insurance', newInsuranceRoutes);
 app.use('/api/v1/broker-ledger', brokerLedgerRoutes);
-
+app.use('/api/v1/vouchers', allCashReciptRoutes);
+app.use('/api/v1/workshop-receipts', workshopReciptRoutes);
+app.use('/api/v1/subdealers', subdealerRoutes);
+app.use('/api/v1/subdealer/models', subDealerModelsRoutes);
 
 // -------------------------------
 // Health

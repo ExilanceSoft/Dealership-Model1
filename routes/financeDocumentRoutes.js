@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const financeDocumentController = require('../controllers/financeDocumentController');
 const { protect } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -77,6 +78,7 @@ const { protect } = require('../middlewares/auth');
  */
 router.get('/', 
   protect, 
+  requirePermission('FINANCE_DOCUMENT.READ'),
   financeDocumentController.getFinanceDocuments
 );
 
@@ -118,6 +120,7 @@ router.get('/',
  */
 router.get('/:id', 
   protect, 
+  requirePermission('FINANCE_DOCUMENT.READ'),
   financeDocumentController.getFinanceDocument
 );
 
@@ -159,7 +162,8 @@ router.get('/:id',
  *         description: Server error
  */
 router.post('/', 
-  protect, 
+  protect,
+  requirePermission('FINANCE_DOCUMENT.CREATE'),
   financeDocumentController.createFinanceDocument
 );
 
@@ -209,7 +213,8 @@ router.post('/',
  *         description: Server error
  */
 router.put('/:id', 
-  protect, 
+  protect,
+  requirePermission('FINANCE_DOCUMENT.UPDATE'),
   financeDocumentController.updateFinanceDocument
 );
 
@@ -250,7 +255,8 @@ router.put('/:id',
  *         description: Server error
  */
 router.delete('/:id', 
-  protect, 
+  protect,
+  requirePermission('FINANCE_DOCUMENT.DELETE'),
   financeDocumentController.deleteFinanceDocument
 );
 

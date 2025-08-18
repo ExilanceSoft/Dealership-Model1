@@ -3,6 +3,7 @@ const router = express.Router();
 const colorController = require('../controllers/colorController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -129,7 +130,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('COLOR.CREATE'),
   logAction('CREATE', 'Color'),
   colorController.createColor
 );
@@ -177,7 +178,10 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.get('/', colorController.getAllColors);
+router.get('/',
+  protect,
+  requirePermission('COLOR.READ'),
+   colorController.getAllColors);
 
 /**
  * @swagger
@@ -215,7 +219,10 @@ router.get('/', colorController.getAllColors);
  *       500:
  *         description: Server error
  */
-router.get('/:colorId', colorController.getColorById);
+router.get('/:colorId',
+  protect,
+  requirePermission('COLOR.READ'),
+   colorController.getColorById);
 
 /**
  * @swagger
@@ -268,7 +275,7 @@ router.get('/:colorId', colorController.getColorById);
 router.put(
   '/:colorId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('COLOR.UPDATE'),
   logAction('UPDATE', 'Color'),
   colorController.updateColor
 );
@@ -303,7 +310,7 @@ router.put(
 router.delete(
   '/:colorId',
   protect,
-  authorize('SUPERADMIN','SALES_EXECUTIVE'),
+  requirePermission('COLOR.DELETE'),
   logAction('DELETE', 'Color'),
   colorController.deleteColor
 );
@@ -359,7 +366,7 @@ router.delete(
 router.post(
   '/:colorId/assign',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('COLOR.ASSIGN'),
   logAction('ASSIGN_COLOR', 'Model'),
   colorController.assignColorToModels
 );
@@ -415,7 +422,7 @@ router.post(
 router.post(
   '/:colorId/unassign',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('COLOR.CREATE'),
   logAction('UNASSIGN_COLOR', 'Model'),
   colorController.unassignColorFromModels
 );
@@ -471,7 +478,7 @@ router.post(
 router.put(
   '/:colorId/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('COLOR.UPDATE'),
   logAction('UPDATE_STATUS', 'Color'),
   colorController.updateColorStatus
 );
@@ -514,7 +521,10 @@ router.put(
  *       500:
  *         description: Server error
  */
-router.get('/:colorId/models', colorController.getColorModels);
+router.get('/:colorId/models',
+  protect,
+  requirePermission('COLOR.READ'),
+  colorController.getColorModels);
 
 /**
  * @swagger
@@ -554,6 +564,9 @@ router.get('/:colorId/models', colorController.getColorModels);
  *       500:
  *         description: Server error
  */
-router.get('/model/:modelId', colorController.getColorsByModelId);
+router.get('/model/:modelId',
+  protect,
+  requirePermission('COLOR.READ'),
+  colorController.getColorsByModelId);
 
 module.exports = router;

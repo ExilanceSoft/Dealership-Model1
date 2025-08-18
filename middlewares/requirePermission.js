@@ -1,20 +1,8 @@
 // middlewares/requirePermission.js
-// Checks if the authenticated user has at least one of the required permissions,
-// computed from their assigned roles. No controller changes needed.
-
 const User = require('../models/User');
 const Role = require('../models/Role');
 const { resolveMixedToIds } = require('../services/permissionBootstrap');
 
-/**
- * requirePermission('BANK.READ') OR requirePermission('BANK.READ', 'BANK.ALL')
- * If any required perm is present in the user's effective set -> allowed.
- *
- * NOTE:
- * - Assumes `protect` has set `req.user` with {_id} or {id}.
- * - Uses Role.permissions (array of Permission ObjectIds).
- * - If you later add direct/delegated perms on User, extend the "allowed" set below.
- */
 exports.requirePermission = (...requiredKeys) => {
   return async (req, res, next) => {
     try {
@@ -23,28 +11,38 @@ exports.requirePermission = (...requiredKeys) => {
         return res.status(401).json({ success: false, message: 'Not authenticated' });
       }
 
-      const user = await User.findById(uid, { roles: 1 }).lean();
+      // Get user with populated permissions
+      const user = await User.findById(uid)
+        .populate('roles')
+        .populate('permissions.permission');
+      
       if (!user) {
         return res.status(401).json({ success: false, message: 'User not found' });
       }
 
-      // Load active roles with their permission IDs
-      const roles = await Role.find({ _id: { $in: user.roles || [] }, is_active: { $ne: false } }, { permissions: 1 }).lean();
-
-      // Union of permission ObjectIds from roles
-      const allowed = new Set();
-      for (const r of roles) {
-        for (const pid of (r.permissions || [])) {
-          allowed.add(String(pid));
-        }
+      // Check if user is super admin
+      if (await user.isSuperAdmin()) {
+        return next();
       }
 
-      // Resolve requiredKeys ("MODULE.ACTION") to Permission IDs (ensures they exist)
-      const neededIds = await resolveMixedToIds(requiredKeys);
+      // Get all effective permissions (from roles + direct permissions)
+      const allPermissions = await user.getAllPermissions();
+      
+      // Convert to Set of "MODULE.ACTION" strings for easy checking
+      const allowed = new Set(
+        allPermissions.map(p => `${p.module}.${p.action}`.toUpperCase())
+      );
 
-      const ok = neededIds.some(id => allowed.has(String(id)));
+      // Check if user has any of the required permissions
+      const ok = requiredKeys.some(key => 
+        allowed.has(String(key).toUpperCase())
+      );
+      
       if (!ok) {
-        return res.status(403).json({ success: false, message: 'Forbidden (missing permission)' });
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Forbidden (missing permission)' 
+        });
       }
 
       return next();

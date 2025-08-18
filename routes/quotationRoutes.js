@@ -3,6 +3,7 @@ const router = express.Router();
 const quotationController = require('../controllers/quotationController');
 const { protect, authorize,roleAuthorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -115,7 +116,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/',
   protect,
-  roleAuthorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'), // Correct middleware
+  requirePermission('QUOTATION.CREATE'),
   logAction('CREATE', 'Quotation'),
   quotationController.createQuotation
 );
@@ -180,6 +181,7 @@ router.post('/',
  */
 router.get('/',
   protect,
+  requirePermission('QUOTATION.READ'),
   quotationController.getAllQuotations
 );
 
@@ -216,6 +218,7 @@ router.get('/',
  */
 router.get('/:id',
   protect,
+  requirePermission('QUOTATION.READ'),
   quotationController.getQuotationById
 );
 
@@ -248,6 +251,7 @@ router.get('/:id',
  *         description: Server error
  */
 router.get('/pdf/:filename',
+  requirePermission('QUOTATION.READ'),
   quotationController.getQuotationPDF
 );
 
@@ -294,7 +298,7 @@ router.get('/pdf/:filename',
  */
 router.get('/export',
   protect,
-  authorize('SUPERADMIN', 'ADMIN','SALES_EXECUTIVE'),
+  requirePermission('QUOTATION.EXPORT'),
   quotationController.exportQuotationsToExcel
 );
 
@@ -328,6 +332,7 @@ router.get('/export',
  */
 router.get('/stats/today',
   protect,
+  requirePermission('QUOTATION.READ'),
   quotationController.getTodaysQuotationCount
 );
 
@@ -361,6 +366,7 @@ router.get('/stats/today',
  */
 router.get('/stats/month',
   protect,
+  requirePermission('QUOTATION.READ'),
   quotationController.getThisMonthQuotationCount
 );
 
@@ -402,7 +408,7 @@ router.get('/stats/month',
  */
 router.post('/:id/send-whatsapp',
   protect,
-  roleAuthorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('QUOTATION.READ'),
   logAction('SEND_WHATSAPP', 'Quotation'),
   quotationController.sendQuotationViaWhatsApp
 );

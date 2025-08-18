@@ -1,9 +1,8 @@
-// routes/brokerLedgerRoutes.js
 const express = require('express');
 const router = express.Router();
 const brokerLedgerController = require('../controllers/brokerLedgerController');
 const { protect, authorize } = require('../middlewares/auth');
-const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -11,64 +10,126 @@ const { logAction } = require('../middlewares/audit');
  *   name: BrokerLedger
  *   description: Broker ledger management
  */
-
+/**
+ * @swagger
+ * /api/v1/broker-ledger/summary:
+ *   get:
+ *     summary: Get summary of all brokers with their ledger information
+ *     tags: [BrokerLedger]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: List of brokers with their ledger summary
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       broker:
+ *                         $ref: '#/components/schemas/Broker'
+ *                       totalCredit:
+ *                         type: number
+ *                       totalDebit:
+ *                         type: number
+ *                       currentBalance:
+ *                         type: number
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/summary',
+  protect,
+  requirePermission('BROKER_LEDGER.READ'),
+  brokerLedgerController.getDetailedBrokersSummary
+);
 /**
  * @swagger
  * components:
  *   schemas:
- *     Payment:
+ *     Transaction:
  *       type: object
  *       required:
+ *         - type
  *         - amount
  *         - modeOfPayment
+ *         - referenceNo
  *       properties:
+ *         type:
+ *           type: string
+ *           enum: [CREDIT, DEBIT]
+ *           description: Type of transaction
  *         amount:
  *           type: number
- *           minimum: 0
- *           description: Payment amount
+ *           minimum: 0.01
+ *           description: Transaction amount
  *         modeOfPayment:
  *           type: string
  *           enum: [Cash, Bank, Finance Disbursement, Exchange, Pay Order]
- *           description: Payment method
- *         bank:
+ *           description: Payment mode
+ *         referenceNo:
  *           type: string
- *           format: objectId
- *           description: Reference to Bank (required for Bank payments)
- *         cashLocation:
+ *           description: Transaction reference number
+ *         bookingId:
  *           type: string
- *           format: objectId
- *           description: Reference to CashLocation (required for Cash payments)
+ *           description: Associated booking ID
+ *         bankId:
+ *           type: string
+ *           description: Required for bank payments
+ *         cashLocationId:
+ *           type: string
+ *           description: Required for cash payments
  *         remark:
  *           type: string
+ *           maxLength: 200
  *           description: Optional remarks
  * 
  *     BrokerLedger:
  *       type: object
- *       required:
- *         - broker
  *       properties:
  *         broker:
  *           type: string
- *           format: objectId
- *           description: Reference to Broker
- *         totalAmount:
+ *           description: Broker reference
+ *         openingBalance:
  *           type: number
- *           description: Total amount paid
- *         balanceAmount:
+ *           description: Opening balance
+ *         currentBalance:
  *           type: number
  *           description: Current balance
- *         payments:
+ *         transactions:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/Payment'
+ *             $ref: '#/components/schemas/Transaction'
+ *         createdBy:
+ *           type: string
+ *           description: User who created the ledger
  */
 
 /**
  * @swagger
- * /api/v1/broker-ledger/{brokerId}/payment:
+ * /api/v1/broker-ledger/{brokerId}/transactions:
  *   post:
- *     summary: Add payment to broker ledger
- *     description: Add a payment entry to broker's ledger
+ *     summary: Add transaction to broker ledger
  *     tags: [BrokerLedger]
  *     security:
  *       - bearerAuth: []
@@ -78,63 +139,32 @@ const { logAction } = require('../middlewares/audit');
  *         required: true
  *         schema:
  *           type: string
- *           format: objectId
  *         description: ID of the broker
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - amount
- *               - modeOfPayment
- *             properties:
- *               amount:
- *                 type: number
- *                 minimum: 0
- *                 example: 5000
- *               modeOfPayment:
- *                 type: string
- *                 enum: [Cash, Bank, Finance Disbursement, Exchange, Pay Order]
- *                 example: "Bank"
- *               bank:
- *                 type: string
- *                 format: objectId
- *                 example: "507f1f77bcf86cd799439011"
- *               cashLocation:
- *                 type: string
- *                 format: objectId
- *                 example: "507f1f77bcf86cd799439012"
- *               remark:
- *                 type: string
- *                 example: "Commission payment for May"
+ *             $ref: '#/components/schemas/Transaction'
  *     responses:
  *       201:
- *         description: Payment added successfully
+ *         description: Transaction added successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/BrokerLedger'
+ *               $ref: '#/components/schemas/BrokerLedger'
  *       400:
  *         description: Validation error
- *       401:
- *         description: Unauthorized
+ *       404:
+ *         description: Broker not found
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
 router.post(
-  '/:brokerId/payment',
+  '/:brokerId/transactions',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
-  logAction('ADD_PAYMENT', 'BrokerLedger'),
-  brokerLedgerController.addPayment
+  requirePermission('BROKER_LEDGER.CREATE'),
+  brokerLedgerController.addTransaction
 );
 
 /**
@@ -142,7 +172,6 @@ router.post(
  * /api/v1/broker-ledger/{brokerId}:
  *   get:
  *     summary: Get broker ledger
- *     description: Retrieve ledger for a specific broker
  *     tags: [BrokerLedger]
  *     security:
  *       - bearerAuth: []
@@ -152,68 +181,133 @@ router.post(
  *         required: true
  *         schema:
  *           type: string
- *           format: objectId
  *         description: ID of the broker
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions from this date
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter transactions to this date
  *     responses:
  *       200:
  *         description: Broker ledger details
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/BrokerLedger'
+ *               $ref: '#/components/schemas/BrokerLedger'
  *       404:
  *         description: Ledger not found
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
 router.get(
   '/:brokerId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('BROKER_LEDGER.READ'),
   brokerLedgerController.getLedger
 );
 
 /**
  * @swagger
- * /api/v1/broker-ledger:
+ * /api/v1/broker-ledger/{brokerId}/statement:
  *   get:
- *     summary: Get all broker ledgers
- *     description: Retrieve all broker ledgers in the system
+ *     summary: Get ledger statement
  *     tags: [BrokerLedger]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the broker
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for statement
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for statement
  *     responses:
  *       200:
- *         description: List of all broker ledgers
+ *         description: Ledger statement
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 count:
- *                   type: integer
- *                   example: 5
- *                 data:
+ *                 broker:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                     brokerId:
+ *                       type: string
+ *                 openingBalance:
+ *                   type: number
+ *                 closingBalance:
+ *                   type: number
+ *                 transactions:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/BrokerLedger'
+ *                     type: object
+ *                     properties:
+ *                       date:
+ *                         type: string
+ *                         format: date-time
+ *                       type:
+ *                         type: string
+ *                       amount:
+ *                         type: number
+ *                       mode:
+ *                         type: string
+ *                       referenceNo:
+ *                         type: string
+ *                       balance:
+ *                         type: number
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     totalCredit:
+ *                       type: number
+ *                     totalDebit:
+ *                       type: number
+ *                     netBalance:
+ *                       type: number
+ *       404:
+ *         description: Ledger not found
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
 router.get(
-  '/',
+  '/:brokerId/statement',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'MANAGER', 'SALES_EXECUTIVE'),
-  brokerLedgerController.getAllLedgers
+  requirePermission('BROKER_LEDGER.READ'),
+  brokerLedgerController.getStatement
 );
 
 module.exports = router;

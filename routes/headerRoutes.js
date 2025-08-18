@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const headerController = require('../controllers/headerController');
 const { protect } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -66,7 +67,9 @@ const { protect } = require('../middlewares/auth');
  *       500:
  *         description: Server error
  */
-router.post('/', protect, headerController.createHeader);
+router.post('/', protect, 
+    requirePermission('HEADER.CREATE'),
+    headerController.createHeader);
 
 /**
  * @swagger
@@ -113,7 +116,10 @@ router.post('/', protect, headerController.createHeader);
  *       500:
  *         description: Server error
  */
-router.get('/', headerController.getAllHeaders);
+router.get('/', 
+    protect,
+    requirePermission('HEADER.READ'),
+    headerController.getAllHeaders);
 
 /**
  * @swagger
@@ -174,7 +180,10 @@ router.get('/', headerController.getAllHeaders);
  *       500:
  *         description: Server error
  */
-router.patch('/bulk-priorities', protect, headerController.updateHeaderPriorities);
+router.patch('/bulk-priorities',
+    protect,
+    requirePermission('HEADER.UPDATE'),
+    headerController.updateHeaderPriorities);
 
 /**
  * @swagger
@@ -211,7 +220,10 @@ router.patch('/bulk-priorities', protect, headerController.updateHeaderPrioritie
  *       500:
  *         description: Server error
  */
-router.get('/id/:id', headerController.getHeaderById);
+router.get('/id/:id',
+    protect,
+    requirePermission('HEADER.READ'),
+    headerController.getHeaderById);
 
 /**
  * @swagger
@@ -261,7 +273,10 @@ router.get('/id/:id', headerController.getHeaderById);
  *       500:
  *         description: Server error
  */
-router.patch('/:id', protect, headerController.updateHeader);
+router.patch('/:id',
+    protect,
+    requirePermission('HEADER.UPDATE'),
+    headerController.updateHeader);
 
 /**
  * @swagger
@@ -290,6 +305,9 @@ router.patch('/:id', protect, headerController.updateHeader);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', protect, headerController.deleteHeader);
+router.delete('/:id',
+    protect,
+    requirePermission('HEADER.DELETE'),
+    headerController.deleteHeader);
 
 module.exports = router;

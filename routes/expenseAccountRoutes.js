@@ -3,6 +3,7 @@ const router = express.Router();
 const expenseAccountController = require('../controllers/expenseAccountController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -112,7 +113,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('EXPENSE_ACCOUNT.CREATE'),
   logAction('CREATE', 'ExpenseAccount'),
   expenseAccountController.createExpenseAccount
 );
@@ -165,7 +166,7 @@ router.post('/',
  */
 router.get('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('EXPENSE_ACCOUNT.READ'),
   expenseAccountController.getAllExpenseAccounts
 );
 
@@ -202,7 +203,7 @@ router.get('/',
  */
 router.get('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('EXPENSE_ACCOUNT.READ'),
   expenseAccountController.getExpenseAccountById
 );
 
@@ -247,7 +248,7 @@ router.get('/:id',
  */
 router.put('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('EXPENSE_ACCOUNT.UPDATE'),
   logAction('UPDATE', 'ExpenseAccount'),
   expenseAccountController.updateExpenseAccount
 );
@@ -293,7 +294,7 @@ router.put('/:id',
  */
 router.patch('/:id/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('EXPENSE_ACCOUNT.UPDATE'),
   logAction('UPDATE_STATUS', 'ExpenseAccount'),
   expenseAccountController.updateExpenseAccountStatus
 );
@@ -327,7 +328,7 @@ router.patch('/:id/status',
  */
 router.delete('/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('EXPENSE_ACCOUNT.DELETE'),
   logAction('DELETE', 'ExpenseAccount'),
   expenseAccountController.deleteExpenseAccount
 );

@@ -3,6 +3,7 @@ const router = express.Router();
 const vehicleColorController = require('../controllers/vehicleColorController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger

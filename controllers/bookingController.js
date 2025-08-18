@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
@@ -19,10 +18,8 @@ const qrController = require('../controllers/qrController');
 const Vehicle = require('../models/vehicleInwardModel');
 const KYC = require('../models/KYC');
 const FinanceLetter = require('../models/FinanceLetter');
-
-
-
-// const validateSalesExecutive = require('../middleware/validateSalesExecutive');
+const { generateOTP, sendOTPSMS } = require('../utils/otpService');
+const Role = require('../models/Role')
 // Configure Handlebars helpers
 Handlebars.registerHelper('formatDate', function(date) {
     return moment(date).format('DD/MM/YYYY');
@@ -59,66 +56,10 @@ Handlebars.registerHelper('divide', function(a, b) {
     return a / b;
 });
 
-Handlebars.registerHelper('formatDate', function(date) {
-  return moment(date).format('DD/MM/YYYY');
-});
-
-Handlebars.registerHelper('formatCurrency', function(amount) {
-  if (amount === undefined || amount === null) return '0.00';
-  return parseFloat(amount).toFixed(2);
-});
 // Load the booking form template
 const templatePath = path.join(__dirname, '../templates/bookingFormTemplate.html');
 const templateHtml = fs.readFileSync(templatePath, 'utf8');
 const bookingFormTemplate = Handlebars.compile(templateHtml);
-// Helper function to generate booking form PDF
-// const generateBookingFormPDF = async (booking) => {
-//     try {
-//         // Prepare data for the template
-//         const formData = {
-//             ...booking.toObject(),
-//             branchDetails: booking.branchDetails,
-//             modelDetails: booking.modelDetails,
-//             colorDetails: booking.colorDetails,
-//             salesExecutiveDetails: booking.salesExecutiveDetails,
-//             createdAt: booking.createdAt,
-//             bookingNumber: booking.bookingNumber
-//         };
-
-//         // Generate HTML content
-//         const html = bookingFormTemplate(formData);
-
-//         // Convert HTML to PDF buffer
-//         const pdfBuffer = await generatePDFFromHtml(html);
-
-//         // Define upload directory path
-//         const uploadDir = path.join(process.cwd(), 'uploads', 'booking-forms');
-        
-//         // Create directory if it doesn't exist
-//         if (!fs.existsSync(uploadDir)) {
-//             fs.mkdirSync(uploadDir, { recursive: true });
-//         }
-
-//         // Generate unique filename
-//         const fileName = `booking-form-${booking.bookingNumber}-${Date.now()}.pdf`;
-        
-//         // Create full file path
-//         const filePath = path.join(uploadDir, fileName);
-
-//         // Write PDF file
-//         fs.writeFileSync(filePath, pdfBuffer);
-
-//         // Return file information
-//         return {
-//             path: filePath,
-//             fileName: fileName,
-//             url: `/uploads/booking-forms/${fileName}`
-//         };
-//     } catch (error) {
-//         console.error('Error generating booking form PDF:', error);
-//         throw error;
-//     }
-// };
 
 const generateBookingFormHTML = async (booking, saveToFile = true) => {
     try {
@@ -168,6 +109,7 @@ const generateBookingFormHTML = async (booking, saveToFile = true) => {
         throw error;
     }
 };
+
 // Helper function to calculate discounts
 const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
     const eligibleComponents = priceComponents.filter(c => 
@@ -213,6 +155,7 @@ const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
         };
     });
 };
+
 const validateDiscountLimits = (priceComponents) => {
     const violations = priceComponents.filter(
         c => c.isDiscountable && 
@@ -225,6 +168,8 @@ const validateDiscountLimits = (priceComponents) => {
         throw new Error(`Discount cannot exceed 95% for: ${itemNames}`);
     }
 };
+
+// Create a new booking
 exports.createBooking = async (req, res) => {
     try {
         // Validate required fields
@@ -253,51 +198,105 @@ exports.createBooking = async (req, res) => {
             });
         }
 
-        // Check if branch is provided and exists
-        if (!req.body.branch) {
+        // Check if either branch or subdealer is provided (but not both)
+        if (!req.body.branch && !req.body.subdealer) {
             return res.status(400).json({
                 success: false,
-                message: 'Branch selection is required'
+                message: 'Either branch or subdealer selection is required'
             });
         }
-        
-        const branchExists = await mongoose.model('Branch').exists({ _id: req.body.branch });
-        if (!branchExists) {
+
+        if (req.body.branch && req.body.subdealer) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid branch selected'
+                message: 'Cannot select both branch and subdealer'
             });
         }
-        
-        const branchId = req.body.branch;
 
-        // Handle sales executive selection
-        if (req.body.sales_executive) {
-            if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
+        let entityId, entityType, entityModel, bookingType;
+        if (req.body.branch) {
+            const branchExists = await mongoose.model('Branch').exists({ _id: req.body.branch });
+            if (!branchExists) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Invalid sales executive ID format'
+                    message: 'Invalid branch selected'
                 });
             }
-
-            const salesExecutive = await User.findById(req.body.sales_executive).populate('roles');
-            
-            if (!salesExecutive || salesExecutive.status !== 'ACTIVE') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid or inactive sales executive selected'
-                });
-            }
-
-            if (!salesExecutive.branch || salesExecutive.branch.toString() !== branchId.toString()) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Sales executive must belong to the selected branch'
-                });
-            }
+            entityId = req.body.branch;
+            entityType = 'branch';
+            entityModel = 'Branch';
+            bookingType = 'BRANCH';
         } else {
-            // Default to current user if not specified
-            req.body.sales_executive = req.user.id;
+            const subdealerExists = await mongoose.model('Subdealer').exists({ _id: req.body.subdealer });
+            if (!subdealerExists) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid subdealer selected'
+                });
+            }
+            entityId = req.body.subdealer;
+            entityType = 'subdealer';
+            entityModel = 'Subdealer';
+            bookingType = 'SUBDEALER';
+        }
+
+        // Handle user assignment based on booking type
+        let userAssignment = {};
+        if (bookingType === 'SUBDEALER') {
+            // For subdealer booking, find the subdealer user
+            const subdealerRole = await Role.findOne({ name: 'SUBDEALER' });
+            if (!subdealerRole) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'SUBDEALER role not found in system'
+                });
+            }
+
+            const subdealerUser = await User.findOne({ 
+                subdealer: entityId,
+                roles: subdealerRole._id,
+                status: 'ACTIVE'
+            }).populate('roles');
+            
+            if (!subdealerUser) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No active subdealer user found for this subdealer'
+                });
+            }
+            
+            userAssignment.subdealerUser = subdealerUser._id;
+        } else {
+            // For branch booking, handle sales executive
+            if (req.body.sales_executive) {
+                if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid sales executive ID format'
+                    });
+                }
+
+                const salesExecutive = await User.findById(req.body.sales_executive).populate('roles');
+                
+                if (!salesExecutive || salesExecutive.status !== 'ACTIVE') {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid or inactive sales executive selected'
+                    });
+                }
+
+                if (!salesExecutive.branch || salesExecutive.branch.toString() !== entityId.toString()) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Sales executive must belong to the selected branch'
+                    });
+                }
+                
+                userAssignment.salesExecutive = req.body.sales_executive;
+            } else {
+                // Default to current user for branch bookings
+                userAssignment.salesExecutive = req.user.id;
+            }
         }
 
         // Validate salutation
@@ -343,62 +342,76 @@ exports.createBooking = async (req, res) => {
             });
         }
 
+        // Prevent exchange for subdealer bookings
+        if (req.body.exchange?.is_exchange && bookingType === 'SUBDEALER') {
+            return res.status(400).json({
+                success: false,
+                message: 'Exchange is not allowed for subdealer bookings'
+            });
+        }
+
         // Get all headers for the model type
         const headers = await Header.find({ type: model.type }).sort({ priority: 1 });
 
-        // Create price components with mandatory/optional handling
-        const priceComponents = await Promise.all(headers.map(async (header) => {
-            const priceData = model.prices.find(
-                p => p.header_id.equals(header._id) && p.branch_id.equals(branchId)
-            );
+        // Create price components based on branch or subdealer
+        const priceComponents = await Promise.all(
+            headers.map(async (header) => {
+                // Find price data for this entity (branch or subdealer)
+                const priceData = model.prices.find(p => 
+                    p.header_id.equals(header._id) && 
+                    (entityType === 'branch' ? 
+                        p.branch_id?.equals(entityId) : 
+                        p.subdealer_id?.equals(entityId))
+                );
 
-            // Skip if no price data found for this branch
-            if (!priceData) return null;
+                // Skip if no price data found for this entity
+                if (!priceData) return null;
 
-            // Special handling for hypothecation charges
-            if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
-                return {
-                    header: header._id,
-                    headerDetails: header,
-                    originalValue: priceData.value,
-                    discountedValue: req.body.hpa ? priceData.value : 0,
-                    isDiscountable: false,
-                    isMandatory: false,
-                    metadata: priceData.metadata || {}
-                };
-            }
+                // Special handling for hypothecation charges
+                if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
+                    return {
+                        header: header._id,
+                        headerDetails: header,
+                        originalValue: priceData.value,
+                        discountedValue: req.body.hpa ? priceData.value : 0,
+                        isDiscountable: false,
+                        isMandatory: false,
+                        metadata: priceData.metadata || {}
+                    };
+                }
 
-            // Handle mandatory components - always include these
-            if (header.is_mandatory) {
-                return {
-                    header: header._id,
-                    headerDetails: header,
-                    originalValue: priceData.value,
-                    discountedValue: priceData.value,
-                    isDiscountable: header.is_discount,
-                    isMandatory: true,
-                    metadata: priceData.metadata || {}
-                };
-            }
+                // Handle mandatory components - always include these
+                if (header.is_mandatory) {
+                    return {
+                        header: header._id,
+                        headerDetails: header,
+                        originalValue: priceData.value,
+                        discountedValue: priceData.value,
+                        isDiscountable: header.is_discount,
+                        isMandatory: true,
+                        metadata: priceData.metadata || {}
+                    };
+                }
 
-            // Handle optional components - only include if explicitly selected
-            if (req.body.optionalComponents && 
-                Array.isArray(req.body.optionalComponents) &&
-                req.body.optionalComponents.includes(header._id.toString())) {
-                return {
-                    header: header._id,
-                    headerDetails: header,
-                    originalValue: priceData.value,
-                    discountedValue: priceData.value,
-                    isDiscountable: header.is_discount,
-                    isMandatory: false,
-                    metadata: priceData.metadata || {}
-                };
-            }
+                // Handle optional components - only include if explicitly selected
+                if (req.body.optionalComponents && 
+                    Array.isArray(req.body.optionalComponents) &&
+                    req.body.optionalComponents.includes(header._id.toString())) {
+                    return {
+                        header: header._id,
+                        headerDetails: header,
+                        originalValue: priceData.value,
+                        discountedValue: priceData.value,
+                        isDiscountable: header.is_discount,
+                        isMandatory: false,
+                        metadata: priceData.metadata || {}
+                    };
+                }
 
-            // Skip all other optional components that weren't selected
-            return null;
-        }));
+                // Skip all other optional components that weren't selected
+                return null;
+            })
+        );
 
         // Filter out null components
         const filteredComponents = priceComponents.filter(c => c !== null);
@@ -407,7 +420,7 @@ exports.createBooking = async (req, res) => {
         if (filteredComponents.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'No valid price components found for this model and branch'
+                message: `No valid price components found for this model and ${entityType}`
             });
         }
 
@@ -418,8 +431,11 @@ exports.createBooking = async (req, res) => {
         const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
         const hypothecationCharges = req.body.hpa 
             ? (model.prices.find(
-                p => p.header_id.equals(hpaHeader?._id) && p.branch_id.equals(branchId))
-                )?.value || 0 
+                p => p.header_id.equals(hpaHeader?._id) && 
+                    (entityType === 'branch' ? 
+                        p.branch_id?.equals(entityId) : 
+                        p.subdealer_id?.equals(entityId))
+                ))?.value || 0 
             : 0;
 
         // Set RTO amount
@@ -483,7 +499,9 @@ exports.createBooking = async (req, res) => {
 
             const accessoriesTotalPrice = model.prices.find(
                 p => p.header_id.equals(accessoriesTotalHeader._id) && 
-                    p.branch_id.equals(branchId)
+                    (entityType === 'branch' ? 
+                        p.branch_id?.equals(entityId) : 
+                        p.subdealer_id?.equals(entityId))
             )?.value || 0;
 
             const selectedAccessoriesTotal = validAccessories.reduce(
@@ -509,9 +527,9 @@ exports.createBooking = async (req, res) => {
             }
         }
 
-        // Handle exchange
+        // Handle exchange (only for branch bookings)
         let exchangeDetails = null;
-        if (req.body.exchange?.is_exchange) {
+        if (req.body.exchange?.is_exchange && bookingType === 'BRANCH') {
             if (!req.body.exchange.broker_id) {
                 return res.status(400).json({
                     success: false,
@@ -527,18 +545,45 @@ exports.createBooking = async (req, res) => {
                 });
             }
 
-            if (!broker.branches.some(b => b.branch.equals(branchId))) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Broker not available for this branch'
-                });
-            }
+            // Check broker-level OTP requirement
+            if (broker.otp_required) {
+                if (!req.body.exchange.otp) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'OTP is required for this broker'
+                    });
+                }
 
+                // Verify against broker-level OTP
+                const now = new Date();
+                if (!broker.otp || 
+                    broker.otp !== req.body.exchange.otp || 
+                    !broker.otpExpiresAt || 
+                    broker.otpExpiresAt < now) {
+                    console.log('OTP verification failed:', {
+                        storedOTP: broker.otp,
+                        providedOTP: req.body.exchange.otp,
+                        expiresAt: broker.otpExpiresAt,
+                        currentTime: now
+                    });
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid or expired OTP'
+                    });
+                }
+
+                // Clear OTP after successful verification
+                broker.otp = null;
+                broker.otpExpiresAt = null;
+                await broker.save();
+            }
             exchangeDetails = {
                 broker: req.body.exchange.broker_id,
                 price: req.body.exchange.exchange_price,
                 vehicleNumber: req.body.exchange.vehicle_number,
-                chassisNumber: req.body.exchange.chassis_number
+                chassisNumber: req.body.exchange.chassis_number,
+                otpVerified: broker.otp_required ? true : false,
+                status: 'PENDING'
             };
         }
 
@@ -564,14 +609,15 @@ exports.createBooking = async (req, res) => {
             if (req.body.payment.gc_applicable) {
                 const financerRate = await FinancerRate.findOne({
                     financeProvider: req.body.payment.financer_id,
-                    branch: branchId,
+                    branch: entityType === 'branch' ? entityId : null,
+                    subdealer: entityType === 'subdealer' ? entityId : null,
                     is_active: true
                 });
 
                 if (!financerRate) {
                     return res.status(400).json({
                         success: false,
-                        message: 'Financer rate not found for this branch'
+                        message: `Financer rate not found for this ${entityType}`
                     });
                 }
 
@@ -597,7 +643,7 @@ exports.createBooking = async (req, res) => {
         const isApplyingDiscount = req.body.discount && req.body.discount.value > 0;
 
         // Initialize variables for status and form generation
-        let status = 'DRAFT';
+        let status = 'PENDING_APPROVAL';
         let requiresApproval = false;
         let approvalNote = '';
 
@@ -608,7 +654,7 @@ exports.createBooking = async (req, res) => {
             approvalNote = 'Discount requires approval';
         } else {
             // No discounts - status remains DRAFT
-            status = 'DRAFT';
+            status = 'PENDING_APPROVAL';
         }
 
         // Apply discounts if any
@@ -645,7 +691,6 @@ exports.createBooking = async (req, res) => {
                 updatedComponents = calculateDiscounts(updatedComponents, discount.amount, discount.type);
                 validateDiscountLimits(updatedComponents);
             }
-
             // Update components with discounted values
             updatedComponents.forEach(updated => {
                 const original = filteredComponents.find(c => c.header?.toString() === updated.header?.toString());
@@ -663,7 +708,7 @@ exports.createBooking = async (req, res) => {
         const totalAmount = baseAmount + accessoriesTotal + rtoAmount;
         const discountedAmount = totalAmount - totalDiscount;
 
-        // Create booking
+        // Create booking data object
         const bookingData = {
             model: req.body.model_id,
             color: req.body.model_color,
@@ -702,11 +747,12 @@ exports.createBooking = async (req, res) => {
             totalAmount: totalAmount,
             discountedAmount: discountedAmount,
             status: status,
-            branch: branchId,
+            bookingType: bookingType,
+            [entityType]: entityId, // This will be either branch or subdealer
             createdBy: req.user.id,
-            salesExecutive: req.body.sales_executive || req.user.id,
             formGenerated: false,
-            formPath: ''
+            formPath: '',
+            ...userAssignment // This includes either salesExecutive or subdealerUser based on booking type
         };
 
         const booking = await Booking.create(bookingData);
@@ -718,9 +764,9 @@ exports.createBooking = async (req, res) => {
         const populatedBooking = await Booking.findById(booking._id)
             .populate('modelDetails')
             .populate('colorDetails')
-            .populate('branchDetails')
+            .populate(entityType === 'branch' ? 'branchDetails' : 'subdealerDetails')
             .populate('createdByDetails')
-            .populate('salesExecutiveDetails')
+            .populate(bookingType === 'SUBDEALER' ? 'subdealerUserDetails' : 'salesExecutiveDetails')
             .populate({ path: 'priceComponents.header', model: 'Header' })
             .populate({ path: 'accessories.accessory', model: 'Accessory' })
             .populate({ path: 'exchangeDetails.broker', model: 'Broker' })
@@ -747,9 +793,19 @@ exports.createBooking = async (req, res) => {
             status: 'SUCCESS'
         });
 
+        // Transform the response to show the correct user field based on booking type
+        const responseData = populatedBooking.toObject();
+        if (responseData.bookingType === 'SUBDEALER') {
+            responseData.subdealerUser = responseData.subdealerUserDetails;
+            delete responseData.salesExecutive;
+            delete responseData.salesExecutiveDetails;
+        } else {
+            responseData.salesExecutive = responseData.salesExecutiveDetails;
+        }
+
         res.status(201).json({
             success: true,
-            data: populatedBooking
+            data: responseData
         });
     } catch (err) {
         console.error('Error creating booking:', err);
@@ -778,22 +834,16 @@ exports.createBooking = async (req, res) => {
         });
     }
 };
-/**
- * @desc    Get booking statistics and document counts
- * @route   GET /api/v1/bookings/stats
- * @access  Private (SuperAdmin sees all, others see their own)
- */
+
+// Get booking statistics and document counts
 exports.getBookingStats = async (req, res) => {
   try {
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    const isSalesExecutive = req.user.roles.some(r => r.name === 'SALES_EXECUTIVE');
-    
     // Base match conditions
     const matchConditions = {};
     
     // For non-superadmins, filter by branch or sales executive
-    if (!isSuperAdmin) {
-      if (isSalesExecutive) {
+    if (!req.user.isSuperAdmin) {
+      if (req.user.isSalesExecutive) {
         matchConditions.$or = [
           { createdBy: req.user.id },
           { salesExecutive: req.user.id }
@@ -888,7 +938,7 @@ exports.getBookingStats = async (req, res) => {
 
     // For superadmin, get counts grouped by sales executive
     let salesExecutiveStats = [];
-    if (isSuperAdmin) {
+    if (req.user.isSuperAdmin) {
       salesExecutiveStats = await Booking.aggregate([
         {
           $match: {
@@ -949,7 +999,7 @@ exports.getBookingStats = async (req, res) => {
             thisMonth: financeLetterPendingThisMonth
           }
         },
-        salesExecutiveStats: isSuperAdmin ? salesExecutiveStats : undefined
+        salesExecutiveStats: req.user.isSuperAdmin ? salesExecutiveStats : undefined
       }
     });
 
@@ -963,15 +1013,12 @@ exports.getBookingStats = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get booking form HTML by ID
- * @route   GET /api/v1/bookings/:id/form
- * @access  Private
- */
+// Get booking form HTML by ID
 exports.getBookingForm = async (req, res) => {
   try {
     const bookingId = req.params.id;
     
+    // 1. Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({
         success: false,
@@ -979,7 +1026,7 @@ exports.getBookingForm = async (req, res) => {
       });
     }
 
-    // Find the booking with all necessary populated data
+    // 2. Find the booking with all necessary populated data
     const booking = await Booking.findById(bookingId)
       .populate('modelDetails')
       .populate('colorDetails')
@@ -1009,19 +1056,12 @@ exports.getBookingForm = async (req, res) => {
       });
     }
 
-    // Check if user has permission to view this booking
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to view this booking'
-      });
-    }
+    // 3. Permission check is handled by route middleware
 
-    // Generate the HTML form
+    // 4. Generate the HTML form
     const html = await generateBookingFormHTML(booking, false);
 
-    // Set response headers for HTML content
+    // 5. Set response headers for HTML content
     res.set('Content-Type', 'text/html');
     res.status(200).send(html);
 
@@ -1045,7 +1085,8 @@ exports.getBookingForm = async (req, res) => {
     });
   }
 };
-// In your bookingController.js
+
+// Get booking by chassis number
 exports.getBookingByChassisNumber = async (req, res) => {
   try {
     const { chassisNumber } = req.params;
@@ -1096,15 +1137,6 @@ exports.getBookingByChassisNumber = async (req, res) => {
       });
     }
 
-    // Check if user has permission to view this booking
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to view this booking'
-      });
-    }
-
     // Transform the response to include accessory categories
     const transformedBooking = booking.toObject();
     
@@ -1135,11 +1167,8 @@ exports.getBookingByChassisNumber = async (req, res) => {
     });
   }
 };
-/**
- * @desc    Approve booking (simple version - just updates status)
- * @route   PUT /api/v1/bookings/:id/approve
- * @access  Private (Admin/Manager)
- */
+
+// Approve booking
 exports.approveBooking = async (req, res) => {
   try {
     // 1. Validate booking ID format
@@ -1150,20 +1179,7 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
-    // 2. Check user permissions
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    const isManagerOrAdmin = req.user.roles.some(r => 
-      ['MANAGER', 'ADMIN','SUPERADMIN'].includes(r.name)
-    );
-
-    if (!isSuperAdmin && !isManagerOrAdmin) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Unauthorized to approve bookings' 
-      });
-    }
-
-    // 3. Find and update the booking (no status condition)
+    // 2. Find and update the booking (no status condition)
     const booking = await Booking.findByIdAndUpdate(
       req.params.id,
       { 
@@ -1194,7 +1210,7 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
-    // 4. (Optional) Generate booking form if needed
+    // 3. (Optional) Generate booking form if needed
     if (process.env.GENERATE_FORMS === 'true') {
       generateBookingFormHTML(booking)
         .then(formResult => {
@@ -1207,7 +1223,7 @@ exports.approveBooking = async (req, res) => {
         });
     }
 
-    // 5. Create audit log
+    // 4. Create audit log
     await AuditLog.create({
       action: "APPROVE",
       entity: "Booking",
@@ -1220,7 +1236,7 @@ exports.approveBooking = async (req, res) => {
       status: "SUCCESS"
     });
 
-    // 6. Return success response
+    // 5. Return success response
     res.status(200).json({
       success: true,
       data: booking,
@@ -1249,7 +1265,10 @@ exports.approveBooking = async (req, res) => {
     });
   }
 };
-// Get booking by ID with all populated details (fixed version)
+
+// Get booking by ID with all populated details
+// Get booking by ID with all populated details
+// Get booking by ID with all populated details
 exports.getBookingById = async (req, res) => {
   try {
     const bookingId = req.params.id;
@@ -1265,39 +1284,47 @@ exports.getBookingById = async (req, res) => {
     const booking = await Booking.findById(bookingId)
       .populate('model', 'model_name type')
       .populate('color', 'name code')
-      .populate('branch', 'name')
-      .populate('createdBy', 'name email')
-      .populate('salesExecutive', 'name email')
+      .populate({
+        path: 'branch',
+        select: 'name code address contactPerson contactNumber'
+      })
+      .populate({
+        path: 'subdealer',
+        select: 'name code address contactPerson contactNumber gstin'
+      })
+      .populate('createdBy', 'name email mobile')
+      .populate('salesExecutive', 'name email mobile')
+      .populate('subdealerUser', 'name email mobile')
       .populate({
         path: 'priceComponents.header',
-        model: 'Header'
+        model: 'Header',
+        select: 'header_name header_key'
       })
       .populate({
         path: 'accessories.accessory',
-        model: 'Accessory'
+        model: 'Accessory',
+        select: 'name code category'
       })
       .populate({
         path: 'exchangeDetails.broker',
-        model: 'Broker'
+        model: 'Broker',
+        select: 'name contactNumber'
       })
       .populate({
         path: 'payment.financer',
-        model: 'FinanceProvider'
+        model: 'FinanceProvider',
+        select: 'name code'
       })
-      .populate('approvedBy', 'name email');
+      .populate('approvedBy', 'name email mobile')
+      .populate({
+        path: 'vehicle',
+        select: 'batteryNumber keyNumber motorNumber chargerNumber engineNumber chassisNumber qrCode status'
+      });
 
     if (!booking) {
       return res.status(404).json({
         success: false,
         message: 'Booking not found'
-      });
-    }
-
-    // Check if user has BOOKING:READ permission
-    if (!req.user || !req.user.hasPermission('BOOKING', 'READ')) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to view this booking'
       });
     }
 
@@ -1307,8 +1334,25 @@ exports.getBookingById = async (req, res) => {
     // Ensure model name is included in the response
     if (bookingObj.model) {
       bookingObj.model.name = bookingObj.model.model_name;
-      // Optionally keep both names or just one
-      // delete bookingObj.model.model_name; 
+    }
+
+    // Transform the sales executive/subdealer user based on booking type
+    if (bookingObj.bookingType === 'SUBDEALER') {
+      bookingObj.executive = bookingObj.subdealerUser;
+      delete bookingObj.salesExecutive;
+    } else {
+      bookingObj.executive = bookingObj.salesExecutive;
+      delete bookingObj.subdealerUser;
+    }
+
+    // Add vehicle details if available
+    if (bookingObj.vehicle) {
+      bookingObj.batteryNumber = bookingObj.batteryNumber || bookingObj.vehicle.batteryNumber || null;
+      bookingObj.keyNumber = bookingObj.keyNumber || bookingObj.vehicle.keyNumber || null;
+      bookingObj.motorNumber = bookingObj.motorNumber || bookingObj.vehicle.motorNumber || null;
+      bookingObj.chargerNumber = bookingObj.chargerNumber || bookingObj.vehicle.chargerNumber || null;
+      bookingObj.engineNumber = bookingObj.engineNumber || bookingObj.vehicle.engineNumber || null;
+      bookingObj.vehicleStatus = bookingObj.vehicle.status;
     }
 
     res.status(200).json({
@@ -1325,7 +1369,8 @@ exports.getBookingById = async (req, res) => {
     });
   }
 };
-// Update getAllBookings
+
+// Get all bookings with pagination and filters
 exports.getAllBookings = async (req, res) => {
   try {
     const { 
@@ -1366,13 +1411,9 @@ exports.getAllBookings = async (req, res) => {
       if (toDate) filter.createdAt.$lte = new Date(toDate);
     }
 
-    // Check user role and permissions
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    const isSalesExecutive = req.user.roles.some(r => r.name === 'SALES_EXECUTIVE');
-
     // Branch filter logic
-    if (!isSuperAdmin) {
-      if (isSalesExecutive) {
+    if (!req.user.isSuperAdmin) {
+      if (req.user.isSalesExecutive) {
         // Sales Executive can only see their own bookings
         filter.$or = [
           { createdBy: req.user.id },
@@ -1514,81 +1555,8 @@ exports.getAllBookings = async (req, res) => {
     });
   }
 };
-// exports.getBookingById = async (req, res) => {
-//   try {
-//     const bookingId = req.params.id;
-    
-//     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Invalid booking ID format'
-//       });
-//     }
 
-//     // Find the booking with all necessary populated data
-//     const booking = await Booking.findById(bookingId)
-//       .populate('model', 'model_name type') // Ensure model_name is populated
-//       .populate('color', 'name code')
-//       .populate('branch', 'name')
-//       .populate('createdBy', 'name email')
-//       .populate('salesExecutive', 'name email')
-//       .populate({
-//         path: 'priceComponents.header',
-//         model: 'Header'
-//       })
-//       .populate({
-//         path: 'accessories.accessory',
-//         model: 'Accessory'
-//       })
-//       .populate({
-//         path: 'exchangeDetails.broker',
-//         model: 'Broker'
-//       })
-//       .populate({
-//         path: 'payment.financer',
-//         model: 'FinanceProvider'
-//       })
-//       .populate('approvedBy', 'name email');
-
-//     if (!booking) {
-//       return res.status(404).json({
-//         success: false,
-//         message: 'Booking not found'
-//       });
-//     }
-
-//     // Check if user has permission to view this booking
-//     const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-//     if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
-//       return res.status(403).json({
-//         success: false,
-//         message: 'You are not authorized to view this booking'
-//       });
-//     }
-
-//     // Convert to plain object and transform the response
-//     const bookingObj = booking.toObject();
-    
-//     // Ensure model name is included in the response
-//     if (bookingObj.model) {
-//       bookingObj.model.name = bookingObj.model.model_name;
-//       delete bookingObj.model.model_name; // Optional: clean up the field name
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       data: bookingObj
-//     });
-
-//   } catch (err) {
-//     console.error('Error getting booking:', err);
-//     res.status(500).json({
-//       success: false,
-//       message: 'Server error while fetching booking',
-//       error: process.env.NODE_ENV === 'development' ? err.message : undefined
-//     });
-//   }
-// };
+// Update booking
 exports.updateBooking = async (req, res) => {
     try {
         // Validate booking ID
@@ -1599,29 +1567,18 @@ exports.updateBooking = async (req, res) => {
             });
         }
 
-        // Find the existing booking
+        // Find the existing booking with all necessary population
         const existingBooking = await Booking.findById(req.params.id)
             .populate('modelDetails')
             .populate('colorDetails')
             .populate('branchDetails')
+            .populate('subdealerDetails')
             .populate({ path: 'priceComponents.header', model: 'Header' });
 
         if (!existingBooking) {
             return res.status(404).json({
                 success: false,
                 message: 'Booking not found'
-            });
-        }
-
-        // Check user permissions
-        const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-        const isBookingOwner = existingBooking.createdBy.equals(req.user._id);
-        const isSalesExecutive = existingBooking.salesExecutive.equals(req.user._id);
-        
-        if (!isSuperAdmin && !isBookingOwner && !isSalesExecutive) {
-            return res.status(403).json({
-                success: false,
-                message: 'You are not authorized to update this booking'
             });
         }
 
@@ -1648,6 +1605,12 @@ exports.updateBooking = async (req, res) => {
             });
         };
 
+        // Determine entity type (branch or subdealer)
+        const entityType = existingBooking.branch ? 'branch' : 'subdealer';
+        const entityId = existingBooking.branch || existingBooking.subdealer;
+        const entityModel = entityType === 'branch' ? 'Branch' : 'Subdealer';
+        const bookingType = existingBooking.bookingType;
+
         // Update basic fields if provided
         if (req.body.model_id) {
             const model = await Model.findById(req.body.model_id);
@@ -1657,6 +1620,15 @@ exports.updateBooking = async (req, res) => {
                     message: 'Invalid model selected'
                 });
             }
+            
+            // Check if model type matches customer type for CSD
+            if (updateData.customerType === 'CSD' && model.type !== 'CSD') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Selected model is not available for CSD customers'
+                });
+            }
+            
             updateData.model = req.body.model_id;
         }
 
@@ -1668,6 +1640,26 @@ exports.updateBooking = async (req, res) => {
                     message: 'Invalid color selected'
                 });
             }
+            
+            // Validate color against model
+            if (updateData.model) {
+                const model = await Model.findById(updateData.model).populate('colors');
+                if (!model.colors.some(c => c._id.toString() === req.body.model_color.toString())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Selected color not available for this model'
+                    });
+                }
+            } else if (existingBooking.model) {
+                const model = await Model.findById(existingBooking.model).populate('colors');
+                if (!model.colors.some(c => c._id.toString() === req.body.model_color.toString())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Selected color not available for this model'
+                    });
+                }
+            }
+            
             updateData.color = req.body.model_color;
         }
 
@@ -1691,28 +1683,9 @@ exports.updateBooking = async (req, res) => {
             }
             updateData.rto = req.body.rto_type;
             
+            // Set RTO amount based on type
             if (['BH', 'CRTM'].includes(req.body.rto_type)) {
-                if (req.body.rto_amount) {
-                    updateData.rtoAmount = req.body.rto_amount;
-                } else {
-                    const rtoHeader = await Header.findOne({
-                        header_key: 'RTO CHARGES'
-                    });
-                    
-                    if (rtoHeader) {
-                        const model = updateData.model || existingBooking.model;
-                        const modelDoc = await Model.findById(model);
-                        if (modelDoc) {
-                            const rtoPrice = modelDoc.prices.find(
-                                p => p.header_id.equals(rtoHeader._id) && 
-                                     p.branch_id.equals(existingBooking.branch)
-                            );
-                            if (rtoPrice) {
-                                updateData.rtoAmount = rtoPrice.value;
-                            }
-                        }
-                    }
-                }
+                updateData.rtoAmount = req.body.rto_type === 'BH' ? 5000 : 4500;
             } else {
                 updateData.rtoAmount = undefined;
             }
@@ -1742,7 +1715,9 @@ exports.updateBooking = async (req, res) => {
                     if (modelDoc) {
                         const hpaPrice = modelDoc.prices.find(
                             p => p.header_id.equals(hpaHeader._id) && 
-                                 p.branch_id.equals(existingBooking.branch)
+                                 (entityType === 'branch' ? 
+                                     p.branch_id?.equals(entityId) : 
+                                     p.subdealer_id?.equals(entityId))
                         );
                         if (hpaPrice) {
                             updateData.hypothecationCharges = hpaPrice.value;
@@ -1805,8 +1780,8 @@ exports.updateBooking = async (req, res) => {
             updateData.customerDetails = customerDetails;
         }
 
-        // Update exchange details if provided
-        if (req.body.exchange !== undefined) {
+        // Update exchange details if provided (only for branch bookings)
+        if (req.body.exchange !== undefined && bookingType === 'BRANCH') {
             if (req.body.exchange.is_exchange) {
                 if (!req.body.exchange.broker_id) {
                     return res.status(400).json({
@@ -1823,11 +1798,42 @@ exports.updateBooking = async (req, res) => {
                     });
                 }
 
-                if (!broker.branches.some(b => b.branch.equals(existingBooking.branch))) {
+                // Check broker is assigned to this branch
+                if (entityType === 'branch' && 
+                    !broker.branches.some(b => b.branch.equals(entityId))) {
                     return res.status(400).json({
                         success: false,
                         message: 'Broker not available for this branch'
                     });
+                }
+
+                // Check OTP if required
+                let otpVerified = false;
+                if (broker.otp_required) {
+                    if (!req.body.exchange.otp) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'OTP is required for this broker'
+                        });
+                    }
+
+                    // Verify OTP
+                    const now = new Date();
+                    if (!broker.otp || 
+                        broker.otp !== req.body.exchange.otp || 
+                        !broker.otpExpiresAt || 
+                        broker.otpExpiresAt < now) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Invalid or expired OTP'
+                        });
+                    }
+
+                    // Clear OTP after verification
+                    broker.otp = null;
+                    broker.otpExpiresAt = null;
+                    await broker.save();
+                    otpVerified = true;
                 }
 
                 updateData.exchange = true;
@@ -1835,12 +1841,19 @@ exports.updateBooking = async (req, res) => {
                     broker: req.body.exchange.broker_id,
                     price: req.body.exchange.exchange_price,
                     vehicleNumber: req.body.exchange.vehicle_number,
-                    chassisNumber: req.body.exchange.chassis_number
+                    chassisNumber: req.body.exchange.chassis_number,
+                    otpVerified: otpVerified,
+                    status: 'PENDING'
                 };
             } else {
                 updateData.exchange = false;
                 updateData.exchangeDetails = undefined;
             }
+        } else if (req.body.exchange?.is_exchange && bookingType === 'SUBDEALER') {
+            return res.status(400).json({
+                success: false,
+                message: 'Exchange is not allowed for subdealer bookings'
+            });
         }
 
         // Update payment details if provided
@@ -1865,14 +1878,15 @@ exports.updateBooking = async (req, res) => {
                 if (req.body.payment.gc_applicable) {
                     const financerRate = await FinancerRate.findOne({
                         financeProvider: req.body.payment.financer_id,
-                        branch: existingBooking.branch,
+                        branch: entityType === 'branch' ? entityId : null,
+                        subdealer: entityType === 'subdealer' ? entityId : null,
                         is_active: true
                     });
 
                     if (!financerRate) {
                         return res.status(400).json({
                             success: false,
-                            message: 'Financer rate not found for this branch'
+                            message: `Financer rate not found for this ${entityType}`
                         });
                     }
 
@@ -1953,7 +1967,9 @@ exports.updateBooking = async (req, res) => {
                 const modelDoc = await Model.findById(model);
                 const accessoriesTotalPrice = modelDoc.prices.find(
                     p => p.header_id.equals(accessoriesTotalHeader._id) && 
-                         p.branch_id.equals(existingBooking.branch)
+                         (entityType === 'branch' ? 
+                             p.branch_id?.equals(entityId) : 
+                             p.subdealer_id?.equals(entityId))
                 )?.value || 0;
 
                 const selectedAccessoriesTotal = validAccessories.reduce(
@@ -1991,7 +2007,10 @@ exports.updateBooking = async (req, res) => {
 
             const priceComponents = await Promise.all(headers.map(async (header) => {
                 const priceData = modelDoc.prices.find(
-                    p => p.header_id.equals(header._id) && p.branch_id.equals(existingBooking.branch)
+                    p => p.header_id.equals(header._id) && 
+                         (entityType === 'branch' ? 
+                             p.branch_id?.equals(entityId) : 
+                             p.subdealer_id?.equals(entityId))
                 );
 
                 if (!priceData) return null;
@@ -2092,48 +2111,78 @@ exports.updateBooking = async (req, res) => {
             updateData.discountedAmount = updateData.totalAmount - totalDiscount;
         }
 
-        // Update sales executive if provided
-        if (req.body.sales_executive !== undefined) {
-            if (req.body.sales_executive) {
-                const salesExecutive = await User.findById(req.body.sales_executive)
-                    .populate('roles');
+        // Update user assignment based on booking type
+        if (bookingType === 'SUBDEALER') {
+            // For subdealer booking, ensure subdealer user is active
+            if (req.body.subdealer_user) {
+                const subdealerRole = await Role.findOne({ name: 'SUBDEALER' });
+                if (!subdealerRole) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'SUBDEALER role not found in system'
+                    });
+                }
+
+                const subdealerUser = await User.findOne({ 
+                    _id: req.body.subdealer_user,
+                    subdealer: entityId,
+                    roles: subdealerRole._id,
+                    status: 'ACTIVE'
+                }).populate('roles');
                 
-                if (!salesExecutive ||  salesExecutive.status !== 'ACTIVE') {
+                if (!subdealerUser) {
                     return res.status(400).json({
                         success: false,
-                        message: 'Invalid or inactive sales executive selected'
+                        message: 'No active subdealer user found for this subdealer'
                     });
                 }
-
-                const isSalesExecutive = salesExecutive.roles.some(r => 
-                    r.name === 'SALES_EXECUTIVE'
-                );
                 
-                if (!isSalesExecutive) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Selected user must have SALES_EXECUTIVE role'
-                    });
-                }
+                updateData.subdealerUser = subdealerUser._id;
+            }
+        } else {
+            // For branch booking, handle sales executive
+            if (req.body.sales_executive !== undefined) {
+                if (req.body.sales_executive) {
+                    const salesExecutive = await User.findById(req.body.sales_executive)
+                        .populate('roles');
+                    
+                    if (!salesExecutive || salesExecutive.status !== 'ACTIVE') {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Invalid or inactive sales executive selected'
+                        });
+                    }
 
-                if (!salesExecutive.branch || 
-                    salesExecutive.branch.toString() !== existingBooking.branch.toString()) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Sales executive must belong to the booking branch'
-                    });
-                }
+                    const isSalesExecutive = salesExecutive.roles.some(r => 
+                        r.name === 'SALES_EXECUTIVE'
+                    );
+                    
+                    if (!isSalesExecutive) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Selected user must have SALES_EXECUTIVE role'
+                        });
+                    }
 
-                updateData.salesExecutive = req.body.sales_executive;
-            } else {
-                updateData.salesExecutive = existingBooking.createdBy;
+                    if (!salesExecutive.branch || 
+                        salesExecutive.branch.toString() !== entityId.toString()) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Sales executive must belong to the booking branch'
+                        });
+                    }
+
+                    updateData.salesExecutive = req.body.sales_executive;
+                } else {
+                    updateData.salesExecutive = existingBooking.createdBy;
+                }
             }
         }
 
         // Update status if provided
         if (req.body.status !== undefined) {
             const validStatuses = [
-                'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 
+                'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 
                 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED',
                 'PENDING_APPROVAL (Discount_Exceeded)'
             ];
@@ -2146,7 +2195,7 @@ exports.updateBooking = async (req, res) => {
             }
 
             const allowedStatusUpdates = {
-                SALES_EXECUTIVE: ['DRAFT', 'PENDING_APPROVAL'],
+                SALES_EXECUTIVE: ['PENDING_APPROVAL'],
                 MANAGER: ['APPROVED', 'REJECTED', 'KYC_PENDING', 'KYC_VERIFIED'],
                 ADMIN: ['COMPLETED', 'CANCELLED']
             };
@@ -2161,7 +2210,7 @@ exports.updateBooking = async (req, res) => {
                 }
             }
 
-            if (!canUpdateStatus && !isSuperAdmin) {
+            if (!canUpdateStatus && !req.user.isSuperAdmin) {
                 return res.status(403).json({
                     success: false,
                     message: 'You are not authorized to update status to this value'
@@ -2175,21 +2224,6 @@ exports.updateBooking = async (req, res) => {
             }
         }
 
-        // Update the booking
-        // const  = await Booking.findByIdAndUpdate(
-        //     req.params.id,
-        //     { $set: updateData },
-        //     { new: true }
-        // )
-        // .populate('modelDetails')
-        // .populate('colorDetails')
-        // .populate('branchDetails')
-        // .populate('createdByDetails')
-        // .populate('salesExecutiveDetails')
-        // .populate({ path: 'priceComponents.header', model: 'Header' })
-        // .populate({ path: 'accessories.accessory', model: 'Accessory' })
-        // .populate({ path: 'exchangeDetails.broker', model: 'Broker' })
-        // .populate({ path: 'payment.financer', model: 'FinanceProvider' });
         const updatedBooking = await Booking.findByIdAndUpdate(
             req.params.id,
             { $set: updateData },
@@ -2197,9 +2231,9 @@ exports.updateBooking = async (req, res) => {
         )
         .populate('modelDetails')
         .populate('colorDetails')
-        .populate('branchDetails')
+        .populate(entityType === 'branch' ? 'branchDetails' : 'subdealerDetails')
         .populate('createdByDetails')
-        .populate('salesExecutiveDetails')
+        .populate(bookingType === 'SUBDEALER' ? 'subdealerUserDetails' : 'salesExecutiveDetails')
         .populate({ path: 'priceComponents.header', model: 'Header' })
         .populate({ path: 'accessories.accessory', model: 'Accessory' })
         .populate({ path: 'exchangeDetails.broker', model: 'Broker' })
@@ -2230,9 +2264,19 @@ exports.updateBooking = async (req, res) => {
             status: 'SUCCESS'
         });
 
+        // Transform the response to show the correct user field based on booking type
+        const responseData = updatedBooking.toObject();
+        if (responseData.bookingType === 'SUBDEALER') {
+            responseData.subdealerUser = responseData.subdealerUserDetails;
+            delete responseData.salesExecutive;
+            delete responseData.salesExecutiveDetails;
+        } else {
+            responseData.salesExecutive = responseData.salesExecutiveDetails;
+        }
+
         res.status(200).json({
             success: true,
-            data: updatedBooking
+            data: responseData
         });
     } catch (err) {
         console.error('Error updating booking:', err);
@@ -2262,114 +2306,8 @@ exports.updateBooking = async (req, res) => {
         });
     }
 };
-// exports.approveBooking = async (req, res) => {
-//     try {
-//         // 1. Validate booking ID
-//         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-//             return res.status(400).json({ 
-//                 success: false, 
-//                 message: 'Invalid booking ID format' 
-//             });
-//         }
 
-//         // 2. Validate chassis number if provided
-//         if (req.body.chassisNumber && !/^[A-Za-z0-9]{17}$/.test(req.body.chassisNumber)) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: 'Invalid chassis number format (must be 17 alphanumeric characters)'
-//             });
-//         }
-
-//         // 3. Check user permissions
-//         const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-//         const isManagerOrAdmin = req.user.roles.some(r => 
-//             ['MANAGER', 'ADMIN', 'SUPERADMIN'].includes(r.name)
-//         );
-        
-//         if (!isSuperAdmin && !isManagerOrAdmin) {
-//             return res.status(403).json({ 
-//                 success: false, 
-//                 message: 'Unauthorized to approve bookings' 
-//             });
-//         }
-
-//         // 4. Prepare update data
-//         const updateData = { 
-//             status: 'APPROVED',
-//             approvedBy: req.user.id,
-//             'discounts.$[].approvedBy': req.user.id,
-//             'discounts.$[].approvalStatus': 'APPROVED',
-//             'discounts.$[].approvalNote': req.body.approvalNote || ''
-//         };
-
-//         // 5. Add chassis number to update if provided
-//         if (req.body.chassisNumber) {
-//             updateData.chassisNumber = req.body.chassisNumber;
-//         }
-
-//         // 6. Find and update the booking
-//         const booking = await Booking.findOneAndUpdate(
-//             { 
-//                 _id: req.params.id,
-//                 status: 'PENDING_APPROVAL'
-//             },
-//             { $set: updateData },
-//             { 
-//                 new: true,
-//                 populate: [
-//                     { path: 'modelDetails', select: 'model_name type' },
-//                     { path: 'colorDetails', select: 'name code' },
-//                     { path: 'branchDetails', select: 'name address' },
-//                     { path: 'approvedByDetails', select: 'name email' }
-//                 ]
-//             }
-//         );
-
-//         if (!booking) {
-//             return res.status(404).json({ 
-//                 success: false, 
-//                 message: 'Booking not found or not pending approval' 
-//             });
-//         }
-
-//         // 7. Generate and save the booking form PDF after approval
-//         try {
-//             const formResult = await generateBookingFormHTML(booking);
-//             booking.formPath = formResult.url;
-//             booking.formGenerated = true;
-//             await booking.save();
-//         } catch (pdfError) {
-//             console.error('Error generating booking form PDF after approval:', pdfError);
-//             // Continue even if PDF generation fails
-//         }
-
-//         // 8. Create audit log (non-blocking)
-//         AuditLog.create({
-//             action: 'APPROVE',
-//             entity: 'Booking',
-//             entityId: booking._id,
-//             user: req.user.id,
-//             ip: req.ip,
-//             metadata: { 
-//                 approvalNote: req.body.approvalNote,
-//                 chassisNumber: req.body.chassisNumber || null
-//             },
-//             status: 'SUCCESS'
-//         }).catch(err => console.error('Audit log error:', err));
-
-//         res.status(200).json({
-//             success: true,
-//             data: booking
-//         });
-//     } catch (err) {
-//         console.error('Error approving booking:', err);
-//         res.status(500).json({
-//             success: false,
-//             message: 'Error approving booking',
-//             error: process.env.NODE_ENV === 'development' ? err.message : undefined
-//         });
-//     }
-// };
+// Reject booking
 exports.rejectBooking = async (req, res) => {
   try {
     // Find booking
@@ -2386,20 +2324,6 @@ exports.rejectBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Booking does not require approval'
-      });
-    }
-
-    // Check if user has approval permissions
-    const canApprove = req.user.roles.some(role => 
-      role.permissions.some(p => 
-        p.module === 'BOOKING' && p.action === 'APPROVE'
-      )
-    );
-
-    if (!canApprove) {
-      return res.status(403).json({
-        success: false,
-        message: 'Unauthorized to reject bookings'
       });
     }
 
@@ -2462,6 +2386,8 @@ exports.rejectBooking = async (req, res) => {
     });
   }
 };
+
+// Complete booking
 exports.completeBooking = async (req, res) => {
   try {
     // Find booking
@@ -2478,20 +2404,6 @@ exports.completeBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Only APPROVED bookings can be completed'
-      });
-    }
-
-    // Check if user has complete permissions
-    const canComplete = req.user.roles.some(role => 
-      role.permissions.some(p => 
-        p.module === 'BOOKING' && p.action === 'COMPLETE'
-      )
-    );
-
-    if (!canComplete) {
-      return res.status(403).json({
-        success: false,
-        message: 'Unauthorized to complete bookings'
       });
     }
 
@@ -2541,6 +2453,8 @@ exports.completeBooking = async (req, res) => {
     });
   }
 };
+
+// Cancel booking
 exports.cancelBooking = async (req, res) => {
   try {
     // Find booking
@@ -2557,20 +2471,6 @@ exports.cancelBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Booking cannot be cancelled in its current state'
-      });
-    }
-
-    // Check if user has cancel permissions
-    const canCancel = req.user.roles.some(role => 
-      role.permissions.some(p => 
-        p.module === 'BOOKING' && (p.action === 'CANCEL' || p.action === 'ALL')
-      )
-    );
-
-    if (!canCancel) {
-      return res.status(403).json({
-        success: false,
-        message: 'Unauthorized to cancel bookings'
       });
     }
 
@@ -2623,6 +2523,8 @@ exports.cancelBooking = async (req, res) => {
     });
   }
 };
+
+// Get booking with documents
 exports.getBookingWithDocuments = async (req, res) => {
   try {
     const bookingId = req.params.id;
@@ -2646,15 +2548,6 @@ exports.getBookingWithDocuments = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Booking not found'
-      });
-    }
-
-    // Check permissions
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to view this booking'
       });
     }
 
@@ -2700,7 +2593,7 @@ exports.getBookingWithDocuments = async (req, res) => {
     });
   }
 };
-// Check if Booking is Ready for Delivery
+// Check if booking is ready for delivery
 exports.checkReadyForDelivery = async (req, res) => {
   try {
     const bookingId = req.params.id;
@@ -2717,15 +2610,6 @@ exports.checkReadyForDelivery = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Booking not found'
-      });
-    }
-
-    // Check permissions
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    if (!isSuperAdmin && booking.branch.toString() !== req.user.branch.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not authorized to view this booking'
       });
     }
 
@@ -2760,6 +2644,7 @@ exports.checkReadyForDelivery = async (req, res) => {
     });
   }
 };
+// Get update form
 exports.getUpdateForm = async (req, res) => {
   try {
     const bookingId = req.params.id;
@@ -2842,7 +2727,7 @@ exports.getUpdateForm = async (req, res) => {
     });
   }
 };
-
+// Get fully paid pending RTO bookings
 exports.getFullyPaidPendingRTOBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({
@@ -2859,15 +2744,18 @@ exports.getFullyPaidPendingRTOBookings = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
-
-/**
- * @desc    Allocate chassis number to booking
- * @route   PUT /api/v1/bookings/:id/allocate
- * @access  Private (Admin/Manager)
- */
+// Allocate chassis number to booking with claim functionality
 exports.allocateChassisNumber = async (req, res) => {
+  // Define status constants for better maintainability
+  const STATUS = {
+    PENDING_APPROVAL: 'PENDING_APPROVAL',
+    ALLOCATED: 'ALLOCATED',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED'
+  };
+
   try {
-    // Validate booking ID
+    // 1. Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ 
         success: false, 
@@ -2875,102 +2763,146 @@ exports.allocateChassisNumber = async (req, res) => {
       });
     }
 
-    // Validate chassis number format
-    if (!req.body.chassisNumber || !/^[A-Z0-9]{17}$/.test(req.body.chassisNumber)) {
+    // 2. Extract data from both form-data and query params
+    const { chassisNumber, hasClaim, priceClaim, description } = req.body;
+    const { reason } = req.query; // Get reason from query params
+
+    // 3. Validate chassis number format
+    if (!chassisNumber || !/^[A-Z0-9]{17}$/.test(chassisNumber)) {
       return res.status(400).json({
         success: false,
         message: 'Chassis number must be exactly 17 alphanumeric characters'
       });
     }
 
-    // Check user permissions
-    const isSuperAdmin = req.user.roles.some(r => r.isSuperAdmin);
-    const isManagerOrAdmin = req.user.roles.some(r => 
-      ['MANAGER', 'ADMIN','SUPERADMIN'].includes(r.name)
-    );
-
-    if (!isSuperAdmin && !isManagerOrAdmin) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Unauthorized to allocate chassis numbers' 
-      });
-    }
-
-    // Check for duplicate chassis number
-    const existingBooking = await Booking.findOne({ 
-      chassisNumber: req.body.chassisNumber.toUpperCase(),
-      _id: { $ne: req.params.id }
-    });
-
-    if (existingBooking) {
-      return res.status(400).json({
-        success: false,
-        message: 'Chassis number already assigned to another booking'
-      });
-    }
-
-    // Find and update the booking
-    const booking = await Booking.findOneAndUpdate(
-      { 
-        _id: req.params.id,
-        status: { $in: ['PENDING_APPROVAL', 'APPROVED'] } // Only allow allocation for these statuses
-      },
-      { 
-        $set: { 
-          chassisNumber: req.body.chassisNumber.toUpperCase(),
-          status: 'ALLOCATED'
-        }
-      },
-      { new: true }
-    ).populate('model color branch createdBy salesExecutive');
-
+    // 4. Find booking and validate existence
+    const booking = await Booking.findById(req.params.id);
     if (!booking) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Booking not found or not in a valid status for allocation' 
+        message: 'Booking not found' 
+      });
+    }
+    // 5. Determine allocation scenario
+    const isInitialAllocation = !booking.chassisNumber;
+    const isChangeAfterAllocation = booking.chassisNumber && booking.status === STATUS.ALLOCATED;
+    const hasPendingClaim = hasClaim === 'true';
+
+    // 6. Validate reason for post-allocation changes
+    if (isChangeAfterAllocation) {
+      if (!reason || reason.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'Reason is required for chassis number change after allocation'
+        });
+      }
+
+      if (!booking.chassisNumberChangeAllowed) {
+        return res.status(400).json({
+          success: false,
+          message: 'No more chassis number changes allowed for this booking'
+        });
+      }
+    }
+
+    // 7. Process claim if exists
+    if (hasPendingClaim) {
+      if (!priceClaim || !description) {
+        return res.status(400).json({
+          success: false,
+          message: 'Both priceClaim and description are required when hasClaim is true'
+        });
+      }
+
+      const files = req.files || [];
+      if (files.length > 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Maximum 6 documents allowed for claims'
+        });
+      }
+
+      const documents = files.map(file => ({
+        path: `/claims/${file.filename}`,
+        originalName: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype
+      }));
+
+      booking.claimDetails = {
+        hasClaim: true,
+        priceClaim,
+        description,
+        documents,
+        createdAt: new Date(),
+        createdBy: req.user.id
+      };
+    }
+
+    // 8. Record history if changing existing number
+    if (booking.chassisNumber) {
+      booking.chassisNumberHistory.push({
+        number: booking.chassisNumber,
+        changedAt: new Date(),
+        changedBy: req.user.id,
+        reason: reason || 'Initial allocation',
+        statusAtChange: booking.status
       });
     }
 
-    // Create audit log
-    await AuditLog.create({
-      action: 'ALLOCATE_CHASSIS',
-      entity: 'Booking',
-      entityId: booking._id,
-      user: req.user.id,
-      ip: req.ip,
-      metadata: {
-        chassisNumber: req.body.chassisNumber
-      },
-      status: 'SUCCESS'
-    });
+    // 9. Update chassis number (always uppercase)
+    booking.chassisNumber = chassisNumber.toUpperCase();
+
+    // 10. Update status based on business rules
+    if (isInitialAllocation) {
+      booking.status = hasPendingClaim ? STATUS.ALLOCATED : STATUS.ALLOCATED;
+      booking.chassisNumberChangeAllowed = true;
+    } 
+    else if (isChangeAfterAllocation) {
+      booking.chassisNumberChangeAllowed = false;
+      
+      // Only update status if not already in an allocated state
+      if (![STATUS.ALLOCATED, STATUS.ALLOCATED].includes(booking.status)) {
+        booking.status = hasPendingClaim ? STATUS.ALLOCATED : STATUS.ALLOCATED;
+      }
+    }
+    else {
+      // For other cases (like changing chassis number when status wasn't ALLOCATED)
+      booking.status = hasPendingClaim ? STATUS.ALLOCATED : STATUS.ALLOCATED;
+    }
+
+    // 11. Save the updated booking
+    await booking.save();
+
+    // 12. Return appropriate response
+    let message;
+    if (isInitialAllocation) {
+      message = hasPendingClaim 
+        ? 'Chassis number allocated with claim successfully' 
+        : 'Chassis number allocated successfully';
+    } else {
+      message = hasPendingClaim
+        ? 'Chassis number updated with claim successfully'
+        : 'Chassis number updated successfully';
+    }
 
     res.status(200).json({
       success: true,
       data: booking,
-      message: 'Chassis number allocated successfully'
+      message
     });
 
   } catch (err) {
-    console.error('Error allocating chassis number:', err);
-    
-    await AuditLog.create({
-      action: 'ALLOCATE_CHASSIS',
-      entity: 'Booking',
-      entityId: req.params.id,
-      user: req.user?.id,
-      ip: req.ip,
-      status: 'FAILED',
-      error: err.message
-    });
-
+    console.error('Error in allocateChassisNumber:', err);
     res.status(500).json({
       success: false,
-      message: 'Error allocating chassis number',
+      message: 'Server error during chassis allocation',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
 
+// Get bookings by insurance status
 exports.getBookingsByInsuranceStatus = async (req, res, next) => {
   try {
     const { status } = req.params;

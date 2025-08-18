@@ -1227,6 +1227,160 @@ exports.getVehiclesByStatus = async (req, res, next) => {
   }
 };
 
+exports.updateVehicle = async (req, res, next) => {
+  try {
+    const { vehicleId } = req.params;
+    const {
+      model,
+      unloadLocation,
+      color,
+      batteryNumber,
+      keyNumber,
+      motorNumber,
+      chargerNumber,
+      engineNumber,
+      hasDamage
+    } = req.body;
+
+    // Validate vehicle ID
+    if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+      return next(new AppError('Invalid vehicle ID format', 400));
+    }
+
+    // Find the existing vehicle
+    const existingVehicle = await Vehicle.findById(vehicleId);
+    if (!existingVehicle) {
+      return next(new AppError('No vehicle found with that ID', 404));
+    }
+
+    // Prepare update payload
+    const updatePayload = {
+      lastUpdatedBy: req.user.id
+    };
+
+    // Validate and add model if provided
+    if (model !== undefined) {
+      // Allow string "modelName" updates without requiring model ID
+      if (typeof model === 'string') {
+        updatePayload.modelName = model;
+        // Clear model reference if updating with just name
+        updatePayload.model = null;
+      } else if (mongoose.Types.ObjectId.isValid(model)) {
+        const modelExists = await Model.exists({ _id: model });
+        if (!modelExists) {
+          return next(new AppError('Model not found', 404));
+        }
+        updatePayload.model = model;
+        // Get model name from the model document
+        const modelDoc = await Model.findById(model).select('model_name');
+        if (modelDoc) {
+          updatePayload.modelName = modelDoc.model_name;
+        }
+      } else {
+        return next(new AppError('Invalid model format - must be ID or model name string', 400));
+      }
+    }
+
+    // Validate and add unloadLocation if provided
+    if (unloadLocation !== undefined) {
+      if (!mongoose.Types.ObjectId.isValid(unloadLocation)) {
+        return next(new AppError('Invalid branch ID format', 400));
+      }
+      const branchExists = await Branch.exists({ _id: unloadLocation });
+      if (!branchExists) {
+        return next(new AppError('Branch not found', 404));
+      }
+      updatePayload.unloadLocation = unloadLocation;
+    }
+
+    // Validate and add color if provided
+    if (color !== undefined) {
+      if (!color || !color.id || !mongoose.Types.ObjectId.isValid(color.id)) {
+        return next(new AppError('Valid color with ID is required', 400));
+      }
+      const colorDoc = await Color.findById(color.id);
+      if (!colorDoc) {
+        return next(new AppError('Color not found', 404));
+      }
+      
+      updatePayload.color = {
+        id: color.id,
+        name: colorDoc.name
+      };
+      updatePayload.colors = [color.id];
+    }
+
+    // Add other fields if provided
+    if (batteryNumber !== undefined) {
+      updatePayload.batteryNumber = batteryNumber?.toUpperCase();
+    }
+    if (keyNumber !== undefined) {
+      updatePayload.keyNumber = keyNumber?.toUpperCase();
+    }
+    if (motorNumber !== undefined) {
+      updatePayload.motorNumber = motorNumber?.toUpperCase();
+    }
+    if (chargerNumber !== undefined) {
+      updatePayload.chargerNumber = chargerNumber?.toUpperCase();
+    }
+    if (engineNumber !== undefined) {
+      updatePayload.engineNumber = engineNumber?.toUpperCase();
+    }
+    if (hasDamage !== undefined) {
+      updatePayload.hasDamage = hasDamage;
+      if (hasDamage === false && existingVehicle.damages.length === 0) {
+        updatePayload.status = 'in_stock';
+      }
+    }
+
+    // Update the vehicle
+    const updatedVehicle = await Vehicle.findByIdAndUpdate(
+      vehicleId,
+      updatePayload,
+      { new: true, runValidators: true }
+    ).populate(populateOptions);
+
+    // Transform the response
+    const vehicleObj = updatedVehicle.toObject();
+    
+    if (!vehicleObj.unloadLocation) {
+      vehicleObj.unloadLocation = {
+        _id: updatedVehicle.unloadLocation,
+        name: 'Unknown Location'
+      };
+    }
+    
+    if (!vehicleObj.addedBy) {
+      vehicleObj.addedBy = {
+        _id: updatedVehicle.addedBy,
+        name: 'Unknown User'
+      };
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        vehicle: vehicleObj
+      }
+    });
+
+  } catch (err) {
+    logger.error(`Error updating vehicle: ${err.message}`);
+    
+    // Handle duplicate key errors
+    if (err.code === 11000) {
+      return next(new AppError('Duplicate value for unique field', 409));
+    }
+    
+    // Handle validation errors
+    if (err.name === 'ValidationError') {
+      return next(new AppError(err.message, 400));
+    }
+    
+    next(new AppError('Server Error', 500));
+  }
+};
+
 exports.getChassisNumbersByModelAndColor = async (req, res, next) => {
   try {
     const { modelId, colorId } = req.params;
@@ -1277,6 +1431,41 @@ exports.getChassisNumbersByModelAndColor = async (req, res, next) => {
     });
   } catch (err) {
     logger.error(`Error fetching chassis numbers: ${err.message}`);
+    next(new AppError('Server Error', 500));
+  }
+};
+
+exports.deleteVehicle = async (req, res, next) => {
+  try {
+    const { vehicleId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+      return next(new AppError('Invalid vehicle ID format', 400));
+    }
+
+    // Check if vehicle exists
+    const vehicle = await Vehicle.findById(vehicleId);
+    if (!vehicle) {
+      return next(new AppError('No vehicle found with that ID', 404));
+    }
+
+    // Prevent deletion of vehicles that are not in not_approved or in_stock status
+    if (!['not_approved', 'in_stock'].includes(vehicle.status)) {
+      return next(new AppError(
+        `Cannot delete vehicle with status "${vehicle.status}". Only vehicles with "not_approved" or "in_stock" status can be deleted.`,
+        400
+      ));
+    }
+
+    await Vehicle.findByIdAndDelete(vehicleId);
+
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+
+  } catch (err) {
+    logger.error(`Error deleting vehicle: ${err.message}`);
     next(new AppError('Server Error', 500));
   }
 };

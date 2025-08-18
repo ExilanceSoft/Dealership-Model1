@@ -4,6 +4,7 @@ const kycController = require('../controllers/kycController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -53,6 +54,7 @@ const upload = multer({
  */
 router.get('/:bookingId', 
   protect, 
+  requirePermission('KYC.READ'),
   logAction('VIEW_KYC_DETAILS', 'KYC'),
   kycController.getKYCDetails
 );
@@ -133,6 +135,7 @@ router.get('/:bookingId',
  */
 router.post('/:bookingId/submit',
   protect,
+  requirePermission('KYC.CREATE'),
   upload.fields([
     { name: 'aadharFront', maxCount: 1 },
     { name: 'aadharBack', maxCount: 1 },
@@ -210,7 +213,7 @@ router.post('/:bookingId/submit',
  */
 router.post('/:bookingId/verify',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
+  requirePermission('KYC.VERIFY'),
   logAction('VERIFY_KYC', 'KYC'),
   kycController.verifyKYCByBooking
 );
@@ -319,6 +322,7 @@ router.post('/:bookingId/verify',
  */
 router.get('/:bookingId/documents',
   protect,
+  requirePermission('KYC.READ'),
   logAction('VIEW_KYC_DOCUMENTS', 'KYC'),
   kycController.getKYCDocuments
 );
@@ -363,7 +367,7 @@ router.get('/:bookingId/documents',
  */
 router.delete('/:kycId',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'MANAGER'),
+  requirePermission('KYC.DELETE'),
   logAction('DELETE_KYC', 'KYC'),
   kycController.deleteKYC
 );
@@ -408,6 +412,7 @@ router.delete('/:kycId',
  */
 router.get('/:bookingId/status',
   protect,
+  requirePermission('KYC.READ'),
   logAction('VIEW_KYC_STATUS', 'KYC'),
   kycController.getKYCStatusByBooking
 );
@@ -444,6 +449,7 @@ router.get('/:bookingId/status',
  */
 router.get('/:bookingId/download',
   protect,
+  requirePermission('KYC.DOWNLOAD'),
   logAction('DOWNLOAD_KYC', 'KYC'),
   kycController.downloadKYCPdf
 );

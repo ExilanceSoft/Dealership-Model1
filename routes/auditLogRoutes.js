@@ -3,6 +3,7 @@ const router = express.Router();
 const auditLogController = require('../controllers/auditLogController');
 const { protect, authorize } = require('../middlewares/auth');
 const { getAuditLogsValidator } = require('../validators/auditLogValidator');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -93,7 +94,7 @@ const { getAuditLogsValidator } = require('../validators/auditLogValidator');
 router.get(
   '/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  requirePermission('AUDIT_LOG.READ'),
   getAuditLogsValidator,
   auditLogController.getAuditLogs
 );
@@ -139,7 +140,7 @@ router.get(
 router.get(
   '/:id',
   protect,
-  authorize('ADMIN', 'SUPERADMIN'),
+  requirePermission('AUDIT_LOG.READ'),
   auditLogController.getAuditLogById
 );
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const offerController = require('../controllers/offerController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -140,7 +141,7 @@ const { logAction } = require('../middlewares/audit');
  */
 router.post('/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('OFFER.CREATE'),
   logAction('CREATE', 'Offer'),
   offerController.uploadOfferImage,
   offerController.createOffer
@@ -215,6 +216,8 @@ router.post('/',
  *         description: Server error
  */
 router.get('/',
+  protect,
+  requirePermission('OFFER.READ'),
   offerController.getAllOffers
 );
 
@@ -251,6 +254,8 @@ router.get('/',
  *         description: Server error
  */
 router.get('/:id',
+  protect,
+  requirePermission('OFFER.READ'),
   offerController.getOfferById
 );
 
@@ -295,7 +300,7 @@ router.get('/:id',
  */
 router.put('/:id',
   protect,
-  authorize('SUPERADMIN', 'ADMIN'),
+  requirePermission('OFFER.UPDATE'),
   logAction('UPDATE', 'Offer'),
   offerController.uploadOfferImage,
   offerController.updateOffer
@@ -330,7 +335,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('OFFER.DELETE'),
   logAction('DELETE', 'Offer'),
   offerController.deleteOffer
 );
@@ -375,6 +380,8 @@ router.delete('/:id',
  *         description: Server error
  */
 router.get('/model/:modelId',
+  protect,
+  requirePermission('OFFER.READ'),
   offerController.getOffersForModel
 );
 

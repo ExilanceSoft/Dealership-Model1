@@ -5,6 +5,7 @@ const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const multer = require('multer');
 const path = require('path');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -113,7 +114,7 @@ const upload = multer({
 router.get(
   '/',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.READ'),
   insuranceController.getAllInsurances
 );
 
@@ -149,7 +150,7 @@ router.get(
 router.get(
   '/awaiting',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.READ'),
   insuranceController.getBookingsAwaitingInsurance
 );
 
@@ -197,7 +198,7 @@ router.get(
 router.get(
   '/all-combined',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.READ'),
   insuranceController.getAllCombinedBookingInsuranceDetails
 );
 
@@ -286,7 +287,7 @@ router.get(
 router.post(
   '/:bookingId',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.CREATE'),
   upload.fields([
     { name: 'document', maxCount: 1 },
     { name: 'document1', maxCount: 1 },
@@ -337,7 +338,7 @@ router.post(
 router.get(
   '/:chassisNumber',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('NEW_INSURANCE.READ'),
   logAction('READ', 'Insurance'),
   insuranceController.getInsuranceByChassisNumber
 );
@@ -404,7 +405,7 @@ router.get(
 router.get(
   '/:insuranceId/payment-status',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.READ'),
   logAction('READ', 'InsurancePaymentStatus'),
   insuranceController.getInsurancePaymentStatus
 );
@@ -495,7 +496,7 @@ router.get(
 router.post(
   '/:insuranceId/ledger',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.CREATE'),
   logAction('CREATE', 'InsuranceLedger'),
   insuranceController.createInsuranceLedgerEntry
 );
@@ -560,7 +561,7 @@ router.post(
 router.get(
   '/:insuranceId/ledger',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.READ'),
   logAction('READ', 'InsuranceLedger'),
   insuranceController.getInsuranceLedgerHistory
 );
@@ -627,7 +628,7 @@ router.get(
 router.put(
   '/ledger/:ledgerId',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.UPDATE'),
   logAction('UPDATE', 'InsuranceLedger'),
   insuranceController.updateInsuranceLedgerEntry
 );
@@ -664,7 +665,7 @@ router.put(
 router.delete(
   '/ledger/:ledgerId',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.DELETE'),
   logAction('DELETE', 'InsuranceLedger'),
   insuranceController.deleteInsuranceLedgerEntry
 );
@@ -745,7 +746,7 @@ router.delete(
 router.get(
   '/payments/summary',
   protect,
-  authorize('ADMIN', 'MANAGER', 'SUPERADMIN'),
+  requirePermission('NEW_INSURANCE.READ'),
   logAction('READ', 'InsurancePaymentsSummary'),
   insuranceController.getInsurancePaymentsSummary
 );

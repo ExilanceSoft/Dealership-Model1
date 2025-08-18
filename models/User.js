@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Role = require('./Role'); 
 const Permission = require('./Permission');
-// 1. Define User Schema with comprehensive field definitions
+
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -34,36 +34,27 @@ const UserSchema = new mongoose.Schema({
   otp: String,
   otpExpires: Date,
   
-  // 2. Roles array with validation to ensure active roles
-  // Update the roles field validation in UserSchema
-  // Update the roles field in UserSchema
-// Update the roles field in UserSchema
-roles: {
+  roles: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'Role',
     validate: {
       validator: async function (roles) {
         if (!roles || roles.length === 0) return false;
 
-        // Fetch roles from DB
         const assignedRoles = await Role.find({ _id: { $in: roles } });
 
-        // Check if all provided roles exist
         if (assignedRoles.length !== roles.length) {
           throw new Error('One or more roles are invalid');
         }
 
-        // Check if all roles are active
         for (let role of assignedRoles) {
           if (!role.is_active) {
             throw new Error('One or more roles are inactive');
           }
         }
 
-        // Allow system roles only if marked as created by superadmin
         if (this._isCreatingBySuperAdmin) return true;
 
-        // Prevent assignment of superadmin role unless explicitly allowed
         const containsSystemRole = assignedRoles.some(role => role.isSuperAdmin);
         if (containsSystemRole) {
           throw new Error('You lack permission to assign system roles');
@@ -75,31 +66,28 @@ roles: {
     }
   },
 
-
-  // 3. Direct permissions with grant tracking
-// In User.js - Update the permissions field in the schema
-permissions: [{
-  permission: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Permission',
-    required: true
-  },
-  grantedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  expiresAt: {
-    type: Date,
-    validate: {
-      validator: function(date) {
-        return !date || date > new Date();
-      },
-      message: 'Expiration date must be in the future'
+  permissions: [{
+    permission: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Permission',
+      required: true
+    },
+    grantedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    expiresAt: {
+      type: Date,
+      validate: {
+        validator: function(date) {
+          return !date || date > new Date();
+        },
+        message: 'Expiration date must be in the future'
+      }
     }
-  }
-}],
-  // 4. Delegated access permissions
+  }],
+
   delegatedAccess: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -128,13 +116,28 @@ permissions: [{
     }
   }],
 
-  // 5. Branch association
+  // Updated branch/subdealer relationship
   branch: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Branch'
+    ref: 'Branch',
+    validate: {
+      validator: function() {
+        return !this.subdealer; // Ensure not both branch and subdealer are set
+      },
+      message: 'Cannot be associated with both branch and subdealer'
+    }
+  },
+  subdealer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subdealer',
+    validate: {
+      validator: function() {
+        return !this.branch; // Ensure not both branch and subdealer are set
+      },
+      message: 'Cannot be associated with both branch and subdealer'
+    }
   },
   
-  // 6. Discount field with role-based validation
   discount: {
     type: Number,
     default: 0,
@@ -154,39 +157,37 @@ permissions: [{
       message: 'Discount can only be assigned to SALES_EXECUTIVE users'
     }
   },
-  
- // Add these fields to the UserSchema
-isFrozen: {
-  type: Boolean,
-  default: false
-},
-freezeReason: {
-  type: String,
-  default: ''
-},
-documentBufferTime: {
-  type: Date,
-  default: () => new Date(Date.now() + 24 * 60 * 60 * 1000)
-},
-bufferExtensions: [{
-  extendedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  extendedAt: {
-    type: Date,
-    default: Date.now
-  },
-  newBufferTime: Date,
-  reason: String
-}],
 
-  // 7. Status and tracking fields
+  isFrozen: {
+    type: Boolean,
+    default: false
+  },
+  freezeReason: {
+    type: String,
+    default: ''
+  },
+  documentBufferTime: {
+    type: Date,
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000)
+  },
+  bufferExtensions: [{
+    extendedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    extendedAt: {
+      type: Date,
+      default: Date.now
+    },
+    newBufferTime: Date,
+    reason: String
+  }],
+
   status: {
-  type: String,
-  enum: ['ACTIVE', 'FROZEN', 'EXTENDED', 'INACTIVE'],
-  default: 'ACTIVE'
-},
+    type: String,
+    enum: ['ACTIVE', 'FROZEN', 'EXTENDED', 'INACTIVE'],
+    default: 'ACTIVE'
+  },
   lastLogin: Date,
   loginIPs: [String]
 }, { 
@@ -195,14 +196,15 @@ bufferExtensions: [{
   toObject: { virtuals: true }
 });
 
-// 8. Database indexes for performance optimization
-UserSchema.index({ email: 1 });          // Index for email field
-UserSchema.index({ mobile: 1 });         // Index for mobile field
-UserSchema.index({ branch: 1 });         // Index for branch field
-UserSchema.index({ isActive: 1 });       // Index for active status
-UserSchema.index({ discount: 1 });       // Index for discount field
+// Indexes
+UserSchema.index({ email: 1 });
+UserSchema.index({ mobile: 1 });
+UserSchema.index({ branch: 1 });
+UserSchema.index({ subdealer: 1 });
+UserSchema.index({ isActive: 1 });
+UserSchema.index({ discount: 1 });
 
-// 9. Virtual field for branch details
+// Virtual fields
 UserSchema.virtual('branchDetails', {
   ref: 'Branch',
   localField: 'branch',
@@ -211,7 +213,13 @@ UserSchema.virtual('branchDetails', {
   options: { select: 'name address city state' }
 });
 
-// 10. Method to check if user is SuperAdmin
+UserSchema.virtual('subdealerDetails', {
+  ref: 'Subdealer',
+  localField: 'subdealer',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name location type discount' }
+});
 UserSchema.methods.isSuperAdmin = async function() {
   await this.populate('roles');
   return this.roles.some(role => role.isSuperAdmin);
@@ -255,8 +263,6 @@ UserSchema.methods.listEffectivePermissionIds = async function () {
   return Array.from(ids);
 };
 
-// 11. Method to get all permissions (roles + direct + delegated)
-// 11. Method to get all permissions (roles + direct + delegated)
 UserSchema.methods.getAllPermissions = async function() {
   // SuperAdmin has all permissions
   if (await this.isSuperAdmin()) {

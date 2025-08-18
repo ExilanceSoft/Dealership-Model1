@@ -20,31 +20,35 @@ exports.createModel = async (req, res, next) => {
       return next(new AppError('Model discount cannot be negative', 400));
     }
     
+    // Validate prices if they exist
+    if (prices && prices.length > 0) {
+      if (prices.some(price => price.branch_id && price.subdealer_id)) {
+        return next(new AppError('Price cannot have both branch_id and subdealer_id', 400));
+      }
+      if (prices.some(price => !price.branch_id && !price.subdealer_id)) {
+        return next(new AppError('Price must have either branch_id or subdealer_id', 400));
+      }
+    }
+    
     // Check for existing model
     const existingModel = await Model.findOne({ model_name });
     if (existingModel) {
       return next(new AppError('Model with this name already exists', 400));
     }
     
-    // Create new model
+    // Create new model (prices can be empty)
     const newModel = await Model.create({
       model_name,
       type: type.toUpperCase(),
       prices,
-      model_discount
+      model_discount,
+      created_by: req.user.id
     });
     
     res.status(201).json({
       status: 'success',
       data: {
-        model: {
-          _id: newModel._id,
-          model_name: newModel.model_name,
-          type: newModel.type,
-          model_discount: newModel.model_discount,
-          prices: newModel.prices,
-          createdAt: newModel.createdAt
-        }
+        model: newModel
       }
     });
   } catch (err) {
@@ -122,73 +126,85 @@ const validateObjectIds = (ids) => {
 };
 exports.updateModelPrices = async (req, res, next) => {
   try {
-    const { prices } = req.body;
+    const { prices = [], model_discount } = req.body;
+    const { modelId } = req.params;
+
+    // Validate inputs
     if (!Array.isArray(prices)) {
-      return next(new AppError('Prices must be provided as an array', 400));
+      return next(new AppError('Prices must be an array', 400));
     }
-    
-    const model = await Model.findById(req.params.modelId);
+    if (model_discount !== undefined && model_discount < 0) {
+      return next(new AppError('Discount cannot be negative', 400));
+    }
+
+    // Validate price references if prices exist
+    if (prices.length > 0) {
+      for (const price of prices) {
+        if (price.branch_id && price.subdealer_id) {
+          return next(new AppError('Price cannot have both branch_id and subdealer_id', 400));
+        }
+        if (!price.branch_id && !price.subdealer_id) {
+          return next(new AppError('Price must have either branch_id or subdealer_id', 400));
+        }
+      }
+    }
+
+    // Verify model exists
+    const model = await Model.findById(modelId);
     if (!model) {
-      return next(new AppError('No model found with that ID', 404));
+      return next(new AppError('Model not found', 404));
     }
-    
-    // Create map of existing prices
-    const existingPricesMap = new Map();
-    model.prices.forEach(price => {
-      const key = `${price.header_id.toString()}_${price.branch_id?.toString() || 'no-branch'}`;
-      existingPricesMap.set(key, price);
-    });
-    
-    // Update or add new prices
-    const updatedPrices = prices.map(newPrice => {
-      const branchId = newPrice.branch_id || null;
-      const key = `${newPrice.header_id}_${branchId || 'no-branch'}`;
-      const existingPrice = existingPricesMap.get(key);
-      
-      if (existingPrice) {
-        return {
-          ...existingPrice.toObject(),
-          value: newPrice.value
-        };
-      }
-      
-      return {
-        value: newPrice.value,
-        header_id: newPrice.header_id,
-        branch_id: branchId
-      };
-    });
-    
-    // Keep prices not included in update
-    model.prices.forEach(price => {
-      const branchId = price.branch_id || null;
-      const key = `${price.header_id.toString()}_${branchId || 'no-branch'}`;
-      if (!prices.some(p =>
-        p.header_id.toString() === price.header_id.toString() &&
-        (p.branch_id?.toString() || null) === branchId?.toString()
-      )) {
-        updatedPrices.push(price);
-      }
-    });
-    
-    // Save updated model
+
+    // Update model (prices can be empty array)
     const updatedModel = await Model.findByIdAndUpdate(
-      req.params.modelId,
-      { prices: updatedPrices },
+      modelId,
       {
-        new: true,
-        runValidators: true
-      }
-    ).populate('prices.header_id prices.branch_id');
-    
-    res.status(200).json({
+        prices,
+        ...(model_discount !== undefined && { model_discount }),
+        updated_by: req.user.id
+      },
+      { new: true, runValidators: true }
+    )
+    .populate({
+      path: 'prices.header_id',
+      select: 'header_key category_key'
+    })
+    .populate({
+      path: 'prices.branch_id',
+      select: 'name city'
+    })
+    .populate({
+      path: 'prices.subdealer_id',
+      select: 'name location'
+    });
+
+    // Format response
+    const response = {
       status: 'success',
       data: {
-        model: updatedModel
+        model: {
+          id: updatedModel._id,
+          model_name: updatedModel.model_name,
+          type: updatedModel.type,
+          status: updatedModel.status,
+          model_discount: updatedModel.model_discount,
+          prices: updatedModel.prices.map(p => ({
+            value: p.value,
+            header_id: p.header_id?._id || p.header_id,
+            header_key: p.header_id?.header_key,
+            branch_id: p.branch_id?._id || p.branch_id,
+            branch_name: p.branch_id?.name,
+            subdealer_id: p.subdealer_id?._id || p.subdealer_id,
+            subdealer_name: p.subdealer_id?.name
+          })),
+          createdAt: updatedModel.createdAt
+        }
       }
-    });
+    };
+
+    res.status(200).json(response);
   } catch (err) {
-    logger.error(`Error updating model prices: ${err.message}`);
+    logger.error(`Price update failed: ${err.message}`);
     next(err);
   }
 };
@@ -307,32 +323,57 @@ exports.getAllModels = async (req, res, next) => {
 //get all model with any status
 exports.getAllModelsStatus = async (req, res, next) => {
   try {
-    // Build the base query without status filter
     let query = Model.find();
+    let filter = {};
 
-    // For non-super admin users, filter by their branch
-    if (req.user && req.user.role_id?.name !== 'super_admin' && req.user.branch_id) {
-      if (!mongoose.Types.ObjectId.isValid(req.user.branch_id)) {
-        return next(new AppError('Invalid branch ID in user profile', 400));
-      }
-
-      query = query.where('prices.branch_id').equals(req.user.branch_id);
+    // Validate that not both branch_id and subdealer_id are provided
+    if (req.query.branch_id && req.query.subdealer_id) {
+      return next(new AppError('Cannot filter by both branch_id and subdealer_id simultaneously', 400));
     }
 
-    // Execute the query with population
+    // Apply branch filter if provided in query
+    if (req.query.branch_id) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.branch_id)) {
+        return next(new AppError('Invalid branch ID provided', 400));
+      }
+      filter = { 'prices.branch_id': req.query.branch_id };
+    }
+    // Apply subdealer filter if provided in query
+    else if (req.query.subdealer_id) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.subdealer_id)) {
+        return next(new AppError('Invalid subdealer ID provided', 400));
+      }
+      filter = { 'prices.subdealer_id': req.query.subdealer_id };
+    }
+    // For non-super admin users, apply their default filter
+    else if (req.user && req.user.role_id?.name !== 'super_admin') {
+      if (req.user.branch_id) {
+        if (!mongoose.Types.ObjectId.isValid(req.user.branch_id)) {
+          return next(new AppError('Invalid branch ID in user profile', 400));
+        }
+        filter = { 'prices.branch_id': req.user.branch_id };
+      } else if (req.user.subdealer_id) {
+        if (!mongoose.Types.ObjectId.isValid(req.user.subdealer_id)) {
+          return next(new AppError('Invalid subdealer ID in user profile', 400));
+        }
+        filter = { 'prices.subdealer_id': req.user.subdealer_id };
+      }
+    }
+
+    query = query.where(filter);
+
     const models = await query
       .populate({
-        path: 'prices.header_id prices.branch_id',
-        select: 'header_key category_key priority metadata name city'
+        path: 'prices.header_id prices.branch_id prices.subdealer_id',
+        select: 'header_key category_key priority metadata name city name location'
       })
-      .lean(); // Use lean() for better performance since we're transforming the data
+      .lean();
 
-    // Transform the data to match your desired format
     const transformedModels = models.map(model => ({
       _id: model._id,
       model_name: model.model_name,
       type: model.type,
-      status: model.status, // Include status in response (active/inactive)
+      status: model.status,
       prices: model.prices.map(price => ({
         value: price.value,
         header_id: price.header_id?._id || null,
@@ -340,7 +381,10 @@ exports.getAllModelsStatus = async (req, res, next) => {
         category_key: price.header_id?.category_key || null,
         branch_id: price.branch_id?._id || null,
         branch_name: price.branch_id?.name || null,
-        branch_city: price.branch_id?.city || null
+        branch_city: price.branch_id?.city || null,
+        subdealer_id: price.subdealer_id?._id || null,
+        subdealer_name: price.subdealer_id?.name || null,
+        subdealer_location: price.subdealer_id?.location || null
       })),
       createdAt: model.createdAt
     }));
@@ -367,44 +411,89 @@ exports.getAllModelsWithPrices = async (req, res, next) => {
       query = query.where('prices.branch_id').equals(req.query.branch_id);
     }
 
+    // Filter by subdealer_id if provided
+    if (req.query.subdealer_id) {
+      query = query.where('prices.subdealer_id').equals(req.query.subdealer_id);
+    }
+
+    // Ensure only one of branch_id or subdealer_id is provided
+    if (req.query.branch_id && req.query.subdealer_id) {
+      return next(new AppError('Cannot filter by both branch_id and subdealer_id simultaneously', 400));
+    }
+
     // Filter by status if provided
     if (req.query.status && ['active', 'inactive'].includes(req.query.status.toLowerCase())) {
       query = query.where('status').equals(req.query.status.toLowerCase());
     }
 
-    // Populate both header and branch information
+    // Populate header, branch, and subdealer information
     const models = await query.populate({
-      path: 'prices.header_id prices.branch_id',
-      select: 'header_key category_key priority metadata name city'
-    }).lean(); // Using lean() for better performance
+      path: 'prices.header_id',
+      select: 'header_key category_key type priority is_mandatory is_discount metadata createdAt'
+    }).populate({
+      path: 'prices.branch_id',
+      select: 'name city'
+    }).populate({
+      path: 'prices.subdealer_id',
+      select: 'name location type discount'
+    }).lean();
 
     // Transform the data for cleaner response
     const transformedModels = models.map(model => {
-      // Filter prices if branch_id was specified
-      const filteredPrices = req.query.branch_id
-        ? model.prices.filter(price =>
+      // Filter prices based on query parameters
+      const filteredPrices = model.prices.filter(price => {
+        if (req.query.branch_id) {
+          return (
             (price.branch_id && price.branch_id._id.toString() === req.query.branch_id) ||
-            (price.branch_id === null && req.query.branch_id === 'null')
-          )
-        : model.prices;
+            (req.query.branch_id === 'null' && !price.branch_id)
+          );
+        }
+        if (req.query.subdealer_id) {
+          return (
+            (price.subdealer_id && price.subdealer_id._id.toString() === req.query.subdealer_id) ||
+            (req.query.subdealer_id === 'null' && !price.subdealer_id)
+          );
+        }
+        return true;
+      });
 
       return {
         _id: model._id,
         model_name: model.model_name,
         type: model.type,
-        status: model.status || 'active', // Ensure status is always returned
+        status: model.status || 'active',
+        model_discount: model.model_discount || 0,
         prices: filteredPrices.map(price => ({
           value: price.value,
-          header_id: price.header_id?._id || null,
-          header_key: price.header_id?.header_key || null,
-          category_key: price.header_id?.category_key || null,
-          priority: price.header_id?.priority || null,
-          metadata: price.header_id?.metadata || {},
-          branch_id: price.branch_id?._id || null,
-          branch_name: price.branch_id?.name || null,
-          branch_city: price.branch_id?.city || null
+          header: price.header_id ? {
+            _id: price.header_id._id,
+            header_key: price.header_id.header_key,
+            category_key: price.header_id.category_key,
+            type: price.header_id.type,
+            priority: price.header_id.priority,
+            is_mandatory: price.header_id.is_mandatory,
+            is_discount: price.header_id.is_discount,
+            metadata: price.header_id.metadata || {},
+            createdAt: price.header_id.createdAt
+          } : null,
+          branch: price.branch_id ? {
+            _id: price.branch_id._id,
+            name: price.branch_id.name,
+            city: price.branch_id.city
+          } : null,
+          subdealer: price.subdealer_id ? {
+            _id: price.subdealer_id._id,
+            name: price.subdealer_id.name,
+            location: price.subdealer_id.location,
+            type: price.subdealer_id.type,
+            discount: price.subdealer_id.discount
+          } : null,
+          created_at: price.created_at,
+          updated_at: price.updated_at
         })),
-        createdAt: model.createdAt
+        colors: model.colors || [],
+        created_at: model.created_at,
+        updated_at: model.updated_at
       };
     });
 

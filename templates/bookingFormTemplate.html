@@ -61,7 +61,7 @@
             text-align: justify;
             margin-top: 20px;
         }
-           @media print {
+        @media print {
             body {
                 margin: 20mm;
                 font-size: 12px;
@@ -86,64 +86,79 @@
     </style>
 </head>
 <body>
-      <div class="qr-code-container">
+    <div class="qr-code-container">
         {{#if qrCode}}
         <img src="{{qrCode}}" width="80" height="80" alt="Booking QR Code">
         <div class="qr-code-text">Scan to change Booking Details</div>
         {{/if}}
     </div>
+
     <!-- Header Section -->
     <table class="header-table">
         <tr>
             <td width="40%"><font size="5"><b>Gandhi TVS</b></font></td>
-            <td width="40%" class="text-center"><b><u>Booking Form / Order Form</u></b></td>
-<td width="20%" class="text-right"><img src="http://localhost:5002/api/v1/images/logo.png" alt="tvs" width="150" height="80"></td>        </tr>
+            <td width="40%" class="text-center">
+                <b><u>Booking Form / Order Form</u></b><br>
+                {{#if (eq bookingType "SUBDEALER")}}
+                <small>(Subdealer Booking)</small>
+                {{/if}}
+            </td>
+            <td width="20%" class="text-right"><img src="dealership.gandhitvs.in/api/v1/images/logo.png" alt="tvs" width="150" height="80"></td>
+        </tr>
         <tr>
             <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
             <td class="text-right">Date: {{formatDate createdAt}}</td>
         </tr>
         <tr>
-            <td colspan="3">{{branchDetails.name}}</td>
+            <td colspan="3">
+                {{#if (eq bookingType "SUBDEALER")}}
+                Subdealer: {{subdealerDetails.name}} ({{subdealerDetails.location}})
+                {{else}}
+                {{branchDetails.name}}
+                {{/if}}
+            </td>
         </tr>
     </table>
-    <!-- In your bookingFormTemplate.html -->
-{{#if chassisNumber}}
-<div class="vehicle-details-section">
-  <h3>Vehicle Details</h3>
-  <table>
-    <tr>
-      <td><strong>Chassis Number:</strong></td>
-      <td>{{chassisNumber}}</td>
-    </tr>
-    <tr>
-      <td><strong>Battery Number:</strong></td>
-      <td>{{batteryNumber}}</td>
-    </tr>
-    <tr>
-      <td><strong>Key Number:</strong></td>
-      <td>{{keyNumber}}</td>
-    </tr>
-    {{#if motorNumber}}
-    <tr>
-      <td><strong>Motor Number:</strong></td>
-      <td>{{motorNumber}}</td>
-    </tr>
+
+    <!-- Vehicle Details Section -->
+    {{#if chassisNumber}}
+    <div class="vehicle-details-section">
+        <h3>Vehicle Details</h3>
+        <table>
+            <tr>
+                <td><strong>Chassis Number:</strong></td>
+                <td>{{chassisNumber}}</td>
+            </tr>
+            <tr>
+                <td><strong>Battery Number:</strong></td>
+                <td>{{batteryNumber}}</td>
+            </tr>
+            <tr>
+                <td><strong>Key Number:</strong></td>
+                <td>{{keyNumber}}</td>
+            </tr>
+            {{#if motorNumber}}
+            <tr>
+                <td><strong>Motor Number:</strong></td>
+                <td>{{motorNumber}}</td>
+            </tr>
+            {{/if}}
+            {{#if chargerNumber}}
+            <tr>
+                <td><strong>Charger Number:</strong></td>
+                <td>{{chargerNumber}}</td>
+            </tr>
+            {{/if}}
+            {{#if engineNumber}}
+            <tr>
+                <td><strong>Engine Number:</strong></td>
+                <td>{{engineNumber}}</td>
+            </tr>
+            {{/if}}
+        </table>
+    </div>
     {{/if}}
-    {{#if chargerNumber}}
-    <tr>
-      <td><strong>Charger Number:</strong></td>
-      <td>{{chargerNumber}}</td>
-    </tr>
-    {{/if}}
-    {{#if engineNumber}}
-    <tr>
-      <td><strong>Engine Number:</strong></td>
-      <td>{{engineNumber}}</td>
-    </tr>
-    {{/if}}
-  </table>
-</div>
-{{/if}}
+
     <!-- Customer Details -->
     <div class="section-title">Customer & Vehicle Details</div>
     <table class="header-table">
@@ -195,7 +210,13 @@
         </tr>
         <tr>
             <td><b>Sales Rep:</b></td>
-            <td>{{salesExecutiveDetails.name}}</td>
+            <td>
+                {{#if (eq bookingType "SUBDEALER")}}
+                {{subdealerUserDetails.name}} (Subdealer)
+                {{else}}
+                {{salesExecutiveDetails.name}}
+                {{/if}}
+            </td>
             <td><b>HPA:</b></td>
             <td>{{#if hpa}}YES{{else}}NO{{/if}}</td>
         </tr>
@@ -322,26 +343,26 @@
     </table>
 
     <!-- Declaration -->
-     <!-- Declaration -->
-<table>
-    <tr>
-        <td>
-            {{#if accessories}}
-            <strong>ACC.DETAILS:</strong>
-            {{#each accessories}}
-            {{#if accessory}}
-            - {{accessory.name}}{{#unless @last}},{{/unless}}
-            {{/if}}
-            {{/each}}
-            {{/if}}
-        </td>
-    </tr>
-    <tr>
-        <td class="declaration">
-            <strong>Declaration-</strong> I/We Authorize the Dealer to register the vehicle at RTO in my/our name .2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss. 3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration. 4) Registration Number allotted by RTO will be acceptable to me else I will pre book for choice number at RTO at my own. Dealership has no role in RTO Number allocation 5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same 6) I/We agree that the price at the time of delivery will be applicable. 7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle 9)I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking. 8) Subject to sangamner Jurisdication. I accept that vehicle once sold by dealer shall not be taken back /replaced for any reason.
-        </td>
-    </tr>
-</table>
+    <table>
+        <tr>
+            <td>
+                {{#if accessories}}
+                <strong>ACC.DETAILS:</strong>
+                {{#each accessories}}
+                {{#if accessory}}
+                - {{accessory.name}}{{#unless @last}},{{/unless}}
+                {{/if}}
+                {{/each}}
+                {{/if}}
+            </td>
+        </tr>
+        <tr>
+            <td class="declaration">
+                <strong>Declaration-</strong> I/We Authorize the Dealer to register the vehicle at RTO in my/our name .2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss. 3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration. 4) Registration Number allotted by RTO will be acceptable to me else I will pre book for choice number at RTO at my own. Dealership has no role in RTO Number allocation 5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same 6) I/We agree that the price at the time of delivery will be applicable. 7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle 9)I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking. 8) Subject to sangamner Jurisdication. I accept that vehicle once sold by dealer shall not be taken back /replaced for any reason.
+            </td>
+        </tr>
+    </table>
+
     <!-- Signatures -->
     <table class="signature-table">
         <tr>
@@ -352,7 +373,13 @@
         </tr>
         <tr>
             <td>Customer's Signature</td>
-            <td>Sales Executive</td>
+            <td>
+                {{#if (eq bookingType "SUBDEALER")}}
+                Subdealer Representative
+                {{else}}
+                Sales Executive
+                {{/if}}
+            </td>
             <td>Manager</td>
             <td>Accountant</td>
         </tr>

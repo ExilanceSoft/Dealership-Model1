@@ -37,12 +37,6 @@ const BrokerBranchSchema = new mongoose.Schema({
 }, { _id: false });
 
 const BrokerSchema = new mongoose.Schema({
-  brokerId: {
-    type: String,
-    unique: true,
-    trim: true,
-    uppercase: true
-  },
   name: {
     type: String,
     required: [true, 'Name is required'],
@@ -58,6 +52,18 @@ const BrokerSchema = new mongoose.Schema({
       },
       message: props => `${props.value} is not a valid mobile number!`
     }
+  },
+  otp_required: {
+    type: Boolean,
+    default: true
+  },
+  otp: {
+    type: String,
+    default: null
+  },
+  otpExpiresAt: {
+    type: Date,
+    default: null
   },
   email: {
     type: String,
@@ -83,18 +89,9 @@ const BrokerSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-BrokerSchema.pre('save', async function(next) {
-  if (!this.brokerId) {
-    const count = await this.constructor.countDocuments();
-    this.brokerId = `BRK${(count + 1).toString().padStart(4, '0')}`;
-  }
-  next();
-});
-
 BrokerSchema.index({ name: 1 });
 BrokerSchema.index({ mobile: 1 });
 BrokerSchema.index({ email: 1 });
 BrokerSchema.index({ 'branches.branch': 1 });
-BrokerSchema.index({ brokerId: 1 });
 
 module.exports = mongoose.model('Broker', BrokerSchema);

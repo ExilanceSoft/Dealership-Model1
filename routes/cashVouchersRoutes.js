@@ -3,6 +3,8 @@ const router = express.Router();
 const cashVoucherController = require("../controllers/cashVouchersController");
 const multer = require("multer");
 const path = require("path");
+const { requirePermission } = require('../middlewares/requirePermission');
+const { protect, authorize, roleAuthorize } = require('../middlewares/auth');
 
 
 // Configure multer for file uploads
@@ -109,7 +111,10 @@ const upload = multer({
  *             schema:
  *               $ref: '#/components/schemas/CashVoucher'
  */
-router.post("/", upload.single("bill"), cashVoucherController.createCashVoucher);
+router.post("/", upload.single("bill"),
+  protect,
+  requirePermission('CASH_VOUCHER.CREATE'),
+  cashVoucherController.createCashVoucher);
 
 
 /**
@@ -148,7 +153,10 @@ router.post("/", upload.single("bill"), cashVoucherController.createCashVoucher)
  *       500:
  *         description: Server error
  */
-router.get("/status/:status", cashVoucherController.getCashVouchersByStatus);
+router.get("/status/:status",
+  protect,
+  requirePermission('CASH_VOUCHER.READ'),
+   cashVoucherController.getCashVouchersByStatus);
 
 /**
  * @swagger
@@ -203,7 +211,10 @@ router.get("/status/:status", cashVoucherController.getCashVouchersByStatus);
  *       200:
  *         description: List of vouchers
  */
-router.get("/", cashVoucherController.getAllCashVouchers);
+router.get("/",
+  protect,
+  requirePermission('CASH_VOUCHER.READ'),
+   cashVoucherController.getAllCashVouchers);
 
 /**
  * @swagger
@@ -223,7 +234,10 @@ router.get("/", cashVoucherController.getAllCashVouchers);
  *       404:
  *         description: Not found
  */
-router.get("/:id", cashVoucherController.getCashVoucherById);
+router.get("/:id",
+  protect,
+  requirePermission('CASH_VOUCHER.READ'),
+   cashVoucherController.getCashVoucherById);
 
 /**
  * @swagger
@@ -243,7 +257,9 @@ router.get("/:id", cashVoucherController.getCashVoucherById);
  *       404:
  *         description: Not found
  */
-router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherByVoucherId);
+router.get("/voucher-id/:voucherId",
+
+   cashVoucherController.getCashVoucherByVoucherId);
 
 /**
  * @swagger
@@ -306,7 +322,10 @@ router.get("/voucher-id/:voucherId", cashVoucherController.getCashVoucherByVouch
  *       500:
  *         description: Server error
  */
-router.patch("/:id", upload.single("bill"), cashVoucherController.updateCashVoucher);
+router.patch("/:id",
+  protect,
+  requirePermission('CASH_VOUCHER.UPDATE'),
+   upload.single("bill"), cashVoucherController.updateCashVoucher);
 
 
 /**
@@ -327,6 +346,9 @@ router.patch("/:id", upload.single("bill"), cashVoucherController.updateCashVouc
  *       404:
  *         description: Not found
  */
-router.delete("/:id", cashVoucherController.deleteCashVoucher);
+router.delete("/:id",
+  protect,
+  requirePermission('CASH_VOUCHER.DELETE'),
+  cashVoucherController.deleteCashVoucher);
 
 module.exports = router;

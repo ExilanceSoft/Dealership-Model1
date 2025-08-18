@@ -12,7 +12,7 @@ const ledgerSchema = new mongoose.Schema({
     enum: ['BOOKING_PAYMENT', 'INSURANCE_PAYMENT', 'DEBIT_ENTRY'],
     default: 'BOOKING_PAYMENT'
   },
-  paymentMode: {
+ paymentMode: {
     type: String,
     enum: [
       'Cash', 
@@ -26,7 +26,9 @@ const ledgerSchema = new mongoose.Schema({
       'Insurance Endorsement',
       'Other Debit'
     ],
-    required: true
+    required: function() {
+      return !this.isDebit; // Only required for non-debit entries
+    }
   },
   amount: {
     type: Number,

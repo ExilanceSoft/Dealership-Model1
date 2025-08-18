@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const workshopReciptController = require("../controllers/workShopReciptController");
 const multer = require("multer");
-
+const { requirePermission } = require('../middlewares/requirePermission');
+const { protect, authorize } = require('../middlewares/auth');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
@@ -94,7 +95,10 @@ const upload = multer({
  *       400:
  *         description: Invalid request body
  */
-router.post("/", upload.single("bill"), workshopReciptController.createWorkShopReceiptVoucher);
+router.post("/",
+  protect,
+  requirePermission('WORKSHOP_RECEIPT.CREATE'),
+  upload.single("bill"), workshopReciptController.createWorkShopReceiptVoucher);
 
 /**
  * @swagger
@@ -136,7 +140,10 @@ router.get("/", workshopReciptController.getAllWorkShopReceiptVouchers);
  *       200:
  *         description: List of vouchers with given status
  */
-router.get("/status/:status", workshopReciptController.getWorkShopReceiptVouchersByStatus);
+router.get("/status/:status",
+  protect,
+  requirePermission('WORKSHOP_RECEIPT.READ'),
+   workshopReciptController.getWorkShopReceiptVouchersByStatus);
 
 /**
  * @swagger
@@ -156,7 +163,11 @@ router.get("/status/:status", workshopReciptController.getWorkShopReceiptVoucher
  *       404:
  *         description: Voucher not found
  */
-router.get("/:id", workshopReciptController.getWorkShopReceiptVoucherById);
+router.get("/:id",
+  
+  protect,
+  requirePermission('WORKSHOP_RECEIPT.READ'),
+  workshopReciptController.getWorkShopReceiptVoucherById);
 
 /**
  * @swagger
@@ -189,7 +200,10 @@ router.get("/:id", workshopReciptController.getWorkShopReceiptVoucherById);
  *       404:
  *         description: Voucher not found
  */
-router.put("/:id", upload.single("bill"), workshopReciptController.updateWorkShopReceiptVoucher);
+router.put("/:id",
+  protect,
+  requirePermission('WORKSHOP_RECEIPT.UPDATE'),
+  upload.single("bill"), workshopReciptController.updateWorkShopReceiptVoucher);
 
 /**
  * @swagger
@@ -209,6 +223,9 @@ router.put("/:id", upload.single("bill"), workshopReciptController.updateWorkSho
  *       404:
  *         description: Voucher not found
  */
-router.delete("/:id", workshopReciptController.deleteWorkShopReceiptVoucher);
+router.delete("/:id",
+  protect,
+  requirePermission('WORKSHOP_RECEIPT.DELETE'),
+   workshopReciptController.deleteWorkShopReceiptVoucher);
 
 module.exports = router;

@@ -3,6 +3,7 @@ const router = express.Router();
 const accessoryController = require('../controllers/accessoryController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -140,7 +141,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('ACCESSORY.CREATE'),
   logAction('CREATE', 'Accessory'),
   accessoryController.createAccessory
 );
@@ -213,6 +214,7 @@ router.post(
 router.get(
   '/',
   protect,
+  requirePermission('ACCESSORY.READ'),
   accessoryController.getAllAccessories
 );
 
@@ -255,6 +257,7 @@ router.get(
 router.get(
   '/:id',
   protect,
+  requirePermission('ACCESSORY.READ'),
   accessoryController.getAccessoryById
 );
 
@@ -338,7 +341,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('ACCESSORY.UPDATE'),
   logAction('UPDATE', 'Accessory'),
   accessoryController.updateAccessory
 );
@@ -401,7 +404,7 @@ router.put(
 router.put(
   '/:id/status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('ACCESSORY.UPDATE'),
   logAction('UPDATE_STATUS', 'Accessory'),
   accessoryController.updateAccessoryStatus
 );
@@ -464,7 +467,7 @@ router.put(
 router.put(
   '/:id/part-number-status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('ACCESSORY.UPDATE'),
   logAction('UPDATE_PART_NUMBER_STATUS', 'Accessory'),
   accessoryController.updatePartNumberStatus
 );
@@ -499,7 +502,7 @@ router.put(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('ACCESSORY.DELETE'),
   logAction('DELETE', 'Accessory'),
   accessoryController.deleteAccessory
 );
@@ -548,6 +551,7 @@ router.delete(
 router.get(
   '/model/:modelId',
   protect,
+  requirePermission('ACCESSORY.READ'),
   accessoryController.getAccessoriesByModel
 );
 

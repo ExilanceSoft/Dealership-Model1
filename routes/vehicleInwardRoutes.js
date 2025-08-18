@@ -4,6 +4,7 @@ const vehicleController = require('../controllers/vehicleInwardController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const upload = require('../middlewares/upload');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -301,7 +302,7 @@ const upload = require('../middlewares/upload');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('VEHICLE_INWARD.CREATE'),
   logAction('CREATE', 'Vehicle'),
   vehicleController.createVehicle
 );
@@ -358,7 +359,7 @@ router.post(
 router.post(
   '/approve',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('VEHICLE_INWARD.APPROVE'),
   logAction('APPROVE_VEHICLES', 'Vehicle'),
   vehicleController.approveVehicles
 );
@@ -405,7 +406,7 @@ router.post(
  */
 router.get('/export-csv',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('VEHICLE_INWARD.READ'),
   logAction('EXPORT_CSV', 'Vehicle'),
   vehicleController.exportCSVTemplate
 );
@@ -474,7 +475,7 @@ router.get('/export-csv',
  */
 router.post('/import-csv',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('VEHICLE_INWARD.CREATE'),
   upload.single('file'),
   logAction('IMPORT_CSV', 'Vehicle'),
   vehicleController.importCSV
@@ -511,6 +512,7 @@ router.post('/import-csv',
 router.get(
   '/counts',
   protect,
+  requirePermission('VEHICLE_INWARD.READ'),
   logAction('GET_COUNTS', 'Vehicle'),
   vehicleController.getVehicleCounts
 );
@@ -576,7 +578,10 @@ router.get(
  *       500:
  *         description: Server error
  */
-router.get('/', vehicleController.getAllVehicles);
+router.get('/',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+   vehicleController.getAllVehicles);
 
 /**
  * @swagger
@@ -605,7 +610,10 @@ router.get('/', vehicleController.getAllVehicles);
  *       500:
  *         description: Server error
  */
-router.get('/:vehicleId', vehicleController.getVehicleById);
+router.get('/:vehicleId',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+   vehicleController.getVehicleById);
 /**
  * @swagger
  * /api/v1/vehicles/status/{status}:
@@ -671,7 +679,7 @@ router.get('/:vehicleId', vehicleController.getVehicleById);
 router.get(
   '/status/:status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('VEHICLE_INWARD.READ'),
   vehicleController.getVehiclesByStatus
 );
 /**
@@ -699,7 +707,10 @@ router.get(
  *       500:
  *         description: Server error
  */
-router.get('/qr/:qrCode', vehicleController.getVehicleByQrCode);
+router.get('/qr/:qrCode',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+  vehicleController.getVehicleByQrCode);
 
 /**
  * @swagger
@@ -743,7 +754,7 @@ router.get('/qr/:qrCode', vehicleController.getVehicleByQrCode);
 router.put(
   '/:vehicleId/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER', 'SALES_EXECUTIVE'),
+  requirePermission('VEHICLE_INWARD.APPROVE'),
   logAction('UPDATE_STATUS', 'Vehicle'),
   vehicleController.updateVehicleStatus
 );
@@ -795,7 +806,10 @@ router.put(
  *       500:
  *         description: Server error
  */
-router.get('/model/:model/details', vehicleController.getModelDetails);
+router.get('/model/:model/details',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+   vehicleController.getModelDetails);
 
 /**
  * @swagger
@@ -839,7 +853,7 @@ router.get('/model/:model/details', vehicleController.getModelDetails);
 router.post(
   '/:vehicleId/damage',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('VEHICLE_INWARD.CREATE'),
   logAction('ADD_DAMAGE', 'Vehicle'),
   vehicleController.addDamage
 );
@@ -885,7 +899,10 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.get('/model/:model/chassis-numbers', vehicleController.getChassisNumbersByModel);
+router.get('/model/:model/chassis-numbers',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+   vehicleController.getChassisNumbersByModel);
 /**
  * @swagger
  * /api/v1/vehicles/{vehicleId}/generate-qr:
@@ -933,7 +950,7 @@ router.get('/model/:model/chassis-numbers', vehicleController.getChassisNumbersB
 router.get(
   '/:vehicleId/generate-qr',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('VEHICLE_INWARD.READ'),
   logAction('GENERATE_QR', 'Vehicle'),
   vehicleController.generateQrCode
 );
@@ -975,7 +992,10 @@ router.get(
  *       500:
  *         description: Server error
  */
-router.get('/branch/:branchId', vehicleController.getVehiclesByBranch);
+router.get('/branch/:branchId',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+  vehicleController.getVehiclesByBranch);
 
 /**
  * @swagger
@@ -1004,7 +1024,87 @@ router.get('/branch/:branchId', vehicleController.getVehiclesByBranch);
  *       500:
  *         description: Server error
  */
-router.get('/chassis/:chassisNumber', vehicleController.getVehicleByChassisNumber);
+router.get('/chassis/:chassisNumber',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+   vehicleController.getVehicleByChassisNumber);
+  
+/**
+ * @swagger
+ * /api/v1/vehicles/{vehicleId}:
+ *   put:
+ *     summary: Update a vehicle (Admin+, Inventory Manager)
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vehicleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the vehicle to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               model:
+ *                 type: string
+ *                 description: Model ID from the Model collection
+ *               unloadLocation:
+ *                 type: string
+ *                 description: Branch ID where vehicle is unloaded
+ *               color:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     description: Color ID from the Color collection
+ *                   name:
+ *                     type: string
+ *                     description: Color name
+ *               batteryNumber:
+ *                 type: string
+ *               keyNumber:
+ *                 type: string
+ *               motorNumber:
+ *                 type: string
+ *               chargerNumber:
+ *                 type: string
+ *               engineNumber:
+ *                 type: string
+ *               hasDamage:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Vehicle updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Vehicle'
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (insufficient permissions)
+ *       404:
+ *         description: Vehicle not found
+ *       409:
+ *         description: Conflict (attempt to modify immutable field)
+ *       500:
+ *         description: Server error
+ */
+router.put(
+  '/:vehicleId',
+  protect,
+  requirePermission('VEHICLE_INWARD.UPDATE'),
+  logAction('UPDATE', 'Vehicle'),
+  vehicleController.updateVehicle
+);
 /**
  * @swagger
  * /api/v1/vehicles/model/{modelId}/{colorId}/chassis-numbers:
@@ -1064,8 +1164,45 @@ router.get('/chassis/:chassisNumber', vehicleController.getVehicleByChassisNumbe
  *         description: Server error
  */
  
-router.get('/model/:modelId/:colorId/chassis-numbers', vehicleController.getChassisNumbersByModelAndColor);
+router.get('/model/:modelId/:colorId/chassis-numbers',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+   vehicleController.getChassisNumbersByModelAndColor);
 
-
-
+/**
+ * @swagger
+ * /api/v1/vehicles/{vehicleId}:
+ *   delete:
+ *     summary: Delete a vehicle (Admin+, Inventory Manager)
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: vehicleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the vehicle to delete
+ *     responses:
+ *       204:
+ *         description: Vehicle deleted successfully
+ *       400:
+ *         description: Invalid vehicle ID or vehicle cannot be deleted due to status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (insufficient permissions)
+ *       404:
+ *         description: Vehicle not found
+ *       500:
+ *         description: Server error
+ */
+router.delete(
+  '/:vehicleId',
+  protect,
+  requirePermission('VEHICLE_INWARD.DELETE'),
+  logAction('DELETE_VEHICLE', 'Vehicle'),
+  vehicleController.deleteVehicle
+);
 module.exports = router;

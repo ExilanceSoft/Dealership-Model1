@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const financeController = require('../controllers/financeController');
 const { protect, authorize } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -159,7 +160,7 @@ const { protect, authorize } = require('../middlewares/auth');
  */
 router.post('/providers', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('FINANCE_PROVIDER.CREATE'),
   financeController.createProvider
 );
 
@@ -188,7 +189,10 @@ router.post('/providers',
  *       500:
  *         description: Server error
  */
-router.get('/providers', financeController.getProviders);
+router.get('/providers',
+  protect,
+  requirePermission('FINANCE_PROVIDER.READ'),
+  financeController.getProviders);
 
 /**
  * @swagger
@@ -215,7 +219,10 @@ router.get('/providers', financeController.getProviders);
  *       500:
  *         description: Server error
  */
-router.get('/providers/:id', financeController.getProvider);
+router.get('/providers/:id',
+  protect,
+  requirePermission('FINANCE_PROVIDER.READ'),
+   financeController.getProvider);
 
 /**
  * @swagger
@@ -265,7 +272,7 @@ router.get('/providers/:id', financeController.getProvider);
  */
 router.put('/providers/:id', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('FINANCE_PROVIDER.UPDATE'),
   financeController.updateProvider
 );
 
@@ -300,7 +307,7 @@ router.put('/providers/:id',
  */
 router.delete('/providers/:id', 
   protect, 
-  authorize('SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('FINANCE_PROVIDER.DELETE'), 
   financeController.deleteProvider
 );
 
@@ -352,7 +359,7 @@ router.delete('/providers/:id',
  */
 router.post('/rates', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('FINANCE_PROVIDER.CREATE'), 
   financeController.createRate
 );
 
@@ -381,7 +388,10 @@ router.post('/rates',
  *       500:
  *         description: Server error
  */
-router.get('/rates/:id', financeController.getRate);
+router.get('/rates/:id',
+  protect,
+  requirePermission('FINANCE_PROVIDER.READ'),
+   financeController.getRate);
 
 /**
  * @swagger
@@ -431,7 +441,7 @@ router.get('/rates/:id', financeController.getRate);
  */
 router.put('/rates/:id', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('FINANCE_PROVIDER.UPDATE'),
   financeController.updateRate
 );
 
@@ -464,7 +474,7 @@ router.put('/rates/:id',
  */
 router.delete('/rates/:id', 
   protect, 
-  authorize('ADMIN', 'SUPERADMIN','SALES_EXECUTIVE'), 
+  requirePermission('FINANCE_PROVIDER.DELETE'), 
   financeController.deleteRate
 );
 
@@ -499,7 +509,10 @@ router.delete('/rates/:id',
  *       500:
  *         description: Server error
  */
-router.get('/branches/:branchId/rates', financeController.getBranchRates);
+router.get('/branches/:branchId/rates',
+  protect,
+  requirePermission('FINANCE_PROVIDER.READ'),
+  financeController.getBranchRates);
 
 /**
  * @swagger
@@ -536,7 +549,10 @@ router.get('/branches/:branchId/rates', financeController.getBranchRates);
  *       500:
  *         description: Server error
  */
-router.get('/rates', financeController.getAllRates);
+router.get('/rates',
+  protect,
+  requirePermission('FINANCE_PROVIDER.READ'),
+  financeController.getAllRates);
 
 /**
  * @swagger
@@ -575,6 +591,9 @@ router.get('/rates', financeController.getAllRates);
  *       500:
  *         description: Server error
  */
-router.get('/providers/:id/rates', financeController.getProviderWithRates);
+router.get('/providers/:id/rates',
+  protect,
+  requirePermission('FINANCE_PROVIDER.READ'),
+  financeController.getProviderWithRates);
 
 module.exports = router;

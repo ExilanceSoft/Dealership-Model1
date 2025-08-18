@@ -67,6 +67,7 @@ cashLocationSchema.pre('findOneAndUpdate', function(next) {
   next();
 });
 
-const CashLocation = mongoose.model('CashLocation', cashLocationSchema);
+// Check if model already exists before defining it
+const CashLocation = mongoose.models.CashLocation || mongoose.model('CashLocation', cashLocationSchema);
 
 module.exports = CashLocation;

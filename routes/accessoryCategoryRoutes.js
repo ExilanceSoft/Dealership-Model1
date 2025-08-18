@@ -3,14 +3,13 @@ const router = express.Router();
 const accessoryCategoryController = require('../controllers/accessoryCategoryController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
-
+const { requirePermission } = require('../middlewares/requirePermission');
 /**
  * @swagger
  * tags:
  *   name: AccessoryCategories
  *   description: Accessory categories management
  */
-
 /**
  * @swagger
  * components:
@@ -96,7 +95,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('ACCESSORY_CATEGORY.CREATE'),
   logAction('CREATE', 'AccessoryCategory'),
   accessoryCategoryController.createAccessoryCategory
 );
@@ -143,6 +142,7 @@ router.post(
 router.get(
   '/',
   protect,
+  requirePermission('ACCESSORY_CATEGORY.READ'),
   accessoryCategoryController.getAllAccessoryCategories
 );
 
@@ -185,6 +185,7 @@ router.get(
 router.get(
   '/:id',
   protect,
+  requirePermission('ACCESSORY_CATEGORY.READ'),
   accessoryCategoryController.getAccessoryCategoryById
 );
 
@@ -250,7 +251,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('ACCESSORY_CATEGORY.UPDATE'),
   logAction('UPDATE', 'AccessoryCategory'),
   accessoryCategoryController.updateAccessoryCategory
 );
@@ -313,7 +314,7 @@ router.put(
 router.put(
   '/:id/status',
   protect,
-  authorize('ADMIN', 'SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('ACCESSORY_CATEGORY.UPDATE'),
   logAction('UPDATE_STATUS', 'AccessoryCategory'),
   accessoryCategoryController.updateAccessoryCategoryStatus
 );
@@ -348,7 +349,7 @@ router.put(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN'),
+  requirePermission('ACCESSORY_CATEGORY.DELETE'),
   logAction('DELETE', 'AccessoryCategory'),
   accessoryCategoryController.deleteAccessoryCategory
 );

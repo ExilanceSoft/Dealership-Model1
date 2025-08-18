@@ -1,15 +1,21 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
-const paymentSchema = new mongoose.Schema({
+const transactionSchema = new mongoose.Schema({
   date: {
     type: Date,
     default: Date.now,
-    required: true
+    required: [true, 'Transaction date is required']
+  },
+  type: {
+    type: String,
+    enum: ['CREDIT', 'DEBIT'],
+    required: [true, 'Transaction type (CREDIT/DEBIT) is required']
   },
   amount: {
     type: Number,
     required: [true, 'Amount is required'],
-    min: [0, 'Amount cannot be negative']
+    min: [0.01, 'Amount must be greater than 0']
   },
   modeOfPayment: {
     type: String,
@@ -18,26 +24,25 @@ const paymentSchema = new mongoose.Schema({
   },
   bank: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Bank',
-    required: function() {
-      return this.modeOfPayment === 'Bank';
-    }
+    ref: 'Bank'
   },
-  cashLocation: {
+  cashLocation: { 
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'CashLocation',
-    required: function() {
-      return this.modeOfPayment === 'Cash';
-    }
+    ref: 'CashLocation'
+  },
+  booking: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking'
   },
   remark: {
     type: String,
-    trim: true
+    trim: true,
+    maxlength: [200, 'Remark cannot exceed 200 characters']
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: [true, 'Creator user is required']
   }
 }, { timestamps: true });
 
@@ -48,54 +53,55 @@ const brokerLedgerSchema = new mongoose.Schema({
     required: [true, 'Broker reference is required'],
     unique: true
   },
-  totalAmount: {
+  currentBalance: {
     type: Number,
     default: 0,
-    min: [0, 'Total amount cannot be negative']
+    required: true
   },
-  balanceAmount: {
-    type: Number,
-    default: 0,
-    min: [0, 'Balance amount cannot be negative']
-  },
-  payments: [paymentSchema],
+  transactions: [transactionSchema],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: [true, 'Creator user is required']
+  },
+  lastUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
-// Virtual for broker details
+// Virtual population
 brokerLedgerSchema.virtual('brokerDetails', {
   ref: 'Broker',
   localField: 'broker',
   foreignField: '_id',
-  justOne: true,
-  options: { select: 'name mobile email brokerId' }
+  justOne: true
 });
 
-// Virtual for createdBy details
-brokerLedgerSchema.virtual('createdByDetails', {
-  ref: 'User',
-  localField: 'createdBy',
-  foreignField: '_id',
-  justOne: true,
-  options: { select: 'name email' }
-});
-
-// Update balance when a payment is added
+// Balance calculation middleware
 brokerLedgerSchema.pre('save', function(next) {
-  if (this.isModified('payments')) {
-    this.balanceAmount = this.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  if (this.isModified('transactions')) {
+    let balance = 0;
+    this.transactions.forEach(txn => {
+      if (txn.type === 'CREDIT') balance += txn.amount;
+      else balance -= txn.amount;
+    });
+    this.currentBalance = balance;
+    this.lastUpdatedBy = this._update?.$set?.lastUpdatedBy || this.createdBy;
   }
   next();
 });
 
-const BrokerLedger = mongoose.model('BrokerLedger', brokerLedgerSchema);
+// Indexes
+brokerLedgerSchema.index({ broker: 1 });
+brokerLedgerSchema.index({ currentBalance: 1 });
+brokerLedgerSchema.index({ 'transactions.date': 1 });
+brokerLedgerSchema.index({ 'transactions.booking': 1 });
 
-module.exports = BrokerLedger;
+brokerLedgerSchema.plugin(mongoosePaginate);
+
+module.exports = mongoose.model('BrokerLedger', brokerLedgerSchema);

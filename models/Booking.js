@@ -5,7 +5,6 @@ const CounterSchema = new mongoose.Schema({
   _id: { type: String, required: true },
   seq: { type: Number, default: 0 }
 });
-
 const Counter = mongoose.model('Counter', CounterSchema);
 
 const exchangeVehicleSchema = new mongoose.Schema({
@@ -36,7 +35,19 @@ const exchangeVehicleSchema = new mongoose.Schema({
     required: function() {
       return this.parent().exchange === true;
     }
-  }
+  },
+  otpVerified: {
+    type: Boolean,
+    default: false
+  },
+  otp: String,
+  otpExpiresAt: Date,
+  status: {
+    type: String,
+    enum: ['PENDING', 'COMPLETED'],
+    default: 'PENDING'
+  },
+  completedAt: Date
 }, { _id: false });
 
 const paymentDetailSchema = new mongoose.Schema({
@@ -159,6 +170,36 @@ const discountSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const claimDetailsSchema = new mongoose.Schema({
+  hasClaim: {
+    type: Boolean,
+    required: true
+  },
+  priceClaim: {
+    type: Number,
+    min: 0,
+    default: null
+  },
+  description: {
+    type: String,
+    default: null
+  },
+  documents: [{
+    path: String,
+    originalName: String,
+    size: Number,
+    mimetype: String
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }
+}, { _id: false });
+
 const bookingSchema = new mongoose.Schema({
   bookingNumber: {
     type: String,
@@ -169,6 +210,11 @@ const bookingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Model',
     required: [true, 'Model is required']
+  },
+  bookingType: {
+    type: String,
+    enum: ['BRANCH', 'SUBDEALER'],
+    required: true
   },
   color: {
     type: mongoose.Schema.Types.ObjectId,
@@ -188,6 +234,20 @@ const bookingSchema = new mongoose.Schema({
       },
       message: 'Chassis number must be 17 alphanumeric characters',
     },
+  },
+  chassisNumberHistory: [{
+    number: String,
+    changedAt: Date,
+    changedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reason: String,
+    statusAtChange: String
+  }],
+  chassisNumberChangeAllowed: {
+    type: Boolean,
+    default: true
   },
   batteryNumber: {
     type: String,
@@ -420,6 +480,7 @@ const bookingSchema = new mongoose.Schema({
       return this.discountedAmount - (this.receivedAmount || 0);
     }
   },
+  claimDetails: claimDetailsSchema,
   receipts: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Receipt'
@@ -428,20 +489,29 @@ const bookingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Ledger'
   }],
-status: {
-  type: String,
-  enum: ['DRAFT', 'PENDING_APPROVAL', 'ALLOCATED', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED', 'PENDING_APPROVAL (Discount_Exceeded)'],
-  default: 'DRAFT'
-},
+  status: {
+    type: String,
+    enum: ['PENDING_APPROVAL', 'ALLOCATED', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'KYC_PENDING', 'KYC_VERIFIED', 'PENDING_APPROVAL (Discount_Exceeded)'],
+    default: 'PENDING_APPROVAL'
+  },
   insuranceStatus: {
     type: String,
-    enum: [ 'AWAITING', 'COMPLETED','LATER'],
+    enum: ['AWAITING', 'COMPLETED', 'LATER'],
     default: 'AWAITING'
   },
   branch: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',
-    required: [true, 'Branch is required']
+    required: function() {
+      return !this.subdealer; 
+    }
+  },
+  subdealer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subdealer',
+    required: function() {
+      return !this.branch; 
+    }
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -451,21 +521,8 @@ status: {
   salesExecutive: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: async function() {
-      try {
-        if (!this.createdBy) return false;
-        const User = mongoose.model('User');
-        const creator = await User.findById(this.createdBy).populate('roles');
-        if (!creator) return false;
-        
-        const isSuperAdmin = creator.roles.some(r => r.isSuperAdmin);
-        const isSalesExecutive = creator.roles.some(r => r.name === 'SALES_EXECUTIVE');
-        
-        return isSuperAdmin || !isSalesExecutive;
-      } catch (err) {
-        console.error('Error validating salesExecutive requirement:', err);
-        return false;
-      }
+    required: function() {
+      return this.bookingType === 'BRANCH';
     },
     validate: {
       validator: async function(v) {
@@ -473,7 +530,7 @@ status: {
           if (!v) return true;
           const User = mongoose.model('User');
           const user = await User.findById(v).populate('roles');
-          return user && user.isActive && user.roles.some(r => r.name === 'SALES_EXECUTIVE');
+          return user && user.status === 'ACTIVE' && user.roles.some(r => r.name === 'SALES_EXECUTIVE');
         } catch (err) {
           console.error('Error validating salesExecutive:', err);
           return false;
@@ -482,9 +539,29 @@ status: {
       message: 'Selected user must be an active SALES_EXECUTIVE'
     }
   },
-  approvedBy: {
+  subdealerUser: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    required: function() {
+      return this.bookingType === 'SUBDEALER';
+    },
+    validate: {
+      validator: async function(v) {
+        try {
+          if (!v) return false;
+          const User = mongoose.model('User');
+          const user = await User.findById(v).populate('roles');
+          return user && 
+                 user.status === 'ACTIVE' && 
+                 user.roles.some(r => r.name === 'SUBDEALER') && 
+                 user.subdealer?.toString() === this.subdealer?.toString();
+        } catch (err) {
+          console.error('Error validating subdealerUser:', err);
+          return false;
+        }
+      },
+      message: 'Selected user must be an active SUBDEALER for this subdealer'
+    }
   },
   formPath: {
     type: String,
@@ -522,7 +599,18 @@ status: {
   updateRequestSubmitted: {
     type: Boolean,
     default: false
-  }
+  },
+   approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approvedAt: {
+    type: Date
+  },
+  approvalNote: {
+    type: String,
+    trim: true
+  },
 }, {
   timestamps: true,
   toJSON: { 
@@ -531,12 +619,24 @@ status: {
       ret.id = ret._id;
       delete ret._id;
       delete ret.__v;
+      
+      // Transform based on booking type
+      if (ret.bookingType === 'SUBDEALER') {
+        ret.subdealerUser = ret.subdealerUserDetails;
+        delete ret.salesExecutive;
+        delete ret.salesExecutiveDetails;
+      } else {
+        ret.salesExecutive = ret.salesExecutiveDetails;
+      }
+      
+      // Add vehicle details if available
       const vehicle = doc.vehicle || {};
       ret.batteryNumber = doc.batteryNumber || vehicle.batteryNumber || null;
       ret.keyNumber = doc.keyNumber || vehicle.keyNumber || null;
       ret.motorNumber = doc.motorNumber || vehicle.motorNumber || null;
       ret.chargerNumber = doc.chargerNumber || vehicle.chargerNumber || null;
       ret.engineNumber = doc.engineNumber || vehicle.engineNumber || null;
+      
       return ret;
     }
   },
@@ -546,15 +646,57 @@ status: {
       ret.id = ret._id;
       delete ret._id;
       delete ret.__v;
+      
+      // Transform based on booking type
+      if (ret.bookingType === 'SUBDEALER') {
+        ret.subdealerUser = ret.subdealerUserDetails;
+        delete ret.salesExecutive;
+        delete ret.salesExecutiveDetails;
+      } else {
+        ret.salesExecutive = ret.salesExecutiveDetails;
+      }
+      
+      // Add vehicle details if available
       const vehicle = doc.vehicle || {};
       ret.batteryNumber = doc.batteryNumber || vehicle.batteryNumber || null;
       ret.keyNumber = doc.keyNumber || vehicle.keyNumber || null;
       ret.motorNumber = doc.motorNumber || vehicle.motorNumber || null;
       ret.chargerNumber = doc.chargerNumber || vehicle.chargerNumber || null;
       ret.engineNumber = doc.engineNumber || vehicle.engineNumber || null;
+      
       return ret;
     }
   }
+});
+
+// Virtual populate fields
+bookingSchema.virtual('subdealerDetails', {
+  ref: 'Subdealer',
+  localField: 'subdealer',
+  foreignField: '_id',
+  justOne: true
+});
+
+bookingSchema.virtual('subdealerUserDetails', {
+  ref: 'User',
+  localField: 'subdealerUser',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name email mobile roles' }
+});
+bookingSchema.virtual('approvedByDetails', {
+  ref: 'User',
+  localField: 'approvedBy',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name email mobile' }
+});
+bookingSchema.virtual('salesExecutiveDetails', {
+  ref: 'User',
+  localField: 'salesExecutive',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name email mobile roles' }
 });
 
 bookingSchema.virtual('vehicle', {
@@ -567,7 +709,50 @@ bookingSchema.virtual('vehicle', {
   }
 });
 
+bookingSchema.virtual('colorDetails', {
+  ref: 'Color',
+  localField: 'color',
+  foreignField: '_id',
+  justOne: true
+});
+
+bookingSchema.virtual('modelDetails', {
+  ref: 'Model',
+  localField: 'model',
+  foreignField: '_id',
+  justOne: true
+});
+
+bookingSchema.virtual('branchDetails', {
+  ref: 'Branch',
+  localField: 'branch',
+  foreignField: '_id',
+  justOne: true
+});
+
+bookingSchema.virtual('createdByDetails', {
+  ref: 'User',
+  localField: 'createdBy',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name email mobile' }
+});
+
+bookingSchema.virtual('approvedByDetails', {
+  ref: 'User',
+  localField: 'approvedBy',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name email mobile' }
+});
+
+bookingSchema.virtual('fullCustomerName').get(function() {
+  return `${this.customerDetails.salutation} ${this.customerDetails.name}`.trim();
+});
+
+// Pre-save hooks
 bookingSchema.pre('save', async function(next) {
+  // Generate booking number if not set
   if (!this.bookingNumber) {
     const counter = await Counter.findByIdAndUpdate(
       { _id: 'bookingNumber' },
@@ -577,6 +762,7 @@ bookingSchema.pre('save', async function(next) {
     this.bookingNumber = `BK${counter.seq.toString().padStart(6, '0')}`;
   }
 
+  // Set RTO amount if not provided for BH/CRTM
   if ((this.rto === 'BH' || this.rto === 'CRTM') && !this.rtoAmount) {
     const model = await mongoose.model('Model').findById(this.model);
     if (model) {
@@ -597,6 +783,7 @@ bookingSchema.pre('save', async function(next) {
     }
   }
   
+  // Calculate balance amount if receivedAmount or discountedAmount changes
   if (this.isModified('receivedAmount') || this.isModified('discountedAmount')) {
     this.balanceAmount = this.discountedAmount - this.receivedAmount;
   }
@@ -604,67 +791,21 @@ bookingSchema.pre('save', async function(next) {
   next();
 });
 
+// Indexes
 bookingSchema.index({ bookingNumber: 1 });
 bookingSchema.index({ model: 1 });
 bookingSchema.index({ color: 1 });
 bookingSchema.index({ chassisNumber: 1 });
 bookingSchema.index({ rto: 1 });
 bookingSchema.index({ branch: 1 });
+bookingSchema.index({ subdealer: 1 });
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ createdBy: 1 });
 bookingSchema.index({ salesExecutive: 1 });
+bookingSchema.index({ subdealerUser: 1 });
 bookingSchema.index({ 'customerDetails.mobile1': 1 });
 bookingSchema.index({ createdAt: 1 });
 bookingSchema.index({ updatedAt: 1 });
-
-bookingSchema.virtual('modelDetails', {
-  ref: 'Model',
-  localField: 'model',
-  foreignField: '_id',
-  justOne: true
-});
-
-bookingSchema.virtual('colorDetails', {
-  ref: 'Color',
-  localField: 'color',
-  foreignField: '_id',
-  justOne: true
-});
-
-bookingSchema.virtual('branchDetails', {
-  ref: 'Branch',
-  localField: 'branch',
-  foreignField: '_id',
-  justOne: true
-});
-
-bookingSchema.virtual('createdByDetails', {
-  ref: 'User',
-  localField: 'createdBy',
-  foreignField: '_id',
-  justOne: true,
-  options: { select: 'name email mobile' }
-});
-
-bookingSchema.virtual('salesExecutiveDetails', {
-  ref: 'User',
-  localField: 'salesExecutive',
-  foreignField: '_id',
-  justOne: true,
-  options: { select: 'name email mobile' }
-});
-
-bookingSchema.virtual('approvedByDetails', {
-  ref: 'User',
-  localField: 'approvedBy',
-  foreignField: '_id',
-  justOne: true,
-  options: { select: 'name email mobile' }
-});
-
-bookingSchema.virtual('fullCustomerName').get(function() {
-  return `${this.customerDetails.salutation} ${this.customerDetails.name}`.trim();
-});
 
 bookingSchema.plugin(mongoosePaginate);
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const rtoController = require('../controllers/rtoController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -86,7 +87,7 @@ const { logAction } = require('../middlewares/audit');
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('RTO.CREATE'),
   logAction('CREATE_RTO'),
   rtoController.createRTO
 );
@@ -151,6 +152,7 @@ router.post(
 router.get(
   '/',
   protect,
+  requirePermission('RTO.READ'),
   rtoController.getRTOs
 );
 
@@ -186,6 +188,7 @@ router.get(
 router.get(
   '/:id',
   protect,
+  requirePermission('RTO.READ'),
   rtoController.getRTO
 );
 
@@ -231,7 +234,7 @@ router.get(
 router.put(
   '/:id',
   protect,
-  authorize('SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('RTO.UPDATE'),
   logAction('UPDATE_RTO'),
   rtoController.updateRTO
 );
@@ -283,7 +286,7 @@ router.put(
 router.patch(
   '/:id/status',
   protect,
-  authorize('SUPERADMIN', 'SALES_EXECUTIVE'),
+  requirePermission('RTO.UPDATE'),
   logAction('UPDATE_RTO_STATUS'),
   rtoController.updateRTOStatus
 );
@@ -318,7 +321,7 @@ router.patch(
 router.delete(
   '/:id',
   protect,
-  authorize('SUPERADMIN','SALES_EXECUTIVE'),
+  requirePermission('RTO.DELETE'),
   logAction('DELETE_RTO'),
   rtoController.deleteRTO
 );

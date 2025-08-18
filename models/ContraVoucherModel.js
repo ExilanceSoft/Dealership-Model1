@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-
 const ContraVoucherSchema = new mongoose.Schema({
   voucherId: {
     type: String,
@@ -24,6 +23,7 @@ const ContraVoucherSchema = new mongoose.Schema({
   contraType: {
     type: String,
     required: true,
+    enum: ['cash_at_bank', 'cash_at_home'],
     trim: true,
   },
   amount: {
@@ -49,7 +49,9 @@ const ContraVoucherSchema = new mongoose.Schema({
   },
   bankLocation: {
     type: String,
-    required: true,
+    required: function() {
+      return this.contraType === 'cash_at_bank';
+    },
     trim: true,
   },
   branch: {
@@ -57,7 +59,7 @@ const ContraVoucherSchema = new mongoose.Schema({
     ref: 'Branch',
     required: [true, 'Branch is required']
   },
-  bill_url: [{
+  billUrl: [{
     url: {
       type: String,
       required: true,
@@ -68,11 +70,9 @@ const ContraVoucherSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-
 // Auto-generate voucherId before saving
 ContraVoucherSchema.pre('save', async function (next) {
   if (!this.isNew) return next();
-
 
   try {
     const year = new Date().getFullYear();
@@ -85,13 +85,11 @@ ContraVoucherSchema.pre('save', async function (next) {
       { new: true, upsert: true }
     );
 
-
     this.voucherId = `CONV-${year}-${String(counter.seq).padStart(4, '0')}`;
     next();
   } catch (err) {
     next(err);
   }
 });
+
 module.exports = mongoose.model('ContraVoucher', ContraVoucherSchema);
-
-

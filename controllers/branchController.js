@@ -608,8 +608,6 @@ exports.updateOpeningBalance = async (req, res) => {
 
 exports.resetOpeningBalance = async (req, res) => {
   try {
-    const { note } = req.body;
-
     // Find and update branch
     const branch = await Branch.findById(req.params.id);
     if (!branch) {
@@ -620,11 +618,12 @@ exports.resetOpeningBalance = async (req, res) => {
     }
 
     const previousBalance = branch.opening_balance;
+    const note = req.body?.note || `Balance reset from ${previousBalance} to 0`;
 
     // Add to history and reset balance
     branch.opening_balance_history.push({
       amount: 0,
-      note: note || `Balance reset from ${previousBalance} to 0`,
+      note: note,
       updatedBy: req.user.id
     });
 
@@ -641,7 +640,7 @@ exports.resetOpeningBalance = async (req, res) => {
       metadata: {
         previousBalance,
         newBalance: 0,
-        note
+        note: note
       },
       status: 'SUCCESS'
     });
@@ -661,7 +660,7 @@ exports.resetOpeningBalance = async (req, res) => {
       ip: req.ip,
       status: 'FAILED',
       error: err.message,
-      metadata: req.body
+      metadata: req.body || {}
     });
 
     res.status(500).json({

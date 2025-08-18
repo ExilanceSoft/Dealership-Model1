@@ -3,321 +3,280 @@ const { Readable } = require('stream');
 const Model = require('../models/ModelModel');
 const Header = require('../models/HeaderModel');
 const Branch = require('../models/Branch');
+const Subdealer = require('../models/Subdealer');
 const AppError = require('../utils/appError');
 const logger = require('../config/logger');
 const { stringify } = require('csv-stringify');
 
-// Enhanced cleanValue function with better error handling
+// Helper function to clean and normalize values
 const cleanValue = (value) => {
-  try {
-    if (value === null || value === undefined) return null;
-    
-    // Ensure value is a string before processing
-    const strValue = typeof value === 'string' ? value.trim() : String(value).trim();
-    if (strValue === '') return null;
-    
-    // Try to parse as number
-    const numValue = parseFloat(strValue.replace(/,/g, ''));
-    if (!isNaN(numValue)) return numValue;
-    
-    return strValue;
-  } catch (err) {
-    logger.error(`Error cleaning value: ${value}`, { error: err });
-    return null;
-  }
+  if (value === null || value === undefined) return null;
+  const strValue = value.toString().trim();
+  if (strValue === '') return null;
+
+  const numValue = parseFloat(strValue.replace(/,/g, ''));
+  return isNaN(numValue) ? strValue : numValue;
+};
+
+// Helper to normalize header keys (case/space insensitive)
+const normalizeHeaderKey = (header) => {
+  return `${header.header_key.toLowerCase().replace(/\s+/g, '')}|${
+    header.category_key.toLowerCase().replace(/\s+/g, '')
+  }`;
 };
 
 exports.exportCSVTemplate = async (req, res, next) => {
   try {
-    // Validate request query parameters
-    const { type, branch_id } = req.query;
+    // Validate inputs
+    const { type, branch_id, subdealer_id } = req.query;
     if (!type || !['EV', 'ICE', 'CSD'].includes(type.toUpperCase())) {
-      return next(new AppError('Type is required and must be either EV, ICE or CSD', 400));
+      return next(new AppError('Vehicle type (EV/ICE/CSD) is required', 400));
     }
-    if (!branch_id) {
-      return next(new AppError('Branch ID is required', 400));
+    if (!branch_id && !subdealer_id) {
+      return next(new AppError('Either branch_id or subdealer_id is required', 400));
+    }
+    if (branch_id && subdealer_id) {
+      return next(new AppError('Cannot specify both branch_id and subdealer_id', 400));
     }
 
     const normalizedType = type.toUpperCase();
+    let reference, referenceType, referenceName;
 
-    // Verify branch exists
-    const branch = await Branch.findById(branch_id);
-    if (!branch) {
-      return next(new AppError('Branch not found', 404));
+    // Get reference (branch or subdealer)
+    if (branch_id) {
+      reference = await Branch.findById(branch_id);
+      referenceType = 'branch';
+    } else {
+      reference = await Subdealer.findById(subdealer_id);
+      referenceType = 'subdealer';
     }
 
-    // Check if branch is active
-    if (!branch.is_active) {
-      return next(new AppError('Cannot export template for inactive branch', 400));
+    if (!reference) {
+      return next(new AppError(`${referenceType} not found`, 404));
     }
+    referenceName = reference.name;
 
-    // Fetch required data from database
-    const [headers, models] = await Promise.all([
-      Header.find({ type: normalizedType })
-        .sort({ priority: 1 })
-        .lean(),
-      Model.find({ 
-        type: normalizedType,
-        status: 'active'
-      })
-        .populate({
-          path: 'prices.header_id',
-          model: 'Header',
-          select: '_id category_key header_key'
-        })
-        .populate({
-          path: 'prices.branch_id',
-          model: 'Branch',
-          select: '_id name'
-        })
-        .lean()
-    ]);
+    // Get all ACTIVE headers and remove duplicates
+    const activeHeaders = await Header.find({ type: normalizedType })
+      .sort({ priority: 1 })
+      .lean();
 
-    // Prepare CSV data structure
-    const csvData = [];
+    const uniqueHeaders = [];
+    const headerKeys = new Set();
 
-    // 1. Add branch information row
-    const branchRow = ['Branch', branch.name];
-    // Fill remaining columns with empty values
-    for (let i = 2; i < headers.length + 1; i++) {
-      branchRow.push('');
-    }
-    csvData.push(branchRow);
-
-    // 2. Add type row
-    const typeRow = ['Type', normalizedType];
-    // Fill remaining columns with empty values
-    for (let i = 2; i < headers.length + 1; i++) {
-      typeRow.push('');
-    }
-    csvData.push(typeRow);
-
-    // 3. Add headers row (header_key first)
-    const headerRow = ['model_name'];
-    headers.forEach(header => {
-      if (header && header.header_key && header.category_key) {
-        headerRow.push(`${header.header_key}|${header.category_key}`);
+    activeHeaders.forEach(header => {
+      const key = normalizeHeaderKey(header);
+      if (!headerKeys.has(key)) {
+        headerKeys.add(key);
+        uniqueHeaders.push(header);
       }
     });
-    csvData.push(headerRow);
 
-    // 4. Add model data rows
-    if (models.length > 0) {
-      models.forEach(model => {
-        if (!model || !model.model_name) return;
+    // Get models with prices and remove duplicates
+    const models = await Model.find({
+      type: normalizedType,
+      status: 'active'
+    })
+    .populate({
+      path: 'prices.header_id',
+      select: '_id header_key category_key'
+    })
+    .populate({
+      path: referenceType === 'branch' ? 'prices.branch_id' : 'prices.subdealer_id',
+      match: { _id: reference._id },
+      select: '_id name'
+    })
+    .lean();
+
+    models.forEach(model => {
+      const priceMap = new Map();
+      model.prices = model.prices.filter(price => {
+        if (!price.header_id || !price[`${referenceType}_id`]) return false;
         
-        const modelRow = [model.model_name];
-        headers.forEach(header => {
-          if (!header || !header._id) {
-            modelRow.push('0');
-            return;
-          }
+        const key = `${price.header_id._id}|${price[`${referenceType}_id`]._id}`;
+        if (!priceMap.has(key)) {
+          priceMap.set(key, true);
+          return true;
+        }
+        return false;
+      });
+    });
 
-          const price = model.prices?.find(p =>
-            p?.header_id?._id?.toString() === header._id.toString() &&
-            p?.branch_id?._id?.toString() === branch_id.toString()
+    // Prepare CSV data
+    const csvData = [
+      [referenceType === 'branch' ? 'Branch' : 'Subdealer', referenceName, ...Array(uniqueHeaders.length - 1).fill('')],
+      ['Type', normalizedType, ...Array(uniqueHeaders.length - 1).fill('')],
+      [
+        'model_name', 
+        ...uniqueHeaders.map(h => `${h.header_key}|${h.category_key}`)
+      ],
+      ...models.map(model => [
+        model.model_name,
+        ...uniqueHeaders.map(header => {
+          const price = model.prices.find(p => 
+            p.header_id?._id.toString() === header._id.toString() && 
+            p[`${referenceType}_id`]?._id?.toString() === reference._id.toString()
           );
-          modelRow.push(price?.value !== undefined ? price.value : '0');
-        });
-        csvData.push(modelRow);
-      });
-    } else {
-      // Add sample row if no models exist
-      const sampleRow = ['SampleModel'];
-      headers.forEach(() => {
-        sampleRow.push('0');
-      });
-      csvData.push(sampleRow);
-    }
+          return price?.value ?? '0';
+        })
+      ])
+    ];
 
-    // Configure CSV stringifier
+    // Generate CSV
     const stringifier = stringify({
       header: false,
       delimiter: ',',
       quoted: true,
       quoted_empty: true,
-      quoted_string: true,
-      escape: '"',
       bom: true
     });
 
-    // Set response headers
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=${branch.name.replace(/\s+/g, '_')}_${normalizedType}_export_${Date.now()}.csv`
+      `attachment; filename=${referenceName.replace(/\s+/g, '_')}_${normalizedType}_${Date.now()}.csv`
     );
 
-    // Stream CSV to response
     stringifier.pipe(res);
-
-    // Write data to stringifier
     csvData.forEach(row => stringifier.write(row));
     stringifier.end();
 
   } catch (err) {
-    logger.error(`Error exporting CSV template: ${err.message}`, {
-      stack: err.stack,
-      request: req.body
-    });
-    next(new AppError('Failed to generate CSV template. Please try again later.', 500));
+    logger.error(`CSV Export Error: ${err.message}`, { stack: err.stack });
+    next(new AppError('Failed to generate CSV export. Please try again.', 500));
   }
 };
 
 exports.importCSV = async (req, res, next) => {
   try {
-    // Enhanced file validation
     if (!req.file) {
-      return next(new AppError('Please upload a CSV file', 400));
-    }
-    
-    if (!req.file.buffer || req.file.buffer.length === 0) {
-      return next(new AppError('Uploaded file is empty', 400));
+      return next(new AppError('No CSV file uploaded', 400));
     }
 
-    // Validate required fields
-    if (!req.body.branch_id) {
-      return next(new AppError('Branch ID is required', 400));
+    // Validate inputs
+    const { branch_id, subdealer_id, type } = req.body;
+    if (!type || !['EV', 'ICE', 'CSD'].includes(type.toUpperCase())) {
+      return next(new AppError('Valid vehicle type (EV/ICE/CSD) required', 400));
     }
-    if (!req.body.type || !['EV', 'ICE', 'CSD'].includes(req.body.type.toUpperCase())) {
-      return next(new AppError('Type is required and must be EV, ICE or CSD', 400));
+    if (!branch_id && !subdealer_id) {
+      return next(new AppError('Either branch_id or subdealer_id is required', 400));
     }
-
-    const type = req.body.type.toUpperCase();
-
-    // Verify branch exists
-    const branch = await Branch.findById(req.body.branch_id);
-    if (!branch) {
-      return next(new AppError('Branch not found', 404));
+    if (branch_id && subdealer_id) {
+      return next(new AppError('Cannot specify both branch_id and subdealer_id', 400));
     }
 
-    if (!branch.is_active) {
-      return next(new AppError('Cannot import to inactive branch', 400));
+    const normalizedType = type.toUpperCase();
+    let reference, referenceType, referenceName;
+
+    // Get reference (branch or subdealer)
+    if (branch_id) {
+      reference = await Branch.findById(branch_id);
+      referenceType = 'branch';
+    } else {
+      reference = await Subdealer.findById(subdealer_id);
+      referenceType = 'subdealer';
     }
 
-    // Get headers for type
-    const headers = await Header.find({ type });
-    const headerKeyMap = new Map();
-    const categoryKeyMap = new Map();
-    
-    headers.forEach(header => {
-      if (header.header_key) headerKeyMap.set(header.header_key, header._id);
-      if (header.category_key) categoryKeyMap.set(header.category_key, header._id);
+    if (!reference) {
+      return next(new AppError(`${referenceType} not found`, 404));
+    }
+    referenceName = reference.name;
+
+    // Get all current headers for reference
+    const currentHeaders = await Header.find({ type: normalizedType });
+    const headerMap = new Map(
+      currentHeaders.map(h => [
+        normalizeHeaderKey(h), 
+        h._id
+      ])
+    );
+
+    // Parse CSV
+    const csvData = [];
+    const errors = [];
+    await new Promise((resolve, reject) => {
+      const bufferStream = new Readable();
+      bufferStream.push(req.file.buffer);
+      bufferStream.push(null);
+
+      bufferStream
+        .pipe(csv({ headers: false }))
+        .on('data', (row) => csvData.push(Object.values(row)))
+        .on('end', resolve)
+        .on('error', reject);
     });
 
-    // Parse CSV with better error handling
-    let csvData;
-    try {
-      const csvString = req.file.buffer.toString('utf8').trim();
-      csvData = csvString.split('\n')
-        .filter(row => row.trim() !== '') // Remove empty lines
-        .map(row => {
-          // Handle quoted values and empty cells
-          const cells = row.split(',')
-            .map(cell => {
-              const trimmed = cell.trim();
-              return trimmed.replace(/^"|"$/g, '');
-            });
-          return cells;
-        });
-    } catch (parseError) {
-      logger.error('CSV parsing failed', { error: parseError });
-      return next(new AppError('Invalid CSV file format', 400));
-    }
-
-    // Validate CSV structure
-    if (csvData.length < 3) {
-      return next(new AppError('CSV must contain at least branch info, type, and header rows', 400));
-    }
-
     // Find header row
-    const headerRowIndex = csvData.findIndex(row => 
-      row[0] && row[0].toLowerCase() === 'model_name'
-    );
+    const headerRowIndex = csvData.findIndex(row => row[0]?.toLowerCase() === 'model_name');
     if (headerRowIndex === -1) {
-      return next(new AppError('CSV must contain a header row starting with model_name', 400));
+      return next(new AppError('CSV is missing required header row', 400));
     }
 
     const headerRow = csvData[headerRowIndex];
     const dataRows = csvData.slice(headerRowIndex + 1);
-    const errors = [];
-    let processedCount = 0;
 
-    // Process each model row
+    // Process each model
     for (const row of dataRows) {
-      const modelName = row[0] ? row[0].trim() : '';
+      const modelName = row[0]?.trim();
       if (!modelName || modelName === 'SampleModel') continue;
 
       try {
         let model = await Model.findOne({ model_name: modelName }) || 
-          new Model({ 
-            model_name: modelName, 
-            type, 
+          new Model({
+            model_name: modelName,
+            type: normalizedType,
             status: 'active',
-            prices: [] 
+            prices: []
           });
 
-        // Clear existing prices for this branch
+        // Clear existing prices for this reference
         model.prices = model.prices.filter(p => 
-          p && p.branch_id && p.branch_id.equals(branch._id)
+          !p[`${referenceType}_id`]?.equals(reference._id)
         );
 
-        // Process each price column
-        for (let i = 1; i < headerRow.length && i < row.length; i++) {
-          const cellValue = row[i];
-          if (cellValue === undefined || cellValue === null || cellValue === '') continue;
+        // Process each column
+        for (let i = 1; i < headerRow.length; i++) {
+          const headerValue = headerRow[i]?.trim();
+          if (!headerValue) continue;
 
-          const headerCell = headerRow[i];
-          if (!headerCell) continue;
+          const value = cleanValue(row[i]);
+          if (value === null) continue;
 
-          const headerParts = headerCell.split('|');
-          const headerKey = headerParts[0] ? headerParts[0].trim() : null;
-          const categoryKey = headerParts[1] ? headerParts[1].trim() : null;
-          const value = cleanValue(cellValue);
-
-          // Find header ID
-          let headerId = headerKey ? headerKeyMap.get(headerKey) : null;
-          if (!headerId && categoryKey) {
-            headerId = categoryKeyMap.get(categoryKey);
-          }
-
-          if (headerId && value !== null) {
+          // Find header ID using normalized key
+          const headerParts = headerValue.split('|');
+          if (headerParts.length !== 2) continue;
+          
+          const fakeHeader = {
+            header_key: headerParts[0],
+            category_key: headerParts[1]
+          };
+          const headerId = headerMap.get(normalizeHeaderKey(fakeHeader));
+          
+          if (headerId && !isNaN(value)) {
             model.prices.push({
-              value: value,
+              value: Number(value),
               header_id: headerId,
-              branch_id: branch._id
+              [referenceType === 'branch' ? 'branch_id' : 'subdealer_id']: reference._id
             });
           }
         }
 
-        await model.save();
-        processedCount++;
-      } catch (modelError) {
-        const errorMsg = `Error processing model ${modelName}: ${modelError.message}`;
-        errors.push(errorMsg);
-        logger.error(errorMsg, { error: modelError });
+        await model.save({ validateBeforeSave: false });
+      } catch (err) {
+        errors.push(`Failed to process ${modelName}: ${err.message}`);
+        logger.error(`Import Error for ${modelName}: ${err.message}`);
       }
     }
 
     res.status(200).json({
       status: 'success',
-      message: 'CSV import completed',
-      imported: processedCount,
+      message: `CSV import completed for ${referenceType}: ${referenceName}`,
+      imported: dataRows.length - errors.length,
       errors: errors.length > 0 ? errors : undefined
     });
 
   } catch (err) {
-    logger.error('CSV import failed', { 
-      error: err.message,
-      stack: err.stack,
-      request: {
-        body: req.body,
-        file: req.file ? {
-          originalname: req.file.originalname,
-          size: req.file.size
-        } : null
-      }
-    });
-    next(new AppError('Failed to process CSV file', 500));
+    logger.error(`CSV Import Error: ${err.message}`, { stack: err.stack });
+    next(new AppError('Failed to process CSV import. Please check the file format.', 500));
   }
 };

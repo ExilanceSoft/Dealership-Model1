@@ -7,6 +7,7 @@ const stockTransferController = require('../controllers/stockTransferController'
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
 const AppError = require('../utils/appError');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -281,7 +282,7 @@ const upload = multer({
 router.post(
   '/',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('STOCK_TRANSFER.CREATE'),
   logAction('CREATE_TRANSFER', 'StockTransfer'),
   stockTransferController.createTransfer
 );
@@ -347,7 +348,10 @@ router.post(
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.get('/', stockTransferController.getAllTransfers);
+router.get('/',
+  protect,
+  requirePermission('STOCK_TRANSFER.READ'),
+   stockTransferController.getAllTransfers);
 
 
 /**
@@ -384,7 +388,10 @@ router.get('/', stockTransferController.getAllTransfers);
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.get('/:transferId', stockTransferController.getTransferById);
+router.get('/:transferId',
+  protect,
+  requirePermission('STOCK_TRANSFER.READ'),
+   stockTransferController.getTransferById);
 
 
 /**
@@ -442,7 +449,7 @@ router.get('/:transferId', stockTransferController.getTransferById);
 router.put(
   '/:transferId/status',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('STOCK_TRANSFER.UPDATE'),
   logAction('CANCEL_TRANSFER', 'StockTransfer'),
   stockTransferController.updateTransferStatus
 );
@@ -509,7 +516,7 @@ router.put(
 router.put(
   '/:transferId/items/:itemId',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('STOCK_TRANSFER.UPDATE'),
   logAction('CANCEL_TRANSFER_ITEM', 'StockTransfer'),
   stockTransferController.updateTransferItemStatus
 );
@@ -562,7 +569,10 @@ router.put(
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.get('/branches/:branchId', stockTransferController.getTransfersByBranch);
+router.get('/branches/:branchId',
+  protect,
+  requirePermission('STOCK_TRANSFER.READ'),
+   stockTransferController.getTransfersByBranch);
 
 
 /**
@@ -612,6 +622,8 @@ router.get('/branches/:branchId', stockTransferController.getTransfersByBranch);
  */
 router.get(
   '/branches/:branchId/vehicles',
+  protect,
+  requirePermission('STOCK_TRANSFER.READ'),
   stockTransferController.getVehiclesAtBranch
 );
 /**
@@ -668,7 +680,7 @@ router.get(
 router.post(
   '/:transferId/challan',
   protect,
-  authorize('SUPERADMIN', 'ADMIN', 'INVENTORY_MANAGER'),
+  requirePermission('STOCK_TRANSFER.UPDATE'),
   upload.single('challan'),
   (err, req, res, next) => {
     if (err) {

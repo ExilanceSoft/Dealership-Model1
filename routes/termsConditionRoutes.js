@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const termsConditionController = require('../controllers/termsConditionController');
 const { protect, authorize } = require('../middlewares/auth');
+const { requirePermission } = require('../middlewares/requirePermission');
 
 /**
  * @swagger
@@ -75,7 +76,10 @@ const { protect, authorize } = require('../middlewares/auth');
  *       500:
  *         description: Server error
  */
-router.get('/', termsConditionController.getTermsConditions);
+router.get('/',
+  protect,
+  requirePermission('TERMS_CONDITION.READ'),
+   termsConditionController.getTermsConditions);
 
 /**
  * @swagger
@@ -105,7 +109,10 @@ router.get('/', termsConditionController.getTermsConditions);
  *       500:
  *         description: Server error
  */
-router.get('/:id', termsConditionController.getTermsCondition);
+router.get('/:id',
+  protect,
+  requirePermission('TERMS_CONDITION.READ'),
+   termsConditionController.getTermsCondition);
 
 /**
  * @swagger
@@ -149,7 +156,7 @@ router.get('/:id', termsConditionController.getTermsCondition);
  */
 router.post('/',
   protect,
-  authorize('ADMIN'),
+  requirePermission('TERMS_CONDITION.CREATE'),
   termsConditionController.createTermsCondition
 );
 
@@ -199,7 +206,7 @@ router.post('/',
  */
 router.put('/:id',
   protect,
-  authorize('ADMIN'),
+  requirePermission('TERMS_CONDITION.UPDATE'),
   termsConditionController.updateTermsCondition
 );
 
@@ -241,7 +248,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   protect,
-  authorize('ADMIN','SALES_EXECUTIVE'),
+  requirePermission('TERMS_CONDITION.DELETE'),
   termsConditionController.deleteTermsCondition
 );
 

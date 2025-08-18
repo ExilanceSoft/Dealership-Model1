@@ -491,22 +491,37 @@ async function deleteRole(id){
 /* =========================
    VIEW: Users
 ========================= */
+/* =========================
+   VIEW: Users
+========================= */
+const userEditor = {
+  before: null,
+  data: null,
+  filter: '',
+  moduleOnly: ''
+};
+
 function renderUsers(){
-  const roleOptions = state.roles.map(r=> `<option value="${r._id}">${r.name}${r.is_active?'':' (inactive)'}</option>`).join('');
   const rows = state.users.map(u=>{
-    const chips = (u.roles||[]).map(id => {
+    const roleChips = (u.roles||[]).map(id => {
       const r = state.roles.find(x=>x._id===id);
       return r ? `<span class="chip">${r.name}</span>` : `<span class="chip muted">unknown</span>`;
     }).join(' ');
+    
+    const statusBadge = u.isFrozen ? 
+      `<span class="chip bad">FROZEN</span>` : 
+      `<span class="chip ok">${u.status || 'ACTIVE'}</span>`;
+    
     return `<tr>
       <td>${u.name||'<span class="muted">—</span>'}</td>
       <td class="muted">${u.email||''}</td>
-      <td>${u.status}</td>
-      <td>${chips || '<span class="muted">—</span>'}</td>
+      <td>${statusBadge}</td>
+      <td>${roleChips || '<span class="muted">—</span>'}</td>
       <td class="muted">${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : '—'}</td>
       <td>
         <button class="btn" data-edit="${u._id}">Edit</button>
-        <button class="btn" data-eff="${u._id}">Effective</button>
+        <button class="btn" data-perms="${u._id}">Permissions</button>
+        ${u.isFrozen ? `<button class="btn accent" data-unfreeze="${u._id}">Unfreeze</button>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -515,6 +530,7 @@ function renderUsers(){
     <div class="hdr">
       <div class="title">Users</div>
       <div class="toolbar">
+        <button class="btn brand" id="newUser">New User</button>
         <button class="btn" id="refreshUsers">Refresh</button>
       </div>
     </div>
@@ -527,101 +543,372 @@ function renderUsers(){
       </div>
     </div></div>
 
-    <div class="card" style="margin-top:12px"><div class="card-body">
-      <div style="font-weight:600;margin-bottom:6px">Editor</div>
-      <div class="row">
-        <div class="col"><label>User</label><select id="userSel"></select></div>
-        <div class="col"><label>Status</label><select id="userStatus"><option>ACTIVE</option><option>FROZEN</option><option>INVITED</option><option>INACTIVE</option><option>EXTENDED</option></select></div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <div class="col"><label>Name</label><input id="userName" type="text" /></div>
-        <div class="col"><label>Email</label><input id="userEmail" type="text" /></div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <div class="col" style="grid-column:1/-1">
-          <label>Roles (Ctrl/Cmd to multi-select)</label>
-          <select id="userRoles" multiple size="7">${roleOptions}</select>
+    <div class="card" style="margin-top:12px" id="userEditorCard">
+      <div class="card-body">
+        <div style="font-weight:600;margin-bottom:6px">User Editor</div>
+        <div class="row">
+          <div class="col">
+            <label>Name</label>
+            <input id="userName" type="text" placeholder="Full name" />
+          </div>
+          <div class="col">
+            <label>Mobile</label>
+            <input id="userMobile" type="text" placeholder="9876543210" />
+          </div>
         </div>
-      </div>
-      <div class="toolbar" style="margin-top:10px">
-        <button class="btn brand" id="saveUserBtn">Save User</button>
-      </div>
-      <pre id="userDiff" class="code help">Select a user to edit.</pre>
+        <div class="row" style="margin-top:8px">
+          <div class="col">
+            <label>Email</label>
+            <input id="userEmail" type="email" placeholder="user@example.com" />
+          </div>
+          <div class="col">
+            <label>Role</label>
+            <select id="userRole">
+              ${state.roles.map(r => `<option value="${r._id}">${r.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div class="col">
+            <label>Discount (for Sales Exec)</label>
+            <input id="userDiscount" type="number" min="0" placeholder="0" />
+          </div>
+          <div class="col">
+            <label>Status</label>
+            <select id="userStatus">
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
+        </div>
+        
+        <div style="margin-top:12px">
+          <div style="font-weight:600">Permissions</div>
+          <div class="help">Assign additional permissions beyond role defaults</div>
+          <div class="matrix" style="margin-top:8px">
+            <table id="userPermsTbl"></table>
+          </div>
+        </div>
 
-      <div style="font-weight:600;margin-top:12px;margin-bottom:6px">Effective Permissions (preview)</div>
-      <div class="matrix"><table id="effTbl"></table></div>
-    </div></div>
+        <div class="toolbar" style="margin-top:12px">
+          <button class="btn brand" id="saveUserBtn">Save User</button>
+          <button class="btn" id="resetUserBtn">Reset</button>
+          <button class="btn danger" id="deleteUserBtn" style="display:none">Delete User</button>
+        </div>
+        <pre id="userDiff" class="code help">Create a new user or select one to edit.</pre>
+        <input type="hidden" id="editingUserId" />
+      </div>
+    </div>
   `;
 
-  document.getElementById('refreshUsers').onclick = async()=> { await loadUsers(); renderUsers(); };
-
-  // Populate user selector
-  const sel = document.getElementById('userSel');
-  sel.innerHTML = state.users.map(u=> `<option value="${u._id}">${u.name || u.email || u._id}</option>`).join('');
-  sel.onchange = ()=> pickUser(sel.value);
-  if (state.users[0]) pickUser(state.users[0]._id);
-
-  document.getElementById('saveUserBtn').onclick = saveUser;
-}
-
-let userEditor = { before:null, data:null };
-function pickUser(uid){
-  const u = state.users.find(x=>x._id===uid);
-  if (!u) return;
-  userEditor.before = JSON.parse(JSON.stringify(u));
-  userEditor.data   = JSON.parse(JSON.stringify(u));
-
-  document.getElementById('userSel').value = u._id;
-  document.getElementById('userStatus').value = u.status || 'ACTIVE';
-  document.getElementById('userName').value = u.name || '';
-  document.getElementById('userEmail').value = u.email || '';
-  const roleSel = document.getElementById('userRoles');
-  Array.from(roleSel.options).forEach(o => o.selected = u.roles.includes(o.value));
-
-  // hooks
-  document.getElementById('userStatus').onchange = e=> (userEditor.data.status = e.target.value, updateUserDiff());
-  document.getElementById('userName').oninput = e=> (userEditor.data.name = e.target.value, updateUserDiff());
-  document.getElementById('userEmail').oninput = e=> (userEditor.data.email = e.target.value, updateUserDiff());
-  roleSel.onchange = e=> {
-    const selected = Array.from(roleSel.selectedOptions).map(o=>o.value);
-    userEditor.data.roles = selected; updateUserDiff();
+  document.getElementById('refreshUsers').onclick = async()=> { 
+    await loadUsers(); 
+    renderUsers(); 
   };
+  document.getElementById('newUser').onclick = ()=> startUserEditor(null);
+  document.getElementById('saveUserBtn').onclick = saveUser;
+  document.getElementById('resetUserBtn').onclick = ()=> startUserEditor(document.getElementById('editingUserId').value || null);
+  document.getElementById('deleteUserBtn').onclick = deleteUser;
 
+  // Set up event handlers for user actions
+  main.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.onclick = () => startUserEditor(btn.dataset.edit);
+  });
+  
+  main.querySelectorAll('[data-perms]').forEach(btn => {
+    btn.onclick = () => viewUserPermissions(btn.dataset.perms);
+  });
+  
+  main.querySelectorAll('[data-unfreeze]').forEach(btn => {
+    btn.onclick = () => unfreezeUser(btn.dataset.unfreeze);
+  });
+
+  // Initialize editor for new user
+  startUserEditor(null);
+}
+
+function startUserEditor(userId) {
+  const editorCard = document.getElementById('userEditorCard');
+  const deleteBtn = document.getElementById('deleteUserBtn');
+  const editingIdEl = document.getElementById('editingUserId');
+  
+  if (userId) {
+    // Editing existing user
+    const user = state.users.find(u => u._id === userId);
+    if (!user) return;
+    
+    editingIdEl.value = user._id;
+    document.getElementById('userName').value = user.name || '';
+    document.getElementById('userEmail').value = user.email || '';
+    document.getElementById('userMobile').value = user.mobile || '';
+    document.getElementById('userDiscount').value = user.discount || 0;
+    document.getElementById('userStatus').value = user.status || 'ACTIVE';
+    
+    // Set role (first role if multiple)
+    const roleSelect = document.getElementById('userRole');
+    if (user.roles && user.roles.length > 0) {
+      roleSelect.value = user.roles[0];
+    }
+    
+    // Build permissions matrix
+    buildUserPermsMatrix(user);
+    deleteBtn.style.display = 'inline-block';
+    editorCard.style.display = 'block';
+  } else {
+    // Creating new user
+    editingIdEl.value = '';
+    document.getElementById('userName').value = '';
+    document.getElementById('userEmail').value = '';
+    document.getElementById('userMobile').value = '';
+    document.getElementById('userDiscount').value = 0;
+    document.getElementById('userStatus').value = 'ACTIVE';
+    
+    // Build empty permissions matrix
+    buildUserPermsMatrix(null);
+    deleteBtn.style.display = 'none';
+    editorCard.style.display = 'block';
+  }
+  
   updateUserDiff();
-  loadEffective(uid);
 }
-function updateUserDiff(){
-  const b = userEditor.before, d = userEditor.data;
-  const lines=[];
-  if (b.status !== d.status) lines.push(`Status: ${b.status} → ${d.status}`);
-  if ((b.name||'') !== (d.name||'')) lines.push(`Name: "${b.name||''}" → "${d.name||''}"`);
-  if ((b.email||'') !== (d.email||'')) lines.push(`Email: "${b.email||''}" → "${d.email||''}"`);
-  const added = d.roles.filter(x=>!b.roles.includes(x));
-  const removed = b.roles.filter(x=>!d.roles.includes(x));
-  if (added.length) lines.push('Roles + ' + added.map(id=> state.roles.find(r=>r._id===id)?.name||id).join(', '));
-  if (removed.length) lines.push('Roles − ' + removed.map(id=> state.roles.find(r=>r._id===id)?.name||id).join(', '));
-  document.getElementById('userDiff').textContent = lines.length ? lines.join('\n') : 'No changes.';
+
+function buildUserPermsMatrix(user) {
+  const tbl = document.getElementById('userPermsTbl');
+  const unionActs = Array.from(new Set(state.catalog.modules.flatMap(m => m.actions))).sort();
+  
+  const head = `<tr><th>Module \\ Action</th>${
+    unionActs.map(a => `<th class="mcell">${a}</th>`).join('')
+  }</tr>`;
+  
+  // Get user's current permissions (either direct or from role)
+  const currentPerms = new Set();
+  if (user) {
+    // Add direct permissions
+    (user.permissions || []).forEach(p => {
+      const key = state.catalog.idToKey.get(p.permission || p);
+      if (key) currentPerms.add(key);
+    });
+  }
+  
+  const body = state.catalog.modules.map(m => {
+    const cells = unionActs.map(a => {
+      const key = `${m.key}.${a}`;
+      if (!state.catalog.keyToId.has(key)) {
+        return `<td class="mcell"><span class="muted">—</span></td>`;
+      }
+      
+      const isSet = currentPerms.has(key);
+      return `<td class="mcell">
+        <div class="toggle ${isSet ? 'on' : ''}" data-key="${key}">${isSet ? '✓' : ''}</div>
+      </td>`;
+    }).join('');
+    
+    return `<tr><td><b>${m.key}</b></td>${cells}</tr>`;
+  }).join('');
+  
+  tbl.innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+  
+  // Set up toggle handlers
+  tbl.querySelectorAll('.toggle').forEach(toggle => {
+    toggle.onclick = () => {
+      const key = toggle.dataset.key;
+      if (toggle.classList.contains('on')) {
+        toggle.classList.remove('on');
+        toggle.textContent = '';
+      } else {
+        toggle.classList.add('on');
+        toggle.textContent = '✓';
+      }
+      updateUserDiff();
+    };
+  });
 }
-async function saveUser(){
-  const d = userEditor.data;
-  try{
-    await api(`/users/${d._id}`, { method:'PUT', body: { name:d.name, email:d.email, status:d.status, roles:d.roles }});
-    toast('User updated','success');
-    await loadUsers(); renderUsers();
-  }catch(e){ toast('Save failed: ' + e.message, 'error'); }
+
+function updateUserDiff() {
+  const diffEl = document.getElementById('userDiff');
+  const userId = document.getElementById('editingUserId').value;
+  
+  if (!userId) {
+    diffEl.textContent = 'Creating new user. Fill in details and save.';
+    return;
+  }
+  
+  const user = state.users.find(u => u._id === userId);
+  if (!user) {
+    diffEl.textContent = 'User not found.';
+    return;
+  }
+  
+  // Get current form values
+  const formData = {
+    name: document.getElementById('userName').value.trim(),
+    email: document.getElementById('userEmail').value.trim(),
+    mobile: document.getElementById('userMobile').value.trim(),
+    role: document.getElementById('userRole').value,
+    discount: parseInt(document.getElementById('userDiscount').value) || 0,
+    status: document.getElementById('userStatus').value,
+    permissions: getSelectedPermissions()
+  };
+  
+  // Compare with original user data
+  const changes = [];
+  
+  if (formData.name !== (user.name || '')) changes.push(`Name: "${user.name}" → "${formData.name}"`);
+  if (formData.email !== (user.email || '')) changes.push(`Email: "${user.email}" → "${formData.email}"`);
+  if (formData.mobile !== (user.mobile || '')) changes.push(`Mobile: "${user.mobile}" → "${formData.mobile}"`);
+  if (formData.role !== (user.roles?.[0] || '')) {
+    const oldRole = state.roles.find(r => r._id === user.roles?.[0])?.name || 'None';
+    const newRole = state.roles.find(r => r._id === formData.role)?.name || 'None';
+    changes.push(`Role: ${oldRole} → ${newRole}`);
+  }
+  if (formData.discount !== (user.discount || 0)) changes.push(`Discount: ${user.discount || 0} → ${formData.discount}`);
+  if (formData.status !== (user.status || 'ACTIVE')) changes.push(`Status: ${user.status} → ${formData.status}`);
+  
+  // Compare permissions
+  const oldPerms = new Set(
+    (user.permissions || []).map(p => state.catalog.idToKey.get(p.permission || p)).filter(Boolean)
+  );
+  const newPerms = new Set(formData.permissions);
+  
+  const addedPerms = [...newPerms].filter(p => !oldPerms.has(p));
+  const removedPerms = [...oldPerms].filter(p => !newPerms.has(p));
+  
+  if (addedPerms.length) changes.push(`Added permissions: ${addedPerms.join(', ')}`);
+  if (removedPerms.length) changes.push(`Removed permissions: ${removedPerms.join(', ')}`);
+  
+  diffEl.textContent = changes.length ? changes.join('\n') : 'No changes detected.';
 }
-async function loadEffective(uid){
-  try{
-    const res = await api(`/users/${uid}/permissions`);
-    const perms = asObj(res)?.permissions || [];
-    const tbl = document.getElementById('effTbl');
-    const rows = perms.map(p=> `<tr><td>${p.module}.${p.action}</td><td class="mcell">✓</td></tr>`).join('');
-    tbl.innerHTML = `<thead><tr><th>Permission</th><th>Allow</th></tr></thead><tbody>${rows||`<tr><td colspan="2"><div class="empty">No permissions</div></td></tr>`}</tbody>`;
-  }catch(e){
-    document.getElementById('effTbl').innerHTML = `<thead><tr><th>Permission</th><th>Allow</th></tr></thead><tbody><tr><td colspan="2"><div class="empty">Failed to load: ${e.message}</div></td></tr></tbody>`;
+
+function getSelectedPermissions() {
+  const perms = [];
+  document.querySelectorAll('#userPermsTbl .toggle.on').forEach(toggle => {
+    perms.push(toggle.dataset.key);
+  });
+  return perms;
+}
+
+async function saveUser() {
+  const userId = document.getElementById('editingUserId').value;
+  const isNew = !userId;
+  
+  try {
+    const userData = {
+      name: document.getElementById('userName').value.trim(),
+      email: document.getElementById('userEmail').value.trim(),
+      mobile: document.getElementById('userMobile').value.trim(),
+      roleId: document.getElementById('userRole').value,
+      discount: parseInt(document.getElementById('userDiscount').value) || 0,
+      status: document.getElementById('userStatus').value,
+      permissions: getSelectedPermissions().map(key => state.catalog.keyToId.get(key)).filter(Boolean)
+    };
+    
+    // Validate required fields
+    if (!userData.name || !userData.email || !userData.mobile) {
+      throw new Error('Name, email and mobile are required');
+    }
+    
+    // Validate mobile format
+    if (!/^[6-9]\d{9}$/.test(userData.mobile)) {
+      throw new Error('Invalid mobile number format');
+    }
+    
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userData.email)) {
+      throw new Error('Invalid email format');
+    }
+    
+    let result;
+    if (isNew) {
+      // Create new user
+      result = await api('/auth/register', {
+        method: 'POST',
+        body: userData
+      });
+      toast('User created successfully', 'success');
+    } else {
+      // Update existing user
+      result = await api(`/users/${userId}`, {
+        method: 'PUT',
+        body: userData
+      });
+      toast('User updated successfully', 'success');
+    }
+    
+    // Refresh user list
+    await loadUsers();
+    renderUsers();
+    
+    // If new user, switch to edit mode for that user
+    if (isNew && result?.data?.id) {
+      startUserEditor(result.data.id);
+    }
+  } catch (err) {
+    toast(`Error saving user: ${err.message}`, 'error');
+    console.error('Error saving user:', err);
   }
 }
 
+async function deleteUser() {
+  const userId = document.getElementById('editingUserId').value;
+  if (!userId) return;
+  
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  
+  try {
+    await api(`/users/${userId}`, { method: 'DELETE' });
+    toast('User deleted successfully', 'success');
+    await loadUsers();
+    renderUsers();
+    startUserEditor(null); // Reset editor
+  } catch (err) {
+    toast(`Error deleting user: ${err.message}`, 'error');
+    console.error('Error deleting user:', err);
+  }
+}
+
+async function viewUserPermissions(userId) {
+  try {
+    const res = await api(`/users/${userId}/permissions`);
+    const perms = asObj(res)?.permissions || [];
+    
+    const rows = perms.map(p => {
+      const mod = (p.module || '').toUpperCase();
+      const act = (p.action || '').toUpperCase();
+      return `<tr><td>${mod}.${act}</td><td>${p.name || ''}</td></tr>`;
+    }).join('');
+    
+    main.innerHTML += `
+      <div class="card" style="margin-top:12px"><div class="card-body">
+        <div style="font-weight:600;margin-bottom:6px">Effective Permissions (from server)</div>
+        <div class="matrix">
+          <table>
+            <thead><tr><th>Permission</th><th>Name</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="2"><div class="empty">No permissions found</div></td></tr>`}</tbody>
+          </table>
+        </div>
+      </div></div>
+    `;
+  } catch (e) {
+    toast('Failed to load permissions: ' + e.message, 'error');
+  }
+}
+
+async function unfreezeUser(userId) {
+  if (!confirm('Unfreeze this user?')) return;
+  
+  try {
+    await api(`/users/${userId}/unfreeze`, {
+      method: 'POST',
+      body: { reason: 'Unfrozen via admin panel' }
+    });
+    toast('User unfrozen successfully', 'success');
+    await loadUsers();
+    renderUsers();
+  } catch (err) {
+    toast(`Error unfreezing user: ${err.message}`, 'error');
+    console.error('Error unfreezing user:', err);
+  }
+};
 /* =========================
    VIEW: Quick Route Tester
 ========================= */
