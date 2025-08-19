@@ -180,6 +180,6 @@ router.get("/status/:status", voucherController.getVouchersByStatus);
  *       404:
  *         description: Voucher not found
  */
-router.get("/receipt/:id", voucherController.downloadVoucherReceipt);
+router.get("/receipt/:id", voucherController.getVoucherReceiptHtml);
 
 module.exports = router;

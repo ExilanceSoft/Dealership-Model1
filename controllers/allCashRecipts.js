@@ -92,40 +92,55 @@ exports.getVouchersByStatus = async (req, res) => {
 };
 
 // Download voucher receipt PDF (with branch populated)
-exports.downloadVoucherReceipt = async (req, res) => {
+exports.getVoucherReceiptHtml = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Find the voucher in any of the three collections
     let voucher =
       (await WorkShopReciptVoucher.findById(id).populate("branch").lean()) ||
       (await CashVoucher.findById(id).populate("branch").lean()) ||
       (await ContraVoucher.findById(id).populate("branch").lean());
 
     if (!voucher) {
-      return res.status(404).json({ success: false, message: "Voucher not found" });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Voucher not found" 
+      });
     }
 
+    // Convert amount to words
     const voucherAmount = typeof voucher.amount === "number" ? voucher.amount : 0;
+    const amountInWords = `${toWords(voucherAmount)} only`;
+
+    // Read and compile the template
     const templatePath = path.join(__dirname, "../templates/voucherRecipt.html");
     const templateHtml = fs.readFileSync(templatePath, "utf8");
     const compiledTemplate = Handlebars.compile(templateHtml);
 
+    // Generate the HTML with the voucher data
     const htmlData = compiledTemplate({
       ...voucher,
-      amountInWords: `${toWords(voucherAmount)} only`,
+      amountInWords,
     });
 
-    const pdfBuffer = await generatePDFFromHtml(htmlData);
+    // Send the HTML response
+    res.status(200).json({
+      success: true,
+      data: {
+        html: htmlData,
+        voucherId: voucher.voucherId || id,
+        type: voucher.voucherType || 'Receipt' // Assuming there's a voucherType field
+      }
+    });
 
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="Receipt-${voucher.voucherId || id}.pdf"`
-    );
-    res.setHeader("Content-Type", "application/pdf");
-    res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error generating voucher PDF:", error);
-    res.status(500).json({ success: false, message: "Failed to generate PDF" });
+    console.error("Error generating voucher HTML:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to generate HTML",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

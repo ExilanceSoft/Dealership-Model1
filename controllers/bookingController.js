@@ -1266,9 +1266,6 @@ exports.approveBooking = async (req, res) => {
   }
 };
 
-// Get booking by ID with all populated details
-// Get booking by ID with all populated details
-// Get booking by ID with all populated details
 exports.getBookingById = async (req, res) => {
   try {
     const bookingId = req.params.id;
@@ -1280,8 +1277,7 @@ exports.getBookingById = async (req, res) => {
       });
     }
 
-    // Find the booking with all necessary populated data
-    const booking = await Booking.findById(bookingId)
+    const baseQuery = Booking.findById(bookingId)
       .populate('model', 'model_name type')
       .populate('color', 'name code')
       .populate({
@@ -1293,8 +1289,6 @@ exports.getBookingById = async (req, res) => {
         select: 'name code address contactPerson contactNumber gstin'
       })
       .populate('createdBy', 'name email mobile')
-      .populate('salesExecutive', 'name email mobile')
-      .populate('subdealerUser', 'name email mobile')
       .populate({
         path: 'priceComponents.header',
         model: 'Header',
@@ -1321,6 +1315,53 @@ exports.getBookingById = async (req, res) => {
         select: 'batteryNumber keyNumber motorNumber chargerNumber engineNumber chassisNumber qrCode status'
       });
 
+    // Add sales executive/subdealer user population based on user permissions
+    if (req.user.isSuperAdmin || req.user.hasPermission('BOOKING.VIEW_SENSITIVE')) {
+      // For admin users, populate full details
+      baseQuery.populate({
+        path: 'salesExecutive',
+        select: 'name email mobile discount status isFrozen lastLogin',
+        populate: [
+          {
+            path: 'branch',
+            select: 'name code address'
+          },
+          {
+            path: 'subdealer',
+            select: 'name code location type discount'
+          },
+          {
+            path: 'roles',
+            select: 'name is_active isSuperAdmin'
+          }
+        ]
+      }).populate({
+        path: 'subdealerUser',
+        select: 'name email mobile discount status isFrozen lastLogin',
+        populate: [
+          {
+            path: 'subdealer',
+            select: 'name code location type discount'
+          },
+          {
+            path: 'roles',
+            select: 'name is_active isSuperAdmin'
+          }
+        ]
+      });
+    } else {
+      // For regular users, populate basic details only
+      baseQuery.populate({
+        path: 'salesExecutive',
+        select: 'name email mobile'
+      }).populate({
+        path: 'subdealerUser',
+        select: 'name email mobile'
+      });
+    }
+
+    const booking = await baseQuery.exec();
+
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -1336,13 +1377,63 @@ exports.getBookingById = async (req, res) => {
       bookingObj.model.name = bookingObj.model.model_name;
     }
 
-    // Transform the sales executive/subdealer user based on booking type
+    // Transform executive details based on permissions
+    const transformExecutive = (executive) => {
+      if (!executive) return null;
+
+      const baseDetails = {
+        id: executive._id,
+        name: executive.name,
+        email: executive.email,
+        mobile: executive.mobile
+      };
+
+      // Only include sensitive fields if user has permission
+      if (req.user.isSuperAdmin || req.user.hasPermission('BOOKING.VIEW_SENSITIVE')) {
+        return {
+          ...baseDetails,
+          discount: executive.discount,
+          status: executive.status,
+          isFrozen: executive.isFrozen,
+          lastLogin: executive.lastLogin,
+          associatedEntity: executive.branch 
+            ? { 
+                type: 'branch',
+                id: executive.branch._id,
+                name: executive.branch.name,
+                code: executive.branch.code,
+                address: executive.branch.address
+              }
+            : executive.subdealer
+              ? {
+                  type: 'subdealer',
+                  id: executive.subdealer._id,
+                  name: executive.subdealer.name,
+                  code: executive.subdealer.code,
+                  location: executive.subdealer.location,
+                  type: executive.subdealer.type,
+                  discount: executive.subdealer.discount
+                }
+              : null,
+          roles: executive.roles?.map(role => ({
+            id: role._id,
+            name: role.name,
+            isActive: role.is_active,
+            isSuperAdmin: role.isSuperAdmin
+          })) || []
+        };
+      }
+
+      return baseDetails;
+    };
+
+    // Set the executive based on booking type
     if (bookingObj.bookingType === 'SUBDEALER') {
-      bookingObj.executive = bookingObj.subdealerUser;
-      delete bookingObj.salesExecutive;
-    } else {
-      bookingObj.executive = bookingObj.salesExecutive;
+      bookingObj.executive = transformExecutive(bookingObj.subdealerUser);
       delete bookingObj.subdealerUser;
+    } else {
+      bookingObj.executive = transformExecutive(bookingObj.salesExecutive);
+      delete bookingObj.salesExecutive;
     }
 
     // Add vehicle details if available
@@ -1354,6 +1445,43 @@ exports.getBookingById = async (req, res) => {
       bookingObj.engineNumber = bookingObj.engineNumber || bookingObj.vehicle.engineNumber || null;
       bookingObj.vehicleStatus = bookingObj.vehicle.status;
     }
+
+    // Add document status information similar to getAllBookings
+    const [kyc, financeLetter] = await Promise.all([
+      mongoose.model('KYC').findOne({ booking: booking._id })
+        .select('status verifiedBy verificationNote updatedAt')
+        .populate('verifiedBy', 'name')
+        .lean(),
+      mongoose.model('FinanceLetter').findOne({ booking: booking._id })
+        .select('status verifiedBy verificationNote updatedAt')
+        .populate('verifiedBy', 'name')
+        .lean()
+    ]);
+
+    bookingObj.documentStatus = {
+      kyc: kyc ? {
+        status: kyc.status,
+        verifiedBy: kyc.verifiedBy?.name || null,
+        verificationNote: kyc.verificationNote || null,
+        updatedAt: kyc.updatedAt
+      } : {
+        status: 'NOT_UPLOADED',
+        verifiedBy: null,
+        verificationNote: null,
+        updatedAt: null
+      },
+      financeLetter: financeLetter ? {
+        status: financeLetter.status,
+        verifiedBy: financeLetter.verifiedBy?.name || null,
+        verificationNote: financeLetter.verificationNote || null,
+        updatedAt: financeLetter.updatedAt
+      } : {
+        status: 'NOT_UPLOADED',
+        verifiedBy: null,
+        verificationNote: null,
+        updatedAt: null
+      }
+    };
 
     res.status(200).json({
       success: true,
@@ -1370,7 +1498,6 @@ exports.getBookingById = async (req, res) => {
   }
 };
 
-// Get all bookings with pagination and filters
 exports.getAllBookings = async (req, res) => {
   try {
     const { 

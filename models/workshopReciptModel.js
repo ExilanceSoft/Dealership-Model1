@@ -61,7 +61,7 @@ const WorkShopReceiptSchema = new mongoose.Schema({
     ref: 'Branch',
     required: [true, 'Branch is required'],
   },
-  bill: {
+  billUrl: {
     type: String, // URL/path to uploaded file
     default: '',
   }
