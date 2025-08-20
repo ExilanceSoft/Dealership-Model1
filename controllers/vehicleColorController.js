@@ -6,8 +6,7 @@ const { generateColorId } = require('../utils/idGenerator');
 exports.createColor = async (req, res) => {
   try {
     const { color_name, model_id } = req.body;
-    
-    // Check if model exists
+
     const model = await VehicleModel.findById(model_id);
     if (!model) {
       return res.status(404).json({ 
@@ -16,7 +15,6 @@ exports.createColor = async (req, res) => {
       });
     }
     
-    // Check if color already exists for this model
     const existingColor = await VehicleColor.findOne({ 
       color_name: { $regex: new RegExp(`^${color_name}$`, 'i') },
       model_id 

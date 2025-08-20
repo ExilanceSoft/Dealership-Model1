@@ -461,3 +461,23 @@
 {"timestamp":"2025-08-19 19:22:28","level":"\u001b[31MERROR\u001b[39M","message":"Error getting all subdealers with financial summary: Subdealer.paginate is not a function","stack":null}
 {"timestamp":"2025-08-19 19:28:50","level":"\u001b[31MERROR\u001b[39M","message":"Error getting all subdealers with financial summary: subdealersWithFinancials is not defined","stack":null}
 {"timestamp":"2025-08-19 19:37:51","level":"\u001b[31MERROR\u001b[39M","message":"Error getting all subdealers with financial summary: subdealersWithFinancials is not defined","stack":null}
+{"timestamp":"2025-08-20 10:29:13","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-20 10:41:54","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-20 10:46:18","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-20 10:47:44","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-20 10:48:28","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-20 10:51:29","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Cast to ObjectId failed for value \"Main Vault\" (type string) at path \"_id\" for model \"CashLocation\"","stack":null}
+{"timestamp":"2025-08-20 10:52:03","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-20 11:01:07","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Cast to ObjectId failed for value \"Main Vault\" (type string) at path \"_id\" for model \"CashLocation\"","stack":null}
+{"timestamp":"2025-08-20 11:31:31","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Booking validation failed: bookingType: Path `bookingType` is required., salesExecutive: Selected user must be an active SALES_EXECUTIVE","stack":null}
+{"timestamp":"2025-08-20 11:35:37","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Booking validation failed: bookingType: Path `bookingType` is required., salesExecutive: Selected user must be an active SALES_EXECUTIVE","stack":null}
+{"timestamp":"2025-08-20 11:52:00","level":"\u001b[31MERROR\u001b[39M","message":"Error adding receipt: Ledger validation failed: paymentMode: `cash` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-08-20 14:30:35","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 14:37:39","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 14:45:23","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 14:45:40","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 15:05:01","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 15:09:43","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 15:09:48","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 15:14:57","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}
+{"timestamp":"2025-08-20 15:18:51","level":"\u001b[31MERROR\u001b[39M","message":"Audit log requires either user or entityId","stack":null}

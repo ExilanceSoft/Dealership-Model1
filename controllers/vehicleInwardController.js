@@ -1449,7 +1449,6 @@ exports.deleteVehicle = async (req, res, next) => {
       return next(new AppError('No vehicle found with that ID', 404));
     }
 
-    // Prevent deletion of vehicles that are not in not_approved or in_stock status
     if (!['not_approved', 'in_stock'].includes(vehicle.status)) {
       return next(new AppError(
         `Cannot delete vehicle with status "${vehicle.status}". Only vehicles with "not_approved" or "in_stock" status can be deleted.`,

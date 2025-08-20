@@ -166,6 +166,7 @@ const subdealerRoutes = require('./routes/subdealerRoutes');
 const subDealerModelsRoutes = require('./routes/SubDealerModelsRoutes');
 const subDealerOnAccountRoutes = require('./routes/subdealerOnAccountRoutes')
 const financeDisbursementRoutes = require('./routes/financeDisbursementRoutes');
+const bankSubPaymentModeRoutes = require('./routes/bankSubPaymentRoutes');
 // -------------------------------
 // Route mounts
 // -------------------------------
@@ -218,7 +219,9 @@ app.use('/api/v1/workshop-receipts', workshopReciptRoutes);
 app.use('/api/v1/subdealers', subdealerRoutes);
 app.use('/api/v1/subdealer/models', subDealerModelsRoutes);
 app.use('/api/v1/subdealersonaccount', subDealerOnAccountRoutes);
+app.use('/api/v1/banksubpaymentmodes', bankSubPaymentModeRoutes);
 app.use('/api/finance-disbursements', financeDisbursementRoutes);
+
 require('./bootstrap/subdealerLedgerBootstrap');
 
 

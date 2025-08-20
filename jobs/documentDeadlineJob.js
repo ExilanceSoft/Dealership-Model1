@@ -180,7 +180,7 @@ const runDocumentCheck = async () => {
 
           const needsKYC = booking.kycStatus === 'NOT_SUBMITTED';
           const needsFinance = booking.payment?.type === 'FINANCE' && 
-                              booking.financeLetterStatus === 'NOT_SUBMITTED';
+                              booking.financeLetterStatus === 'NOT_SUBMITTED' && booking.receivedAmount === 0;
 
           if (needsKYC || needsFinance) {
             if (!user.isFrozen) {
