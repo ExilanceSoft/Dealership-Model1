@@ -164,7 +164,7 @@ router.get("/status/:status",
  *         description: Voucher not found
  */
 router.get("/:id",
-  
+ 
   protect,
   requirePermission('WORKSHOP_RECEIPT.READ'),
   workshopReciptController.getWorkShopReceiptVoucherById);
@@ -235,3 +235,6 @@ router.delete("/:id",
    workshopReciptController.deleteWorkShopReceiptVoucher);
 
 module.exports = router;
+
+
+

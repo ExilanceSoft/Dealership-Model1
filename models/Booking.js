@@ -612,7 +612,7 @@ const bookingSchema = new mongoose.Schema({
     trim: true
   },
 }, {
-  timestamps: true,
+ timestamps: true,
   toJSON: { 
     virtuals: true,
     transform: function(doc, ret) {
@@ -627,6 +627,8 @@ const bookingSchema = new mongoose.Schema({
         delete ret.salesExecutiveDetails;
       } else {
         ret.salesExecutive = ret.salesExecutiveDetails;
+        delete ret.subdealerUser;
+        delete ret.subdealerUserDetails;
       }
       
       // Add vehicle details if available
@@ -654,6 +656,8 @@ const bookingSchema = new mongoose.Schema({
         delete ret.salesExecutiveDetails;
       } else {
         ret.salesExecutive = ret.salesExecutiveDetails;
+        delete ret.subdealerUser;
+        delete ret.subdealerUserDetails;
       }
       
       // Add vehicle details if available
@@ -680,6 +684,14 @@ bookingSchema.virtual('subdealerDetails', {
 bookingSchema.virtual('subdealerUserDetails', {
   ref: 'User',
   localField: 'subdealerUser',
+  foreignField: '_id',
+  justOne: true,
+  options: { select: 'name email mobile roles' }
+});
+
+bookingSchema.virtual('salesExecutiveDetails', {
+  ref: 'User',
+  localField: 'salesExecutive',
   foreignField: '_id',
   justOne: true,
   options: { select: 'name email mobile roles' }
@@ -745,7 +757,25 @@ bookingSchema.virtual('approvedByDetails', {
   justOne: true,
   options: { select: 'name email mobile' }
 });
+bookingSchema.virtual('financeDisbursements', {
+  ref: 'FinanceDisbursement',
+  localField: '_id',
+  foreignField: 'booking',
+  options: { 
+    sort: { disbursementDate: -1 },
+    select: 'disbursementReference disbursementAmount receivedAmount status disbursementDate financeProvider'
+  }
+});
 
+bookingSchema.virtual('totalFinanceDisbursed').get(function() {
+  if (!this.financeDisbursements) return 0;
+  return this.financeDisbursements.reduce((sum, d) => {
+    if (d.status !== 'CANCELLED') {
+      return sum + (d.receivedAmount || 0);
+    }
+    return sum;
+  }, 0);
+});
 bookingSchema.virtual('fullCustomerName').get(function() {
   return `${this.customerDetails.salutation} ${this.customerDetails.name}`.trim();
 });

@@ -2072,4 +2072,325 @@ router.post('/verify-broker-otp', protect, async (req, res) => {
 
     return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
 });
+
+/**
+ * @swagger
+ * /api/v1/bookings/subdealer/{subdealerId}:
+ *   get:
+ *     summary: Get bookings by subdealer
+ *     description: |
+ *       Returns paginated list of bookings for a specific subdealer with filtering options.
+ *       Accessible by SuperAdmin, Admin, Manager, and the subdealer user themselves.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: subdealerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: objectId
+ *         description: ID of the subdealer
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING_APPROVAL, ALLOCATED, APPROVED, REJECTED, COMPLETED, CANCELLED, KYC_PENDING, KYC_VERIFIED]
+ *         description: Filter by booking status
+ *       - in: query
+ *         name: customerType
+ *         schema:
+ *           type: string
+ *           enum: [B2B, B2C, CSD]
+ *         description: Filter by customer type
+ *       - in: query
+ *         name: model
+ *         schema:
+ *           type: string
+ *           format: objectId
+ *         description: Filter by model ID
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter bookings from this date (YYYY-MM-DD)
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter bookings to this date (YYYY-MM-DD)
+ *       - in: query
+ *         name: kycStatus
+ *         schema:
+ *           type: string
+ *           enum: [NOT_UPLOADED, PENDING, APPROVED, REJECTED]
+ *         description: Filter by KYC status
+ *       - in: query
+ *         name: financeLetterStatus
+ *         schema:
+ *           type: string
+ *           enum: [NOT_UPLOADED, PENDING, APPROVED, REJECTED]
+ *         description: Filter by Finance Letter status
+ *     responses:
+ *       200:
+ *         description: List of subdealer bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     subdealer:
+ *                       type: string
+ *                       description: Subdealer ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     bookings:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "64cb5c2f6f8ef21a3819a7b2"
+ *                           bookingNumber:
+ *                             type: string
+ *                             example: "BK000123"
+ *                           customerType:
+ *                             type: string
+ *                             enum: [B2B, B2C, CSD]
+ *                             example: "B2C"
+ *                           status:
+ *                             type: string
+ *                             example: "APPROVED"
+ *                           totalAmount:
+ *                             type: number
+ *                             example: 125000
+ *                           discountedAmount:
+ *                             type: number
+ *                             example: 120000
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                           model:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "685d1c1d7c59ad32056ab6e7"
+ *                               model_name:
+ *                                 type: string
+ *                                 example: "Activa 6G"
+ *                           color:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "685d1c1d7c59ad32056ab6e8"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Red"
+ *                               code:
+ *                                 type: string
+ *                                 example: "#FF0000"
+ *                           subdealerUser:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "685d1c1d7c59ad32056ab6e9"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Raj Sharma"
+ *                               email:
+ *                                 type: string
+ *                                 example: "raj.sharma@example.com"
+ *                           documentStatus:
+ *                             type: object
+ *                             properties:
+ *                               kyc:
+ *                                 type: object
+ *                                 properties:
+ *                                   status:
+ *                                     type: string
+ *                                     example: "APPROVED"
+ *                                   verifiedBy:
+ *                                     type: string
+ *                                     example: "Admin User"
+ *                                   verificationNote:
+ *                                     type: string
+ *                                     example: "Documents verified"
+ *                                   updatedAt:
+ *                                     type: string
+ *                                     format: date-time
+ *                                     example: "2024-01-16T14:20:00.000Z"
+ *                               financeLetter:
+ *                                 type: object
+ *                                 properties:
+ *                                   status:
+ *                                     type: string
+ *                                     example: "PENDING"
+ *                                   verifiedBy:
+ *                                     type: string
+ *                                     example: null
+ *                                   verificationNote:
+ *                                     type: string
+ *                                     example: null
+ *                                   updatedAt:
+ *                                     type: string
+ *                                     format: date-time
+ *                                     example: null
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     pages:
+ *                       type: integer
+ *                       example: 3
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *       400:
+ *         description: Invalid subdealer ID format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User doesn't have access to this subdealer's data
+ *       404:
+ *         description: Subdealer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/subdealer/:subdealerId',
+  protect,
+  requirePermission('BOOKING.READ'),
+  bookingController.getBookingsBySubdealer
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/subdealer/{subdealerId}/stats:
+ *   get:
+ *     summary: Get subdealer booking statistics
+ *     description: |
+ *       Returns comprehensive statistics for a specific subdealer including booking counts,
+ *       status breakdown, and pending document counts.
+ *       Accessible by SuperAdmin, Admin, Manager, and the subdealer user themselves.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: subdealerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: objectId
+ *         description: ID of the subdealer
+ *     responses:
+ *       200:
+ *         description: Subdealer booking statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     counts:
+ *                       type: object
+ *                       properties:
+ *                         today:
+ *                           type: integer
+ *                           description: Bookings created today
+ *                           example: 2
+ *                         thisWeek:
+ *                           type: integer
+ *                           description: Bookings created this week
+ *                           example: 8
+ *                         thisMonth:
+ *                           type: integer
+ *                           description: Bookings created this month
+ *                           example: 25
+ *                         total:
+ *                           type: integer
+ *                           description: Total bookings for this subdealer
+ *                           example: 150
+ *                     statusSummary:
+ *                       type: object
+ *                       description: Count of bookings by status
+ *                       properties:
+ *                         PENDING_APPROVAL:
+ *                           type: integer
+ *                           example: 5
+ *                         APPROVED:
+ *                           type: integer
+ *                           example: 45
+ *                         ALLOCATED:
+ *                           type: integer
+ *                           example: 30
+ *                         COMPLETED:
+ *                           type: integer
+ *                           example: 60
+ *                         CANCELLED:
+ *                           type: integer
+ *                           example: 10
+ *                     pendingDocuments:
+ *                       type: object
+ *                       properties:
+ *                         kyc:
+ *                           type: integer
+ *                           description: Count of pending KYC documents
+ *                           example: 8
+ *                         financeLetter:
+ *                           type: integer
+ *                           description: Count of pending Finance Letters
+ *                           example: 5
+ *       400:
+ *         description: Invalid subdealer ID format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - User doesn't have access to this subdealer's data
+ *       404:
+ *         description: Subdealer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/subdealer/:subdealerId/stats',
+  protect,
+  requirePermission('BOOKING.READ'),
+  bookingController.getSubdealerBookingStats
+);
 module.exports = router;
