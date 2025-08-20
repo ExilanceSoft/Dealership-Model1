@@ -15,7 +15,7 @@ const WorkShopReceiptSchema = new mongoose.Schema({
     enum: ['credit', 'debit'],
     required: true,
   },
-  recipientName: { 
+  recipientName: {
     type: String,
     required: true,
     trim: true,
@@ -61,7 +61,7 @@ const WorkShopReceiptSchema = new mongoose.Schema({
     ref: 'Branch',
     required: [true, 'Branch is required'],
   },
-  bill: {
+  billUrl: {
     type: String, // URL/path to uploaded file
     default: '',
   }
@@ -79,3 +79,6 @@ WorkShopReceiptSchema.pre('save', async function (next) {
 });
 
 module.exports = mongoose.model('WorkShopReceiptVoucher', WorkShopReceiptSchema);
+
+
+

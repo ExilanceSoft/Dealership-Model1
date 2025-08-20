@@ -6,24 +6,35 @@ const Bank = require('../models/Bank');
 const CashLocation = require('../models/cashLocation');
 const AppError = require('../utils/appError');
 const logger = require('../config/logger');
+const Vehicle = require('../models/vehicleInwardModel'); 
+
 
 exports.addReceipt = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
     const { bookingId, paymentMode, amount, cashLocation, bank, transactionReference, remark } = req.body;
     
     // Validate required fields
     if (!bookingId || !paymentMode || !amount) {
+      await session.abortTransaction();
       return next(new AppError('Booking ID, payment mode and amount are required', 400));
     }
-
+    
     // Validate amount
     if (amount <= 0) {
+      await session.abortTransaction();
       return next(new AppError('Amount must be greater than 0', 400));
     }
 
-    // Find the booking
-    const booking = await Booking.findById(bookingId);
+    // Find the booking with vehicle reference populated
+    const booking = await Booking.findById(bookingId)
+      .populate('vehicle', 'status chassisNumber')
+      .session(session);
+      
     if (!booking) {
+      await session.abortTransaction();
       return next(new AppError('No booking found with that ID', 404));
     }
 
@@ -32,35 +43,40 @@ exports.addReceipt = async (req, res, next) => {
     
     // Check if payment would exceed balance
     if (amount > currentBalance) {
+      await session.abortTransaction();
       return next(new AppError(`Amount exceeds balance. Maximum allowed: ${currentBalance}`, 400));
     }
 
     // Validate payment mode specific fields
     if (paymentMode === 'Cash') {
       if (!cashLocation) {
+        await session.abortTransaction();
         return next(new AppError('Cash location is required for cash payments', 400));
       }
       
       // Validate cash location exists
-      const cashLoc = await CashLocation.findById(cashLocation);
+      const cashLoc = await CashLocation.findById(cashLocation).session(session);
       if (!cashLoc) {
+        await session.abortTransaction();
         return next(new AppError('Invalid cash location selected', 400));
       }
     } 
     else if (['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode)) {
       if (!bank) {
+        await session.abortTransaction();
         return next(new AppError('Bank is required for non-cash payments', 400));
       }
       
       // Validate bank exists
-      const bankExists = await Bank.findById(bank);
+      const bankExists = await Bank.findById(bank).session(session);
       if (!bankExists) {
+        await session.abortTransaction();
         return next(new AppError('Invalid bank selected', 400));
       }
     }
 
-    // Create ledger entry (transactionReference is now optional)
-    const ledgerEntry = await Ledger.create({
+    // Create ledger entry
+    const ledgerEntry = await Ledger.create([{
       booking: bookingId,
       paymentMode,
       amount,
@@ -69,31 +85,63 @@ exports.addReceipt = async (req, res, next) => {
       bank: ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(paymentMode) ? bank : undefined,
       transactionReference: transactionReference || undefined,
       remark
-    });
+    }], { session });
 
     // Generate unique receipt number
     const receiptNumber = `RCPT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     // Create receipt
-    const receipt = await Receipt.create({
+    const receipt = await Receipt.create([{
       booking: bookingId,
       amount,
       paymentMode,
-      details: ledgerEntry._id,
+      details: ledgerEntry[0]._id,
       generatedBy: req.user.id,
       receiptNumber
-    });
+    }], { session });
 
     // Update booking amounts
     booking.receivedAmount = (booking.receivedAmount || 0) + amount;
     booking.balanceAmount = booking.discountedAmount - booking.receivedAmount;
-    booking.receipts.push(receipt._id);
-    booking.ledgerEntries.push(ledgerEntry._id);
+    booking.receipts.push(receipt[0]._id);
+    booking.ledgerEntries.push(ledgerEntry[0]._id);
     
-    await booking.save();
+    await booking.save({ session });
 
+    // Vehicle status update logic
+    if (booking.vehicleRef || booking.vehicle?._id) {
+      const vehicleId = booking.vehicleRef || booking.vehicle._id;
+      const paymentPercentage = (booking.receivedAmount / booking.discountedAmount) * 100;
+      
+      const vehicle = await Vehicle.findById(vehicleId).session(session);
+      if (vehicle) {
+        const previousStatus = vehicle.status;
+        
+        // Status transition logic
+        if (paymentPercentage >= 50 && vehicle.status === 'in_stock') {
+          vehicle.status = 'in_transit';
+          await vehicle.save({ session });
+          logger.info(`Vehicle ${vehicle.chassisNumber} status updated from ${previousStatus} to in_transit (${paymentPercentage}% paid) for booking ${booking.bookingNumber}`);
+        } 
+        else if (paymentPercentage < 50 && vehicle.status === 'in_transit') {
+          vehicle.status = 'in_stock';
+          await vehicle.save({ session });
+          logger.info(`Vehicle ${vehicle.chassisNumber} status reverted from in_transit to in_stock (${paymentPercentage}% paid) for booking ${booking.bookingNumber}`);
+        }
+        
+        // Special case: Full payment
+        if (booking.balanceAmount <= 0 && vehicle.status === 'in_transit') {
+          vehicle.status = 'ready_for_delivery';
+          await vehicle.save({ session });
+          logger.info(`Vehicle ${vehicle.chassisNumber} marked ready_for_delivery (100% paid)`);
+        }
+      }
+    }
+
+    await session.commitTransaction();
+    
     // Populate the response
-    const populatedLedger = await Ledger.findById(ledgerEntry._id)
+    const populatedLedger = await Ledger.findById(ledgerEntry[0]._id)
       .populate('bankDetails')
       .populate('cashLocationDetails')
       .populate('receivedByDetails');
@@ -110,8 +158,11 @@ exports.addReceipt = async (req, res, next) => {
       }
     });
   } catch (err) {
-    logger.error(`Error adding receipt: ${err.message}`);
-    next(new AppError('Server Error', 500));
+    await session.abortTransaction();
+    logger.error(`Error adding receipt: ${err.message}`, { error: err.stack });
+    next(new AppError('Failed to process payment', 500));
+  } finally {
+    session.endSession();
   }
 };
 

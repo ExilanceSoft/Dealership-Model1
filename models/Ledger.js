@@ -27,7 +27,7 @@ const ledgerSchema = new mongoose.Schema({
       'Other Debit'
     ],
     required: function() {
-      return !this.isDebit; // Only required for non-debit entries
+      return !this.isDebit; 
     }
   },
   amount: {

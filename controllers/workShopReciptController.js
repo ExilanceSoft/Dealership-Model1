@@ -181,9 +181,26 @@ exports.getWorkShopReceiptVoucherById = async (req, res) => {
 /**
  * Update Workshop Receipt Voucher
  */
+/**
+ * Update Workshop Receipt Voucher
+ * Only allows updating status and billUrl
+ */
 exports.updateWorkShopReceiptVoucher = async (req, res) => {
   try {
-    const updateData = { ...req.body };
+    const { id } = req.params;
+    const updates = {};
+
+    // Validate and set status
+    if (req.body.status) {
+      const allowedStatuses = ['pending', 'approved', 'rejected'];
+      if (!allowedStatuses.includes(req.body.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}`
+        });
+      }
+      updates.status = req.body.status;
+    }
 
     // Handle bill file upload
     if (req.file) {
@@ -193,30 +210,49 @@ exports.updateWorkShopReceiptVoucher = async (req, res) => {
       }
       const filename = `workshop-bill-${Date.now()}-${req.file.originalname}`;
       const filePath = path.join(uploadDir, filename);
-      updateData.billUrl = `/uploads/workshop-bills/${filename}`;
+
+      updates.billUrl = `/uploads/workshop-bills/${filename}`;
       await fs.promises.writeFile(filePath, req.file.buffer);
     }
 
-    // Validate branch if provided
-    if (updateData.branch && !mongoose.Types.ObjectId.isValid(updateData.branch)) {
-      return res.status(400).json({ success: false, message: "Invalid branch ObjectId" });
+    // No valid fields provided
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields provided to update'
+      });
     }
 
     const updatedVoucher = await WorkShopReceiptVoucher.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
+      id,
+      updates,
       { new: true, runValidators: true }
     ).populate('branch');
 
     if (!updatedVoucher) {
-      return res.status(404).json({ success: false, message: "Voucher not found" });
+      // Delete uploaded file if voucher not found
+      if (req.file) fs.unlinkSync(path.join(__dirname, `..${updates.billUrl}`));
+      return res.status(404).json({
+        success: false,
+        message: 'Workshop receipt voucher not found'
+      });
     }
 
-    res.status(200).json({ success: true, data: updatedVoucher });
+    res.status(200).json({
+      success: true,
+      data: updatedVoucher,
+      message: 'Workshop receipt voucher updated successfully'
+    });
 
   } catch (error) {
-    console.error("Error updating workshop receipt voucher:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error('Error updating workshop receipt voucher:', error);
+    if (req.file && updates.billUrl) {
+      fs.unlinkSync(path.join(__dirname, `..${updates.billUrl}`));
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating workshop receipt voucher'
+    });
   }
 };
 
@@ -273,3 +309,6 @@ exports.getWorkShopReceiptVouchersByStatus = async (req, res) => {
     res.status(500).json({ success: false, error: 'Server error' });
   }
 };
+
+
+

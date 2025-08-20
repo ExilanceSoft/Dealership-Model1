@@ -189,7 +189,9 @@
       .booking-info {
         padding: 15px;
       }
-        .notice {
+    }
+    
+    .notice {
       background: #eff6ff;
       border-left: 5px solid #3b82f6;
       padding: 12px 16px;
@@ -198,16 +200,12 @@
       border-radius: 6px;
       font-size: 0.95em;
     }
-    }
   </style>
 </head>
 <body>
-  <!-- Debugging: -->
-
-   <div class="container">
+  <div class="container">
     <h2>Gandhi TVS - Customer Detail Update</h2>
     
-    <!-- Add the already submitted notice -->
     <div class="notice already-submitted-notice" id="alreadySubmittedNotice" style="display: none;">
       You have already submitted an update request for this booking. Only one request per booking is allowed.
     </div>
@@ -224,74 +222,62 @@
     
     <div class="booking-info">
       <h2>Your Booking Details:</h2>
-      <p><strong>Booking Number:</strong> {{booking.bookingNumber}}</p>
-      <p><strong>Customer:</strong> {{booking.customerDetails.salutation}} {{booking.customerDetails.name}}</p>
-      <p><strong>Model:</strong> {{modelDetails.model_name}}</p>
+      <p><strong>Booking Number:</strong> <span id="bookingNumber"></span></p>
+      <p><strong>Customer:</strong> <span id="customerName"></span></p>
+      <p><strong>Model:</strong> <span id="modelName"></span></p>
     </div>
 
-    <!-- Modified form element with conditional display -->
-    <form id="updateForm" {{#if booking.updateRequestSubmitted}}style="display: none;"{{/if}}>
+    <form id="updateForm">
       <div class="form-row">
         <div class="form-group">
           <label for="salutation">Salutation</label>
           <select id="salutation" name="customerDetails.salutation" required>
-            <option value="Mr." {{#if (eq booking.customerDetails.salutation 'Mr.')}}selected{{/if}}>Mr.</option>
-            <option value="Mrs." {{#if (eq booking.customerDetails.salutation 'Mrs.')}}selected{{/if}}>Mrs.</option>
-            <option value="Miss" {{#if (eq booking.customerDetails.salutation 'Miss')}}selected{{/if}}>Miss</option>
-            <option value="Dr." {{#if (eq booking.customerDetails.salutation 'Dr.')}}selected{{/if}}>Dr.</option>
-            <option value="Prof." {{#if (eq booking.customerDetails.salutation 'Prof.')}}selected{{/if}}>Prof.</option>
+            <option value="Mr.">Mr.</option>
+            <option value="Mrs.">Mrs.</option>
+            <option value="Miss">Miss</option>
+            <option value="Dr.">Dr.</option>
+            <option value="Prof.">Prof.</option>
           </select>
         </div>
         
         <div class="form-group">
           <label for="name">Customer Name</label>
-          <input type="text" id="name" name="customerDetails.name" value="{{booking.customerDetails.name}}" required>
+          <input type="text" id="name" name="customerDetails.name" required>
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label for="mobile1">Primary Mobile</label>
-          <input type="tel" id="mobile1" name="customerDetails.mobile1" value="{{booking.customerDetails.mobile1}}" required>
+          <input type="tel" id="mobile1" name="customerDetails.mobile1" required>
         </div>
         
         <div class="form-group">
           <label for="mobile2">Secondary Mobile (Optional)</label>
-          <input type="tel" id="mobile2" name="customerDetails.mobile2" value="{{booking.customerDetails.mobile2}}">
+          <input type="tel" id="mobile2" name="customerDetails.mobile2">
         </div>
       </div>
 
       <div class="form-group">
         <label for="address">Address</label>
-        <input type="text" id="address" name="customerDetails.address" value="{{booking.customerDetails.address}}" required>
+        <input type="text" id="address" name="customerDetails.address" required>
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label for="pincode">Pincode</label>
-          <input type="text" id="pincode" name="customerDetails.pincode" value="{{booking.customerDetails.pincode}}" required>
+          <input type="text" id="pincode" name="customerDetails.pincode" required>
         </div>
         
         <div class="form-group">
           <label for="color">Vehicle Color</label>
           <select id="color" name="color" required>
-            <option value="{{booking.colorDetails.name}}" selected>
-              {{booking.colorDetails.name}} (Current)
-            </option>
-            <!-- Other options will be loaded via JavaScript -->
+            <option value="">Loading colors...</option>
           </select>
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="paymentType">Payment Type</label>
-        <select id="paymentType" name="payment.type" required>
-          <option value="CASH" {{#if (eq booking.payment.type 'CASH')}}selected{{/if}}>Cash</option>
-          <option value="FINANCE" {{#if (eq booking.payment.type 'FINANCE')}}selected{{/if}}>Finance</option>
-        </select>
-      </div>
-
-     <div class="loading" id="loadingIndicator">
+      <div class="loading" id="loadingIndicator">
         <div class="loading-spinner"></div>
         <p>Submitting your request...</p>
       </div>
@@ -301,21 +287,65 @@
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       const updateForm = document.getElementById('updateForm');
       const loadingIndicator = document.getElementById('loadingIndicator');
       const submitButton = document.getElementById('submitButton');
       const successMessage = document.getElementById('successMessage');
       const errorMessage = document.getElementById('errorMessage');
+      const alreadySubmittedNotice = document.getElementById('alreadySubmittedNotice');
 
-      // Load available colors
-      loadAvailableColors();
+      // Get booking ID from URL or other source
+      const urlParams = new URLSearchParams(window.location.search);
+      const bookingId = urlParams.get('bookingId') || 'YOUR_DEFAULT_BOOKING_ID';
+
+      try {
+        // First fetch booking details
+        const bookingResponse = await fetch(`https://dealership.gandhitvs.in/api/v1/bookings/${bookingId}`);
+        
+        if (!bookingResponse.ok) {
+          throw new Error('Failed to fetch booking details');
+        }
+        
+        const bookingData = await bookingResponse.json();
+        
+        if (!bookingData.data) {
+          throw new Error('No booking data available');
+        }
+
+        const booking = bookingData.data;
+        
+        // Populate booking info
+        document.getElementById('bookingNumber').textContent = booking.bookingNumber;
+        document.getElementById('customerName').textContent = `${booking.customerDetails.salutation} ${booking.customerDetails.name}`;
+        document.getElementById('modelName').textContent = booking.modelDetails.model_name;
+        
+        // Populate form fields
+        document.getElementById('salutation').value = booking.customerDetails.salutation;
+        document.getElementById('name').value = booking.customerDetails.name;
+        document.getElementById('mobile1').value = booking.customerDetails.mobile1;
+        document.getElementById('mobile2').value = booking.customerDetails.mobile2 || '';
+        document.getElementById('address').value = booking.customerDetails.address;
+        document.getElementById('pincode').value = booking.customerDetails.pincode;
+        
+        // Check if update was already submitted
+        if (booking.updateRequestSubmitted) {
+          updateForm.style.display = 'none';
+          alreadySubmittedNotice.style.display = 'block';
+        }
+        
+        // Load available colors
+        await loadAvailableColors(booking.model, booking.colorDetails.name);
+        
+      } catch (error) {
+        console.error('Error loading booking data:', error);
+        showErrorMessage('Failed to load booking information. Please try again later.');
+      }
 
       // Form submission handler
       updateForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         
-        // UI State Management
         showLoadingState();
         hideMessages();
         
@@ -323,18 +353,25 @@
           const formData = new FormData(updateForm);
           const updates = processFormData(formData);
           
-          const response = await submitUpdateRequest(updates);
+          const response = await submitUpdateRequest(bookingId, updates);
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to submit update request');
+          }
+          
           const result = await response.json();
           
-          if (response.ok) {
+          if (result.success) {
             showSuccessMessage();
-            updateForm.reset();
+            updateForm.style.display = 'none';
+            alreadySubmittedNotice.style.display = 'block';
           } else {
-            showErrorMessage(result.message || 'Failed to submit update request');
+            throw new Error(result.message || 'Update request failed');
           }
         } catch (error) {
           console.error('Submission error:', error);
-          showErrorMessage('Failed to submit update request. Please try again.');
+          showErrorMessage(error.message || 'Failed to submit update request. Please try again.');
         } finally {
           hideLoadingState();
         }
@@ -386,10 +423,14 @@
         return updates;
       }
 
-      async function submitUpdateRequest(updates) {
-        return await fetch(`/api/v1/bookings/${'{{booking._id}}'}/submit-update`, {
+      async function submitUpdateRequest(bookingId, updates) {
+        return await fetch(`https://dealership.gandhitvs.in/api/v1/bookings/${bookingId}/submit-update`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            // Add authorization header if needed
+            // 'Authorization': 'Bearer YOUR_TOKEN'
+          },
           body: JSON.stringify({ updates })
         });
       }
@@ -408,15 +449,30 @@
         });
       }
 
-      async function loadAvailableColors() {
+      async function loadAvailableColors(modelId, currentColor) {
         try {
-          const response = await fetch(`/api/v1/colors/model/{{booking.model}}`);
+          const response = await fetch(`https://dealership.gandhitvs.in/api/v1/colors/model/${modelId}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
           const data = await response.json();
           
-          if (response.ok && data.data?.colors) {
+          if (data.data?.colors) {
             const colorSelect = document.getElementById('color');
-            const currentColor = '{{booking.colorDetails.name}}';
             
+            // Clear existing options
+            colorSelect.innerHTML = '';
+            
+            // Add current color as first option
+            const currentOption = document.createElement('option');
+            currentOption.value = currentColor;
+            currentOption.textContent = `${currentColor} (Current)`;
+            currentOption.selected = true;
+            colorSelect.appendChild(currentOption);
+            
+            // Add other available colors
             data.data.colors.forEach(color => {
               if (color.name !== currentColor) {
                 const option = document.createElement('option');
@@ -428,6 +484,7 @@
           }
         } catch (error) {
           console.error('Error loading colors:', error);
+          document.getElementById('color').innerHTML = '<option value="">Error loading colors</option>';
         }
       }
     });

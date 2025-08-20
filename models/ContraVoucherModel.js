@@ -55,20 +55,18 @@ const ContraVoucherSchema = new mongoose.Schema({
     trim: true,
   },
   branch: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Branch',
-    required: [true, 'Branch is required']
-  },
-  billUrl: [{
-    url: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Branch',
+  required: [true, 'Branch is required']
+},
+
+billUrl: {
       type: String,
-      required: true,
-      trim: true
-    },
-  }]
-}, {
+     
+}, },{
   timestamps: true,
 });
+
 
 // Auto-generate voucherId before saving
 ContraVoucherSchema.pre('save', async function (next) {
@@ -93,3 +91,4 @@ ContraVoucherSchema.pre('save', async function (next) {
 });
 
 module.exports = mongoose.model('ContraVoucher', ContraVoucherSchema);
+

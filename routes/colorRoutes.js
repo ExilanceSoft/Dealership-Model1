@@ -565,8 +565,6 @@ router.get('/:colorId/models',
  *         description: Server error
  */
 router.get('/model/:modelId',
-  protect,
-  requirePermission('COLOR.READ'),
   colorController.getColorsByModelId);
 
 module.exports = router;

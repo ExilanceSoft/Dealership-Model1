@@ -162,7 +162,7 @@ router.get('/:id',
  * @swagger
  * /api/v1/contra-vouchers/{id}:
  *   put:
- *     summary: Update a contra voucher by ID (with file upload support)
+ *     summary: Update contra voucher status or upload bill file
  *     tags: [ContraVouchers]
  *     consumes:
  *       - multipart/form-data
@@ -178,40 +178,25 @@ router.get('/:id',
  *           schema:
  *             type: object
  *             properties:
- *               voucherType:
- *                 type: string
- *                 enum: [credit, debit]
- *               recipientName:
- *                 type: string
- *               contraType:
- *                 type: string
- *                 enum: [cash_at_bank, cash_at_home]
- *               amount:
- *                 type: number
- *               remark:
- *                 type: string
- *               bankLocation:
- *                 type: string
- *                 description: Required only when contraType is cash_at_bank
  *               status:
  *                 type: string
  *                 enum: [pending, approved, rejected]
- *               branch:
- *                 type: string
- *               bill_url:
+ *                 description: Update voucher status
+ *               billUrl:
  *                 type: string
  *                 format: binary
+ *                 description: Upload voucher bill file
  *     responses:
  *       200:
  *         description: Contra voucher updated successfully
  *       400:
- *         description: Invalid input
+ *         description: Only status and billUrl can be updated
  *       404:
  *         description: Contra voucher not found
  *       500:
- *         description: Server error
+ *         description: Server error while updating contra voucher
  */
-router.put('/:id', protect, requirePermission('CONTRA_VOUCHER.UPDATE'), upload.single('bill_url'), contraVoucherController.updateContraVoucher);
+router.put('/:id', protect, requirePermission('CONTRA_VOUCHER.UPDATE'), upload.single('billUrl'), contraVoucherController.updateContraVoucher);
 
 /**
  * @swagger
@@ -237,3 +222,5 @@ router.delete('/:id',
   contraVoucherController.deleteContraVoucher);
 
 module.exports = router;
+
+

@@ -371,5 +371,230 @@ router.delete('/:id',
   logAction('DELETE', 'Subdealer'),
   subdealerController.deleteSubdealer
 );
+// Add this route to subdealerRoutes.js
 
+/**
+ * @swagger
+ * /api/v1/subdealers/{id}/financial-summary:
+ *   get:
+ *     summary: Get financial summary for a specific subdealer (Admin+ or Subdealer owner)
+ *     tags: [Subdealers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the subdealer
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter from date (YYYY-MM-DD)
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter to date (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Subdealer financial summary
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     subdealer:
+ *                       $ref: '#/components/schemas/Subdealer'
+ *                     bookingSummary:
+ *                       type: object
+ *                       properties:
+ *                         totalBookings:
+ *                           type: number
+ *                         totalBookingAmount:
+ *                           type: number
+ *                         totalReceivedAmount:
+ *                           type: number
+ *                         totalBalanceAmount:
+ *                           type: number
+ *                         totalDiscountedAmount:
+ *                           type: number
+ *                     onAccountSummary:
+ *                       type: object
+ *                       properties:
+ *                         totalReceipts:
+ *                           type: number
+ *                         totalReceiptAmount:
+ *                           type: number
+ *                         totalAllocated:
+ *                           type: number
+ *                         totalBalance:
+ *                           type: number
+ *                     financialOverview:
+ *                       type: object
+ *                       properties:
+ *                         totalOutstanding:
+ *                           type: number
+ *                         availableCredit:
+ *                           type: number
+ *                         netPosition:
+ *                           type: number
+ *       400:
+ *         description: Invalid subdealer ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Subdealer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/financial-summary',
+  protect,
+  requirePermission('SUBDEALER.READ'),
+  subdealerController.getSubdealerFinancialSummary
+);
+// Add this route to subdealerRoutes.js
+
+/**
+ * @swagger
+ * /api/v1/subdealers/financials/all:
+ *   get:
+ *     summary: Get all subdealers with their financial summaries (Admin+)
+ *     tags: [Subdealers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Number of items per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search subdealers by name
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [B2B, B2C]
+ *         description: Filter by subdealer type
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by subdealer status
+ *     responses:
+ *       200:
+ *         description: List of subdealers with financial data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     subdealers:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           location:
+ *                             type: string
+ *                           rateOfInterest:
+ *                             type: number
+ *                           type:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           financials:
+ *                             type: object
+ *                             properties:
+ *                               bookingSummary:
+ *                                 type: object
+ *                                 properties:
+ *                                   totalBookings:
+ *                                     type: number
+ *                                   totalBookingAmount:
+ *                                     type: number
+ *                                   totalReceivedAmount:
+ *                                     type: number
+ *                                   totalBalanceAmount:
+ *                                     type: number
+ *                               onAccountSummary:
+ *                                 type: object
+ *                                 properties:
+ *                                   totalReceipts:
+ *                                     type: number
+ *                                   totalReceiptAmount:
+ *                                     type: number
+ *                                   totalAllocated:
+ *                                     type: number
+ *                                   totalBalance:
+ *                                     type: number
+ *                               financialOverview:
+ *                                 type: object
+ *                                 properties:
+ *                                   totalOutstanding:
+ *                                     type: number
+ *                                   availableCredit:
+ *                                     type: number
+ *                                   netPosition:
+ *                                     type: number
+ *                                   status:
+ *                                     type: string
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                         pages:
+ *                           type: number
+ *                         page:
+ *                           type: number
+ *                         limit:
+ *                           type: number
+ *                         hasNext:
+ *                           type: boolean
+ *                         hasPrev:
+ *                           type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get('/financials/all',
+  protect,
+  requirePermission('SUBDEALER.READ'),
+  subdealerController.getAllSubdealersWithFinancialSummary
+);
 module.exports = router;

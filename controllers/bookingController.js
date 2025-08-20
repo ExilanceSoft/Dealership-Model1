@@ -1267,8 +1267,6 @@ exports.approveBooking = async (req, res) => {
 };
 
 // Get booking by ID with all populated details
-// Get booking by ID with all populated details
-// Get booking by ID with all populated details
 exports.getBookingById = async (req, res) => {
   try {
     const bookingId = req.params.id;
@@ -1284,17 +1282,26 @@ exports.getBookingById = async (req, res) => {
     const booking = await Booking.findById(bookingId)
       .populate('model', 'model_name type')
       .populate('color', 'name code')
-      .populate({
-        path: 'branch',
-        select: 'name code address contactPerson contactNumber'
-      })
-      .populate({
-        path: 'subdealer',
-        select: 'name code address contactPerson contactNumber gstin'
-      })
+      .populate('branch', 'name address contactPerson contactNumber')
+      .populate('subdealer', 'name address contactPerson contactNumber gstin')
       .populate('createdBy', 'name email mobile')
-      .populate('salesExecutive', 'name email mobile')
-      .populate('subdealerUser', 'name email mobile')
+      // Explicitly populate salesExecutive with all needed fields
+      .populate({
+        path: 'salesExecutive',
+        select: 'name email mobile roles branch',
+        populate: {
+          path: 'branch',
+          select: 'name code'
+        }
+      })
+      .populate({
+        path: 'subdealerUser',
+        select: 'name email mobile roles subdealer',
+        populate: {
+          path: 'subdealer',
+          select: 'name code'
+        }
+      })
       .populate({
         path: 'priceComponents.header',
         model: 'Header',
@@ -1328,7 +1335,7 @@ exports.getBookingById = async (req, res) => {
       });
     }
 
-    // Convert to plain object and transform the response
+    // Convert to plain object
     const bookingObj = booking.toObject();
     
     // Ensure model name is included in the response
@@ -1336,23 +1343,27 @@ exports.getBookingById = async (req, res) => {
       bookingObj.model.name = bookingObj.model.model_name;
     }
 
-    // Transform the sales executive/subdealer user based on booking type
-    if (bookingObj.bookingType === 'SUBDEALER') {
-      bookingObj.executive = bookingObj.subdealerUser;
-      delete bookingObj.salesExecutive;
-    } else {
-      bookingObj.executive = bookingObj.salesExecutive;
-      delete bookingObj.subdealerUser;
+    // Format customer details if needed
+    if (bookingObj.customerDetails) {
+      // Format date of birth if it exists
+      if (bookingObj.customerDetails.dob) {
+        bookingObj.customerDetails.dob = bookingObj.customerDetails.dob.toISOString().split('T')[0];
+      }
+      
+      // Add full customer name with salutation
+      bookingObj.customerDetails.fullName = 
+        `${bookingObj.customerDetails.salutation} ${bookingObj.customerDetails.name}`.trim();
     }
 
-    // Add vehicle details if available
-    if (bookingObj.vehicle) {
-      bookingObj.batteryNumber = bookingObj.batteryNumber || bookingObj.vehicle.batteryNumber || null;
-      bookingObj.keyNumber = bookingObj.keyNumber || bookingObj.vehicle.keyNumber || null;
-      bookingObj.motorNumber = bookingObj.motorNumber || bookingObj.vehicle.motorNumber || null;
-      bookingObj.chargerNumber = bookingObj.chargerNumber || bookingObj.vehicle.chargerNumber || null;
-      bookingObj.engineNumber = bookingObj.engineNumber || bookingObj.vehicle.engineNumber || null;
-      bookingObj.vehicleStatus = bookingObj.vehicle.status;
+    // For branch bookings, ensure salesExecutive is included
+    if (bookingObj.bookingType === 'BRANCH' && booking.salesExecutive) {
+      bookingObj.salesExecutive = {
+        _id: booking.salesExecutive._id,
+        name: booking.salesExecutive.name,
+        email: booking.salesExecutive.email,
+        mobile: booking.salesExecutive.mobile,
+        branch: booking.salesExecutive.branch
+      };
     }
 
     res.status(200).json({
@@ -1369,7 +1380,6 @@ exports.getBookingById = async (req, res) => {
     });
   }
 };
-
 // Get all bookings with pagination and filters
 exports.getAllBookings = async (req, res) => {
   try {
@@ -2523,7 +2533,6 @@ exports.cancelBooking = async (req, res) => {
     });
   }
 };
-
 // Get booking with documents
 exports.getBookingWithDocuments = async (req, res) => {
   try {
@@ -2672,7 +2681,7 @@ exports.getUpdateForm = async (req, res) => {
 
     // Get the model with its colors populated
     const model = await Model.findById(booking.model)
-      .populate('colors'); // This ensures colors are fully populated
+      .populate('colors');
 
     if (!model) {
       return res.status(404).json({
@@ -2681,22 +2690,33 @@ exports.getUpdateForm = async (req, res) => {
       });
     }
 
-    // Prepare data for the template
+    // Prepare data for the template with proper URLs
     const formData = {
       booking: {
         ...booking.toObject(),
         modelDetails: booking.modelDetails,
         colorDetails: booking.colorDetails,
-        _id: booking._id
+        _id: booking._id,
+        // Update any file paths to use the base URL
+        formPath: booking.formPath ? `${process.env.BASE_URL}${booking.formPath}` : null
       },
       modelDetails: {
         ...model.toObject(),
-        colors: model.colors // This should now be an array of color objects
-      }
+        colors: model.colors
+      },
+      // Add base URL to template data
+      baseUrl: process.env.BASE_URL
     };
 
+    // Get the template path relative to this file
+    const templatePath = path.join(__dirname, '..', 'templates', 'updateFormTemplate.html');
+    
+    // Verify template exists
+    if (!fs.existsSync(templatePath)) {
+      throw new Error(`Template not found at: ${templatePath}`);
+    }
+
     // Load the update form template
-    const templatePath = path.join(__dirname, '../templates/updateFormTemplate.html');
     const templateHtml = fs.readFileSync(templatePath, 'utf8');
     const updateFormTemplate = Handlebars.compile(templateHtml);
 
@@ -2891,6 +2911,15 @@ exports.allocateChassisNumber = async (req, res) => {
       data: booking,
       message
     });
+      const vehicle = await Vehicle.findOne({ chassisNumber: req.body.chassisNumber });
+    if (vehicle) {
+      // Link vehicle to booking
+      booking.vehicleRef = vehicle._id;
+      
+      // Always set to in_stock when first allocated
+      vehicle.status = 'in_stock';
+      await vehicle.save();
+    }
 
   } catch (err) {
     console.error('Error in allocateChassisNumber:', err);
@@ -2944,6 +2973,321 @@ exports.getBookingsByInsuranceStatus = async (req, res, next) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+};
+
+// Get bookings by subdealer
+exports.getBookingsBySubdealer = async (req, res) => {
+  try {
+    const { subdealerId } = req.params;
+    const { 
+      page = 1, 
+      limit = 50, 
+      status, 
+      fromDate, 
+      toDate,
+      customerType,
+      model,
+      kycStatus,
+      financeLetterStatus
+    } = req.query;
+
+    // Validate subdealer ID
+    if (!mongoose.Types.ObjectId.isValid(subdealerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subdealer ID format'
+      });
+    }
+
+    // Check if subdealer exists
+    const subdealerExists = await mongoose.model('Subdealer').exists({ _id: subdealerId });
+    if (!subdealerExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subdealer not found'
+      });
+    }
+
+    // Build filter object
+    const filter = {
+      subdealer: subdealerId,
+      bookingType: 'SUBDEALER'
+    };
+
+    // Status filter
+    if (status) {
+      filter.status = status;
+    }
+    
+    // Customer type filter
+    if (customerType) {
+      filter.customerType = customerType;
+    }
+    
+    // Model filter
+    if (model) {
+      filter.model = model;
+    }
+    
+    // Date range filter
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+
+    // Permission check - ensure user has access to this subdealer's data
+    if (!req.user.isSuperAdmin) {
+      // For subdealer users, they can only see their own subdealer's bookings
+      if (req.user.subdealer && req.user.subdealer.toString() !== subdealerId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You can only view bookings for your assigned subdealer'
+        });
+      }
+      
+      // For branch users, they might have limited access
+      if (req.user.branch) {
+        // Add additional permission checks if needed for branch users
+        if (!req.user.roles.some(role => ['MANAGER', 'ADMIN'].includes(role.name))) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. Insufficient permissions'
+          });
+        }
+      }
+    }
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 }, // Newest first
+      populate: [
+        'model',
+        { path: 'color', select: 'name code' },
+        'subdealer',
+        {
+          path: 'createdBy',
+          select: 'name email'
+        },
+        {
+          path: 'subdealerUser',
+          select: 'name email'
+        },
+        {
+          path: 'payment.financer',
+          select: 'name'
+        }
+      ],
+      lean: true
+    };
+
+    // Get paginated bookings
+    let bookings = await Booking.paginate(filter, options);
+
+    // Get KYC and Finance Letter details for each booking
+    const bookingsWithDocStatus = await Promise.all(
+      bookings.docs.map(async (booking) => {
+        const [kyc, financeLetter] = await Promise.all([
+          mongoose.model('KYC').findOne({ booking: booking._id })
+            .select('status verifiedBy verificationNote updatedAt')
+            .populate('verifiedBy', 'name')
+            .lean(),
+          mongoose.model('FinanceLetter').findOne({ booking: booking._id })
+            .select('status verifiedBy verificationNote updatedAt')
+            .populate('verifiedBy', 'name')
+            .lean()
+        ]);
+        
+        // Create simplified status objects
+        const kycStatusObj = kyc ? {
+          status: kyc.status,
+          verifiedBy: kyc.verifiedBy?.name || null,
+          verificationNote: kyc.verificationNote || null,
+          updatedAt: kyc.updatedAt
+        } : {
+          status: 'NOT_UPLOADED',
+          verifiedBy: null,
+          verificationNote: null,
+          updatedAt: null
+        };
+
+        const financeLetterStatusObj = financeLetter ? {
+          status: financeLetter.status,
+          verifiedBy: financeLetter.verifiedBy?.name || null,
+          verificationNote: financeLetter.verificationNote || null,
+          updatedAt: financeLetter.updatedAt
+        } : {
+          status: 'NOT_UPLOADED',
+          verifiedBy: null,
+          verificationNote: null,
+          updatedAt: null
+        };
+
+        // Apply additional filtering if KYC or Finance Letter status filters were provided
+        let includeBooking = true;
+        if (kycStatus && kycStatusObj.status !== kycStatus) {
+          includeBooking = false;
+        }
+        if (financeLetterStatus && financeLetterStatusObj.status !== financeLetterStatus) {
+          includeBooking = false;
+        }
+
+        return includeBooking ? {
+          ...booking,
+          documentStatus: {
+            kyc: kycStatusObj,
+            financeLetter: financeLetterStatusObj
+          }
+        } : null;
+      })
+    );
+
+    // Filter out null bookings (excluded by document status filters)
+    const filteredBookings = bookingsWithDocStatus.filter(booking => booking !== null);
+    
+    // Adjust pagination counts
+    const adjustedTotal = filteredBookings.length === bookings.docs.length ? 
+      bookings.totalDocs : 
+      await Booking.countDocuments({ ...filter, 
+        ...(kycStatus && { 'documentStatus.kyc.status': kycStatus }),
+        ...(financeLetterStatus && { 'documentStatus.financeLetter.status': financeLetterStatus })
+      });
+    
+    const adjustedPages = Math.ceil(adjustedTotal / parseInt(limit));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        subdealer: subdealerId,
+        bookings: filteredBookings,
+        total: adjustedTotal,
+        pages: adjustedPages,
+        currentPage: parseInt(page)
+      }
+    });
+
+  } catch (err) {
+    console.error('Error getting bookings by subdealer:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching subdealer bookings',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Get subdealer booking statistics
+exports.getSubdealerBookingStats = async (req, res) => {
+  try {
+    const { subdealerId } = req.params;
+
+    // Validate subdealer ID
+    if (!mongoose.Types.ObjectId.isValid(subdealerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subdealer ID format'
+      });
+    }
+
+    // Check if subdealer exists
+    const subdealerExists = await mongoose.model('Subdealer').exists({ _id: subdealerId });
+    if (!subdealerExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subdealer not found'
+      });
+    }
+
+    // Permission check
+    if (!req.user.isSuperAdmin && req.user.subdealer?.toString() !== subdealerId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Get date ranges
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // Get booking counts for different time periods
+    const [todayCount, weekCount, monthCount, totalCount] = await Promise.all([
+      Booking.countDocuments({
+        subdealer: subdealerId,
+        createdAt: { $gte: today }
+      }),
+      Booking.countDocuments({
+        subdealer: subdealerId,
+        createdAt: { $gte: weekStart }
+      }),
+      Booking.countDocuments({
+        subdealer: subdealerId,
+        createdAt: { $gte: monthStart }
+      }),
+      Booking.countDocuments({ subdealer: subdealerId })
+    ]);
+
+    // Get status counts
+    const statusCounts = await Booking.aggregate([
+      { $match: { subdealer: new mongoose.Types.ObjectId(subdealerId) } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Get document status counts
+    const [kycPending, financeLetterPending] = await Promise.all([
+      Booking.countDocuments({
+        subdealer: subdealerId,
+        kycStatus: 'PENDING'
+      }),
+      Booking.countDocuments({
+        subdealer: subdealerId,
+        financeLetterStatus: 'PENDING',
+        'payment.type': 'FINANCE'
+      })
+    ]);
+
+    // Format status counts
+    const statusSummary = {};
+    statusCounts.forEach(item => {
+      statusSummary[item._id] = item.count;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        counts: {
+          today: todayCount,
+          thisWeek: weekCount,
+          thisMonth: monthCount,
+          total: totalCount
+        },
+        statusSummary,
+        pendingDocuments: {
+          kyc: kycPending,
+          financeLetter: financeLetterPending
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error('Error getting subdealer booking stats:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching subdealer booking statistics',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };

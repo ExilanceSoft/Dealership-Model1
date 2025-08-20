@@ -77,6 +77,8 @@ module.exports = {
     { key: 'USER_PERMISSIONS', category: 'ADMIN',     actions: ['READ','ASSIGN','DELEGATE'] },
     { key: 'USER_STATUS',      category: 'ADMIN',     actions: ['UPDATE'] },
     { key: 'SUBDEALER',       category: 'ADMIN',     actions: ['READ','CREATE','UPDATE','DELETE'] },
-    { key: 'SUBDEALERMODEL',  category: 'ADMIN',     actions: ['READ','CREATE','UPDATE','DELETE'] }
+    { key: 'SUBDEALERMODEL',  category: 'ADMIN',     actions: ['READ','CREATE','UPDATE','DELETE'] },
+    { key: 'SUBDEALER_ON_ACCOUNT', category: 'ADMIN', actions: ['READ','CREATE','UPDATE','DELETE'] },
+    { key: 'FINANCE_DISBURSEMENT', category: 'FINANCE', actions: ['READ','CREATE','UPDATE','DELETE'] }
   ]
 };
