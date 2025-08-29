@@ -158,6 +158,53 @@ const UserSchema = new mongoose.Schema({
     }
   },
 
+  // Deviation Amount Management
+  totalDeviationAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+    validate: {
+      validator: async function(v) {
+        if (v === 0 || !this.roles || this.roles.length === 0) return true;
+        
+        try {
+          const role = await mongoose.model('Role').findById(this.roles[0]).lean();
+          return ['MANAGER'].includes(role?.name);
+        } catch (err) {
+          console.error('Error validating deviation amount:', err);
+          return false;
+        }
+      },
+      message: 'Deviation amount can only be assigned to MANAGER users'
+    }
+  },
+  
+perTransactionDeviationLimit: {
+  type: Number,
+  default: 0,
+  min: 0,
+  validate: {
+    validator: function(v) {
+      // During updates, this might not reflect the new totalDeviationAmount
+      // So we'll handle this in pre-save hook instead
+      return true; // Remove validation here, handle in pre-save
+    },
+    message: 'Per transaction deviation limit cannot exceed total deviation amount'
+  }
+},
+  
+  currentDeviationUsage: {
+    type: Number,
+    default: 0,
+    min: 0,
+    validate: {
+      validator: function(v) {
+        return v <= this.totalDeviationAmount;
+      },
+      message: 'Current deviation usage cannot exceed total deviation amount'
+    }
+  },
+
   isFrozen: {
     type: Boolean,
     default: false
@@ -203,6 +250,7 @@ UserSchema.index({ branch: 1 });
 UserSchema.index({ subdealer: 1 });
 UserSchema.index({ isActive: 1 });
 UserSchema.index({ discount: 1 });
+UserSchema.index({ totalDeviationAmount: 1 });
 
 // Virtual fields
 UserSchema.virtual('branchDetails', {
@@ -220,6 +268,58 @@ UserSchema.virtual('subdealerDetails', {
   justOne: true,
   options: { select: 'name location type discount' }
 });
+
+// Virtual for available deviation amount
+UserSchema.virtual('availableDeviationAmount').get(function() {
+  return Math.max(0, this.totalDeviationAmount - this.currentDeviationUsage);
+});
+
+// Method to check if user can use deviation amount
+UserSchema.methods.canUseDeviation = function(amount) {
+  if (amount <= 0) return false;
+  
+  const available = this.availableDeviationAmount;
+  const withinPerTransactionLimit = amount <= this.perTransactionDeviationLimit;
+  const withinTotalLimit = amount <= available;
+  
+  return withinPerTransactionLimit && withinTotalLimit;
+};
+
+// Method to use deviation amount
+UserSchema.methods.useDeviation = async function(amount) {
+  if (!this.canUseDeviation(amount)) {
+    throw new Error(`Cannot use deviation amount: ${amount}. Available: ${this.availableDeviationAmount}, Per transaction limit: ${this.perTransactionDeviationLimit}`);
+  }
+  
+  this.currentDeviationUsage += amount;
+  await this.save();
+  return this.availableDeviationAmount;
+};
+
+// Method to reset deviation usage
+UserSchema.methods.resetDeviationUsage = async function() {
+  this.currentDeviationUsage = 0;
+  await this.save();
+  return this.availableDeviationAmount;
+};
+
+// Method to update deviation limits
+UserSchema.methods.updateDeviationLimits = async function(totalAmount, perTransactionLimit) {
+  if (perTransactionLimit > totalAmount) {
+    throw new Error('Per transaction limit cannot exceed total deviation amount');
+  }
+  
+  if (this.currentDeviationUsage > totalAmount) {
+    throw new Error('Current deviation usage exceeds new total amount');
+  }
+  
+  this.totalDeviationAmount = totalAmount;
+  this.perTransactionDeviationLimit = perTransactionLimit;
+  
+  await this.save();
+  return this;
+};
+
 UserSchema.methods.isSuperAdmin = async function() {
   await this.populate('roles');
   return this.roles.some(role => role.isSuperAdmin);
@@ -244,6 +344,7 @@ UserSchema.methods.isSuperAdminByRole = async function () {
   });
   return count > 0;
 };
+
 UserSchema.methods.listEffectivePermissionIds = async function () {
   const roles = await Role.find({ _id: { $in: (this.roles || []) } })
     .select('permissions is_active')
@@ -369,6 +470,18 @@ UserSchema.pre('save', async function(next) {
       throw new Error('SuperAdmin cannot have additional roles');
     }
   }
+  
+  // Validate deviation amounts
+  if (this.isModified('perTransactionDeviationLimit') && 
+      this.perTransactionDeviationLimit > this.totalDeviationAmount) {
+    return next(new Error('Per transaction deviation limit cannot exceed total deviation amount'));
+  }
+  
+  if (this.isModified('currentDeviationUsage') && 
+      this.currentDeviationUsage > this.totalDeviationAmount) {
+    return next(new Error('Current deviation usage cannot exceed total deviation amount'));
+  }
+  
   next();
 });
 
@@ -381,7 +494,11 @@ UserSchema.methods.debugPermissions = async function() {
       id: user._id,
       name: user.name,
       email: user.email,
-      isSuperAdmin: await user.isSuperAdmin()
+      isSuperAdmin: await user.isSuperAdmin(),
+      totalDeviationAmount: user.totalDeviationAmount,
+      perTransactionDeviationLimit: user.perTransactionDeviationLimit,
+      currentDeviationUsage: user.currentDeviationUsage,
+      availableDeviationAmount: user.availableDeviationAmount
     },
     roles: user.roles.map(role => ({
       id: role._id,

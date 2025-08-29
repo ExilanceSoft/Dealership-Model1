@@ -67,6 +67,17 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *             name:
  *               type: string
  *               example: John Doe
+ *         approvalStatus:
+ *           type: string
+ *           enum: [Pending, Approved, Rejected]
+ *           example: Pending
+ *         approvedBy:
+ *           type: string
+ *           description: User who approved the payment
+ *           example: 507f1f77bcf86cd799439015
+ *         approvedAt:
+ *           type: string
+ *           format: date-time
  * 
  *     LedgerSummary:
  *       type: object
@@ -106,7 +117,7 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *                 example: 507f1f77bcf86cd799439012
  *               paymentMode:
  *                 type: string
- *                 enum: [Cash, Bank]
+ *                 enum: [Cash, Bank, Finance Disbursement, Exchange, Pay Order]
  *                 example: Bank
  *               amount:
  *                 type: number
@@ -115,12 +126,16 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *               cashLocation:
  *                 type: string
  *                 example: Main Office
- *               bankLocation:
- *                 type: string
- *                 example: Andheri Branch
- *               bankId:
+ *               bank:
  *                 type: string
  *                 example: 507f1f77bcf86cd799439014
+ *               subPaymentMode:
+ *                 type: string
+ *                 description: Required for Bank payments
+ *                 example: 507f1f77bcf86cd799439015
+ *               transactionReference:
+ *                 type: string
+ *                 example: TXN123456
  *               remark:
  *                 type: string
  *                 example: Initial payment
@@ -173,6 +188,118 @@ router.post(
   requirePermission('LEDGER.CREATE'),
   logAction('CREATE', 'Ledger'),
   ledgerController.addReceipt
+);
+
+/**
+ * @swagger
+ * /api/v1/ledger/approve/{ledgerId}:
+ *   patch:
+ *     summary: Approve a pending ledger entry
+ *     tags: [Ledger]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ledgerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439015
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               remark:
+ *                 type: string
+ *                 example: Payment verified and approved
+ *     responses:
+ *       200:
+ *         description: Ledger entry approved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     ledger:
+ *                       $ref: '#/components/schemas/LedgerEntry'
+ *       400:
+ *         description: Entry is not pending approval
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not authorized to approve)
+ *       404:
+ *         description: Ledger entry not found
+ *       500:
+ *         description: Server error
+ */
+router.patch(
+  '/approve/:ledgerId',
+  protect,
+  requirePermission('LEDGER.UPDATE'),
+  logAction('APPROVE', 'Ledger'),
+  ledgerController.approveLedgerEntry
+);
+
+/**
+ * @swagger
+ * /api/v1/ledger/pending:
+ *   get:
+ *     summary: Get pending ledger entries for approval
+ *     tags: [Ledger]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: List of pending ledger entries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: integer
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     ledgerEntries:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/LedgerEntry'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/pending',
+  protect,
+  requirePermission('LEDGER.READ'),
+  ledgerController.getPendingLedgerEntries
 );
 
 /**

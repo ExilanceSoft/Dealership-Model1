@@ -9,10 +9,10 @@ const ledgerSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['BOOKING_PAYMENT', 'INSURANCE_PAYMENT', 'DEBIT_ENTRY'],
+    enum: ['BOOKING_PAYMENT', 'INSURANCE_PAYMENT', 'DEBIT_ENTRY', 'Finance Disbursement'],
     default: 'BOOKING_PAYMENT'
   },
- paymentMode: {
+  paymentMode: {
     type: String,
     enum: [
       'Cash', 
@@ -44,6 +44,10 @@ const ledgerSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CashLocation',
     required: function() {
+      // Don't require cashLocation for on-account payments or when bypass flag is set
+      if (this.source?.kind === 'SUBDEALER_ON_ACCOUNT') {
+        return false;
+      }
       return this.paymentMode === 'Cash' && this.type !== 'DEBIT_ENTRY';
     }
   },
@@ -51,8 +55,15 @@ const ledgerSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bank',
     required: function() {
-      return ['Bank', 'Finance Disbursement', 'Exchange', 'Pay Order'].includes(this.paymentMode) && 
+      return ['Bank', 'Exchange', 'Pay Order'].includes(this.paymentMode) && 
              this.type !== 'DEBIT_ENTRY';
+    }
+  },
+  subPaymentMode: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BankSubPaymentMode',
+    required: function() {
+      return this.paymentMode === 'Bank' && this.type !== 'DEBIT_ENTRY';
     }
   },
   transactionReference: {
@@ -81,12 +92,38 @@ const ledgerSchema = new mongoose.Schema({
   receiptDate: {
     type: Date,
     default: Date.now
+  },
+  source: {
+    kind: String,
+    refId: mongoose.Schema.Types.ObjectId,
+    refModel: String,
+    refReceipt: mongoose.Schema.Types.ObjectId
+  },
+   approvalStatus: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: function() {
+      // Auto-approve cash payments, require approval for others
+      return this.paymentMode === 'Cash' ? 'Approved' : 'Pending';
+    }
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approvedAt: {
+    type: Date
+  },
+  rejectionReason: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
 
 // Apply pagination plugin
 ledgerSchema.plugin(mongoosePaginate);
@@ -126,6 +163,13 @@ ledgerSchema.virtual('bookingDetails', {
   foreignField: '_id',
   justOne: true,
   options: { select: 'bookingNumber customerDetails.name modelDetails.name' }
+});
+
+ledgerSchema.virtual('subPaymentModeDetails', {
+  ref: 'BankSubPaymentMode', // Make sure this matches the model name
+  localField: 'subPaymentMode',
+  foreignField: '_id',
+  justOne: true
 });
 
 const Ledger = mongoose.model('Ledger', ledgerSchema);

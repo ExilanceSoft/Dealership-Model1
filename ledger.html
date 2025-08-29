@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Booking Form - {{bookingNumber}}</title>
+  <style>
+    /* -------- Base (screen + print) -------- */
+    :root {
+      --print-footer-height: 42mm;   /* space reserved for fixed signature + page number */
+      --page-margins: 15mm;
+    }
+    html, body {
+      font-family: "Courier New", monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+      color: #000;
+      
+    }
+    body {
+      padding: 7mm 66mm 66mm 66mm;                 /* comfy screen margins */
+      position: relative;
+    }
+    .content {
+      /* Reserve space so fixed footer (in print) never overlaps main content */
+      padding-bottom: var(--print-footer-height);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+    }
+    th, td {
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      vertical-align: top;
+    }
+
+    .header-table { border: none; }
+    .header-table td {
+      border: none;
+      padding: 2px 8px;
+    }
+
+    .item-table { font-size: 13px; }
+    .item-table td { padding: 3px 5px; }
+
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .text-bold { font-weight: bold; }
+
+    .section-title {
+      font-weight: bold;
+      margin: 15px 0 5px 0;
+      border-bottom: 1px solid #000;
+      padding-bottom: 3px;
+    }
+
+    .notes-section {
+      margin: 15px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background: #f9f9f9;
+    }
+    .notes-label { font-weight: bold; margin-bottom: 5px; }
+
+    /* Signature block (screen defaults) */
+    .signature-section {
+      margin-top: 30px;
+    }
+    .signature-table {
+      width: 100%;
+      border: 0;
+      border-collapse: separate;
+      border-spacing: 0;
+      page-break-inside: avoid;
+    }
+    .signature-table td {
+      border: 0;
+      padding-top: 32px;
+      width: 25%;
+      text-align: center;
+      vertical-align: bottom;
+    }
+    .signature-line {
+      border-top: 1px solid #000;
+      padding-top: 6px;
+      margin-top: 40px;
+    }
+
+    .qr-code-container {
+      top: 10mm;
+      right: 20mm;
+      text-align: center;
+    }
+    .qr-code-text {
+      font-size: 10px;
+      margin-top: 4px;
+    }
+
+    /* Avoid awkward page breaks in long tables/sections */
+    h1, h2, h3, .section-title { break-after: avoid; }
+    table, thead, tbody, tr, td, th { break-inside: avoid; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+
+    /* -------- Print overrides -------- */
+    @media print {
+      html, body { height: auto !important; }
+      body {
+        padding: 0;
+        margin: var(--page-margins);
+        font-size: 12px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Make the footer/signature + page number appear on EVERY printed page */
+      .signature-section {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(var(--page-margins) + 10mm);
+        margin: 0;
+        padding: 0 var(--page-margins);
+      }
+
+      /* Page number: shows "1/3", "2/3", ... in bottom-right on each page */
+      .page-number {
+        position: fixed;
+        right: var(--page-margins);
+        bottom: var(--page-margins);
+        font-size: 12px;
+        font-family: "Courier New", monospace;
+      }
+      .page-number::after {
+        /* exactly "1/3" style as requested */
+        content: counter(page) "/" counter(pages);
+      }
+
+      /* Tighten background borders for notes in print */
+      .notes-section {
+        border: 1px solid #000;
+        background: #fff;
+      }
+
+      /* Ensure content never flows under the fixed footer */
+      .content {
+        padding-bottom: var(--print-footer-height);
+      }
+
+      /* Optional: force portrait and equal margins */
+      @page {
+        size: A4 portrait;
+        margin: var(--page-margins);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- QR (optional) -->
+  <div class="qr-code-container">
+    {{#if qrCode}}
+      <img src="{{qrCode}}" width="80" height="80" alt="Booking QR Code" />
+      <div class="qr-code-text">Scan to change Booking Details</div>
+    {{/if}}
+  </div>
+
+  <!-- Page number (auto, on every printed page) -->
+  <div class="page-number" aria-hidden="true"></div>
+
+  <!-- All flowing content goes inside .content (so it respects reserved footer space) -->
+  <div class="content">
+
+    <!-- Header -->
+    <table class="header-table">
+      <tr>
+        <td width="40%"><span style="font-size:22px;font-weight:bold;">Gandhi TVS</span></td>
+        <td width="40%" class="text-center">
+          <b><u>Booking Form / Order Form</u></b><br />
+          {{#if (eq bookingType "SUBDEALER")}}<small>(Subdealer Booking)</small>{{/if}}
+        </td>
+        <td width="20%" class="text-right">
+          <img src="https://dealership.gandhitvs.in/api/v1/images/logo.png" alt="tvs" width="150" height="80" />
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
+        <td class="text-right">Date: {{formatDate createdAt}}</td>
+      </tr>
+      <tr>
+        <td colspan="3">
+          {{#if (eq bookingType "SUBDEALER")}}
+            Subdealer: {{subdealerDetails.name}} ({{subdealerDetails.location}})
+          {{else}}
+            {{branchDetails.name}}
+          {{/if}}
+        </td>
+      </tr>
+    </table>
+
+    <!-- Vehicle Details (optional) -->
+    {{#if chassisNumber}}
+      <div class="section-title">Vehicle Details</div>
+      <table>
+        <tr><td><strong>Chassis Number:</strong></td><td>{{chassisNumber}}</td></tr>
+        <tr><td><strong>Battery Number:</strong></td><td>{{batteryNumber}}</td></tr>
+        <tr><td><strong>Key Number:</strong></td><td>{{keyNumber}}</td></tr>
+        {{#if motorNumber}}  <tr><td><strong>Motor Number:</strong></td><td>{{motorNumber}}</td></tr>{{/if}}
+        {{#if chargerNumber}}<tr><td><strong>Charger Number:</strong></td><td>{{chargerNumber}}</td></tr>{{/if}}
+        {{#if engineNumber}} <tr><td><strong>Engine Number:</strong></td><td>{{engineNumber}}</td></tr>{{/if}}
+      </table>
+    {{/if}}
+
+    <!-- Customer & Vehicle -->
+    <div class="section-title">Customer & Vehicle Details</div>
+    <table class="header-table">
+      <tr>
+        <td width="20%"><b>Booking No.:</b></td><td width="30%">{{bookingNumber}}</td>
+        <td width="20%"><b>GSTIN:</b></td><td width="30%">{{#if gstin}}{{gstin}}{{else}}N/A{{/if}}</td>
+      </tr>
+      <tr>
+        <td><b>Customer Name:</b></td><td>{{customerDetails.salutation}} {{customerDetails.name}}</td>
+        <td><b>RTO Type:</b></td><td>{{rto}}</td>
+      </tr>
+      <tr>
+        <td><b>Address:</b></td><td colspan="3">{{customerDetails.address}}</td>
+      </tr>
+      <tr>
+        <td><b>Taluka:</b></td><td>{{customerDetails.taluka}}</td>
+        <td><b>District:</b></td><td>{{customerDetails.district}}</td>
+      </tr>
+      <tr>
+        <td><b>Pincode:</b></td><td>{{customerDetails.pincode}}</td>
+        <td><b>Mobile No.:</b></td><td>{{customerDetails.mobile1}}</td>
+      </tr>
+      <tr>
+        <td><b>D.O.B.:</b></td><td>{{formatDate customerDetails.dob}}</td>
+        <td><b>Aadhar No.:</b></td><td>{{#if customerDetails.aadharNumber}}{{customerDetails.aadharNumber}}{{else}}N/A{{/if}}</td>
+      </tr>
+      <tr>
+        <td><b>Exchange Mode:</b></td>
+        <td>{{#if exchange}}YES{{#if exchangeDetails.vehicleNumber}} ({{exchangeDetails.vehicleNumber}}){{/if}}{{else}}NO{{/if}}</td>
+        <td><b>Payment Mode:</b></td>
+        <td>{{payment.type}}{{#if (eq payment.type 'FINANCE')}} ({{payment.financer.name}}){{/if}}</td>
+      </tr>
+      <tr>
+        <td><b>Model:</b></td><td>{{modelDetails.model_name}}</td>
+        <td><b>Color:</b></td><td>{{colorDetails.name}}</td>
+      </tr>
+      <tr>
+        <td><b>Sales Rep:</b></td>
+        <td>
+          {{#if (eq bookingType "SUBDEALER")}}
+            {{subdealerUserDetails.name}} (Subdealer)
+          {{else}}
+            {{salesExecutiveDetails.name}}
+          {{/if}}
+        </td>
+        <td><b>HPA:</b></td><td>{{#if hpa}}YES{{else}}NO{{/if}}</td>
+      </tr>
+    </table>
+
+    <!-- Notes -->
+    {{#if note}}
+      <div class="notes-section">
+        <div class="notes-label">Special Notes:</div>
+        <div>{{note}}</div>
+      </div>
+    {{/if}}
+
+    <!-- Price Breakdown -->
+    <div class="section-title">Price Breakdown</div>
+    <table class="item-table" border="0.5" frame="box">
+      <thead>
+        <tr>
+          <th width="30%"><b>Particulars</b></th>
+          <th><b>HSN</b></th>
+          <th><b>Unit Cost</b></th>
+          <th><b>Taxable</b></th>
+          <th><b>CGST</b></th>
+          <th><b>CGST AMOUNT</b></th>
+          <th><b>SGST</b></th>
+          <th><b>SGST AMOUNT</b></th>
+          <th><b>DIS.</b></th>
+          <th><b>LINE TOTAL</b></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each priceComponents}}
+          <tr>
+            <td width="25%"><b>{{header.header_key}}</b></td>
+            <td class="text-right">
+              {{#if header.metadata.hsnCode}}
+                {{header.metadata.hsnCode}}
+              {{else}}
+                {{#if header.metadata.hsn_code}}{{header.metadata.hsn_code}}{{else}}-{{/if}}
+              {{/if}}
+            </td>
+            <td class="text-right">{{formatCurrency originalValue}}</td>
+            <td class="text-right">{{formatCurrency discountedValue}}</td>
+            <td class="text-right">
+              {{#if header.metadata.gstRate}}{{divide header.metadata.gstRate 2}}
+              {{else}}{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}{{/if}}
+            </td>
+            <td class="text-right">
+              {{#if header.metadata.gstRate}}
+                {{formatCurrency (calculateTax discountedValue (divide header.metadata.gstRate 2))}}
+              {{else}}
+                {{#if header.metadata.gst_rate}}
+                  {{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}
+                {{else}}0.00{{/if}}
+              {{/if}}
+            </td>
+            <td class="text-right">
+              {{#if header.metadata.gstRate}}{{divide header.metadata.gstRate 2}}
+              {{else}}{{#if header.metadata.gst_rate}}{{divide header.metadata.gst_rate 2}}{{else}}0{{/if}}{{/if}}
+            </td>
+            <td class="text-right">
+              {{#if header.metadata.gstRate}}
+                {{formatCurrency (calculateTax discountedValue (divide header.metadata.gstRate 2))}}
+              {{else}}
+                {{#if header.metadata.gst_rate}}
+                  {{formatCurrency (calculateTax discountedValue (divide header.metadata.gst_rate 2))}}
+                {{else}}0.00{{/if}}
+              {{/if}}
+            </td>
+            <td class="text-right">{{formatCurrency (subtract originalValue discountedValue)}}</td>
+            <td class="text-right">{{formatCurrency discountedValue}}</td>
+          </tr>
+        {{/each}}
+
+        {{#each accessories}}
+          <tr>
+            <td width="25%"><b>{{#if accessory}}{{accessory.name}}{{else}}Additional Charges{{/if}}</b></td>
+            <td class="text-right">
+              {{#if accessory}}{{#if accessory.hsnCode}}{{accessory.hsnCode}}{{else}}-{{/if}}{{else}}-{{/if}}
+            </td>
+            <td class="text-right">{{formatCurrency price}}</td>
+            <td class="text-right">{{formatCurrency (subtract price discount)}}</td>
+            <td class="text-right">{{#if accessory}}{{#if accessory.gstRate}}{{divide accessory.gstRate 2}}{{else}}0{{/if}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if accessory}}{{#if accessory.gstRate}}{{formatCurrency (calculateTax (subtract price discount) (divide accessory.gstRate 2))}}{{else}}0.00{{/if}}{{else}}0.00{{/if}}</td>
+            <td class="text-right">{{#if accessory}}{{#if accessory.gstRate}}{{divide accessory.gstRate 2}}{{else}}0{{/if}}{{else}}0{{/if}}</td>
+            <td class="text-right">{{#if accessory}}{{#if accessory.gstRate}}{{formatCurrency (calculateTax (subtract price discount) (divide accessory.gstRate 2))}}{{else}}0.00{{/if}}{{else}}0.00{{/if}}</td>
+            <td class="text-right">{{formatCurrency discount}}</td>
+            <td class="text-right">{{formatCurrency (subtract price discount)}}</td>
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <!-- Totals -->
+    <table class="header-table">
+      <tr>
+        <td colspan="3"><strong>Total(A)</strong></td>
+        <td width="6%"><strong>{{formatCurrency totalAmount}}</strong></td>
+      </tr>
+    </table>
+
+    <table>
+      <tbody>
+        {{#if (gt rtoAmount 0)}}
+          <tr><td width="80%"><b>RTO TAX, REGISTRATION, SMART CARD, AGENT FEES</b></td><td class="text-right">{{formatCurrency rtoAmount}}</td></tr>
+        {{/if}}
+        {{#if (gt hypothecationCharges 0)}}
+          <tr><td width="80%"><b>HP CHARGES</b></td><td class="text-right">{{formatCurrency hypothecationCharges}}</td></tr>
+        {{/if}}
+        {{#if (gt accessoriesTotal 0)}}
+          <tr><td width="80%"><b>Insurance</b></td><td class="text-right">{{formatCurrency accessoriesTotal}}</td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+
+    <table>
+      <tr>
+        <td colspan="3"><strong>Total(B)</strong></td>
+        <td width="6%" class="text-right"><strong>{{formatCurrency (add rtoAmount hypothecationCharges accessoriesTotal)}}</strong></td>
+      </tr>
+    </table>
+
+    <table>
+      <tr>
+        <td><strong>GRAND TOTAL(A) + (B)</strong></td>
+        <td width="9%" class="text-right"><strong>{{formatCurrency (add totalAmount rtoAmount hypothecationCharges accessoriesTotal)}}</strong></td>
+      </tr>
+    </table>
+
+    {{#if exchange}}
+      <div class="section-title">Exchange Details</div>
+      <table class="header-table">
+        <tr>
+          <td><strong>Ex. Broker / Sub Dealer:</strong></td><td>{{exchangeDetails.broker.name}}</td>
+          <td><strong>Ex. Veh No:</strong></td><td>{{exchangeDetails.vehicleNumber}}</td>
+        </tr>
+      </table>
+    {{/if}}
+
+    <!-- Notes -->
+    <table>
+      <tr>
+        <td><strong>Notes:</strong></td>
+        <td colspan="3"></td>
+      </tr>
+    </table>
+
+    <!-- Declaration -->
+    <table>
+      <tr>
+        <td>
+          {{#if accessories}}
+            <strong>ACC. DETAILS:</strong>
+            {{#each accessories}}
+              {{#if accessory}}- {{accessory.name}}{{#unless @last}},{{/unless}}{{/if}}
+            {{/each}}
+          {{/if}}
+        </td>
+      </tr>
+      <tr>
+        <td style="font-size:10px;text-align:justify;">
+          <strong>Declaration -</strong>
+          I/We Authorize the Dealer to register the vehicle at RTO in my/our name.
+          2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss.
+          3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration.
+          4) Registration Number allotted by RTO will be acceptable to me else I will pre-book for choice number at RTO at my own. Dealership has no role in RTO Number allocation.
+          5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same.
+          6) I/We agree that the price at the time of delivery will be applicable.
+          7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle.
+          8) Subject to Sangamner Jurisdiction. I accept that vehicle once sold by dealer shall not be taken back / replaced for any reason.
+          9) I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking.
+        </td>
+      </tr>
+    </table>
+
+  </div> <!-- /content -->
+
+  <!-- Fixed signature block (will be repeated on every printed page) -->
+  <div class="signature-section" aria-hidden="true">
+    <table class="signature-table">
+      <tr>
+        <td class="signature-line">_________________________</td>
+        <td class="signature-line">_________________________</td>
+        <td class="signature-line">_________________________</td>
+        <td class="signature-line">_________________________</td>
+      </tr>
+      <tr>
+        <td>Customer's Signature</td>
+        <td>
+          {{#if (eq bookingType "SUBDEALER")}}
+            Subdealer Representative
+          {{else}}
+            Sales Executive
+          {{/if}}
+        </td>
+        <td>Manager</td>
+        <td>Accountant</td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

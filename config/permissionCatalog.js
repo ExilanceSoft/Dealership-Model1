@@ -6,7 +6,6 @@ module.exports = {
     { key: 'ATTACHMENTS',      category: 'DOCS',      actions: ['READ','CREATE','UPDATE','DELETE'] },
     // { key: 'SALES',            category: 'SALES',     actions: ['READ','CREATE','UPDATE','DELETE'] },
     // { key: 'REPORTS',          category: 'REPORTS',   actions: ['READ'] },
-
     // From the new route files
     { key: 'PERMISSION',       category: 'ADMIN',     actions: ['READ','CREATE','UPDATE','DELETE','MANAGE'] },
     { key: 'QUOTATION',        category: 'SALES',     actions: ['READ','CREATE','UPDATE','DELETE','EXPORT'] },
@@ -14,7 +13,6 @@ module.exports = {
     { key: 'RTO_PROCESS',      category: 'REGISTRATION', actions: [
       'READ','CREATE','UPDATE','DELETE'
     ]},
-
     // Updated modules
     { key: 'INSURANCE',        category: 'FINANCE',   actions: [
       'READ','CREATE','UPDATE','DELETE'
@@ -79,6 +77,14 @@ module.exports = {
     { key: 'SUBDEALER',       category: 'ADMIN',     actions: ['READ','CREATE','UPDATE','DELETE'] },
     { key: 'SUBDEALERMODEL',  category: 'ADMIN',     actions: ['READ','CREATE','UPDATE','DELETE'] },
     { key: 'SUBDEALER_ON_ACCOUNT', category: 'ADMIN', actions: ['READ','CREATE','UPDATE','DELETE'] },
-    { key: 'FINANCE_DISBURSEMENT', category: 'FINANCE', actions: ['READ','CREATE','UPDATE','DELETE'] }
+    { key: 'FINANCE_DISBURSEMENT', category: 'FINANCE', actions: ['READ','CREATE','UPDATE','DELETE'] },
+    { key: 'SUBDEALER_COMMISSION', category: 'FINANCE', actions: ['READ','CREATE','UPDATE','DELETE','PAYMENT'] },
+    
+    {
+      key: 'COMMISSION_PAYMENT',
+      category: 'FINANCE',
+      actions: ['READ','CREATE','UPDATE','DELETE']
+    },
+      { key: 'BANK_SUB_PAYMENT_MODE', category: 'ADMIN', actions: ['READ','CREATE','UPDATE','DELETE'] }
   ]
 };

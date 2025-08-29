@@ -7,6 +7,8 @@ const {
   allocateOnAccount,
   deallocateAllocation,
   getSubdealerOnAccountSummary,
+  getAllSubdealersOnAccountSummary,
+  getSubdealerOnAccountDetailsAsReceipt
 } = require('../controllers/subdealerOnAccountController');
 const { protect, authorize } = require('../middlewares/auth');
 const { logAction } = require('../middlewares/audit');
@@ -579,5 +581,206 @@ router.get('/:subdealerId/on-account/summary',
   requirePermission('SUBDEALER_ON_ACCOUNT.READ'),
   getSubdealerOnAccountSummary
 );
+/**
+ * @swagger
+ * /api/v1/subdealersonaccount/on-account/summary:
+ *   get:
+ *     summary: Get on-account summary for ALL subdealers (Finance+)
+ *     tags: [Subdealer On-Account]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter receipts received on or after this date
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter receipts received on or before this date
+ *     responses:
+ *       200:
+ *         description: On-account summary for all subdealers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     byStatus:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             description: Status (OPEN, PARTIAL, CLOSED)
+ *                           count:
+ *                             type: number
+ *                           totalAmount:
+ *                             type: number
+ *                           totalAllocated:
+ *                             type: number
+ *                           totalBalance:
+ *                             type: number
+ *                     totals:
+ *                       type: object
+ *                       properties:
+ *                         totalReceipts:
+ *                           type: number
+ *                         grandAmount:
+ *                           type: number
+ *                         grandAllocated:
+ *                           type: number
+ *                         grandBalance:
+ *                           type: number
+ *                     subdealerBreakdown:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           subdealerId:
+ *                             type: string
+ *                           subdealerName:
+ *                             type: string
+ *                           subdealerLocation:
+ *                             type: string
+ *                           subdealerType:
+ *                             type: string
+ *                           count:
+ *                             type: number
+ *                           totalAmount:
+ *                             type: number
+ *                           totalAllocated:
+ *                             type: number
+ *                           totalBalance:
+ *                             type: number
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not Finance+)
+ *       500:
+ *         description: Server error
+ */
+router.get('/on-account/summary',
+  protect,
+  requirePermission('SUBDEALER_ON_ACCOUNT.READ'),
+  getAllSubdealersOnAccountSummary
+);
 
+/**
+ * @swagger
+ * /api/v1/subdealersonaccount/{subdealerId}/receiptsOnAccount/{receiptId}/details:
+ *   get:
+ *     summary: Get all details for a specific subdealer and their on-account receipt (Finance+)
+ *     tags: [Subdealer On-Account]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: subdealerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the subdealer
+ *       - in: path
+ *         name: receiptId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the on-account receipt
+ *     responses:
+ *       200:
+ *         description: Detailed information about subdealer and their specific receipt
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     subdealer:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         location:
+ *                           type: string
+ *                         type:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         rateOfInterest:
+ *                           type: number
+ *                         discount:
+ *                           type: number
+ *                     receipt:
+ *                       $ref: '#/components/schemas/OnAccountReceipt'
+ *                     financialSummary:
+ *                       type: object
+ *                       properties:
+ *                         bookingSummary:
+ *                           type: object
+ *                           properties:
+ *                             totalBookings:
+ *                               type: number
+ *                             totalBookingAmount:
+ *                               type: number
+ *                             totalReceivedAmount:
+ *                               type: number
+ *                             totalBalanceAmount:
+ *                               type: number
+ *                             totalDiscountedAmount:
+ *                               type: number
+ *                         onAccountSummary:
+ *                           type: object
+ *                           properties:
+ *                             totalReceipts:
+ *                               type: number
+ *                             totalReceiptAmount:
+ *                               type: number
+ *                             totalAllocated:
+ *                               type: number
+ *                             totalBalance:
+ *                               type: number
+ *                         financialOverview:
+ *                           type: object
+ *                           properties:
+ *                             totalOutstanding:
+ *                               type: number
+ *                             availableCredit:
+ *                               type: number
+ *                             netPosition:
+ *                               type: number
+ *                             status:
+ *                               type: string
+ *       400:
+ *         description: Invalid subdealer or receipt ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not Finance+)
+ *       404:
+ *         description: Subdealer or receipt not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:subdealerId/receiptsOnAccount/:receiptId/details',
+  protect,
+  requirePermission('SUBDEALER_ON_ACCOUNT.READ'),
+  getSubdealerOnAccountDetailsAsReceipt
+);
 module.exports = router;

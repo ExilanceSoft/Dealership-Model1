@@ -1,2 +1,105 @@
 {"timestamp":"2025-08-20 08:44:28","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
 {"timestamp":"2025-08-20 08:44:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 08:59:13","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 08:59:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 09:36:07","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 09:36:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 09:39:54","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: type: `FINANCE_DISBURSEMENT` is not a valid enum value for path `type`., paymentMode: `NEFT` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-08-20 09:43:57","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: type: `FINANCE_DISBURSEMENT` is not a valid enum value for path `type`., paymentMode: `NEFT` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-08-20 09:58:44","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 09:58:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 10:04:58","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 10:04:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 10:09:39","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: type: `FINANCE_DISBURSEMENT` is not a valid enum value for path `type`., paymentMode: `NEFT` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-08-20 10:21:45","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 10:21:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 10:37:42","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 10:37:42","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 10:39:19","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: FinanceDisbursement validation failed: paymentMode: `FINANCE_DISBURSEMENT` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-08-20 10:44:10","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 10:44:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 10:44:56","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 10:44:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 10:46:04","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: type: `FINANCE_DISBURSEMENT` is not a valid enum value for path `type`., paymentMode: `FINANCE_DISBURSEMENT` is not a valid enum value for path `paymentMode`.","stack":null}
+{"timestamp":"2025-08-20 10:50:02","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 10:50:02","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 10:50:31","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: type: `Finance Disbursement` is not a valid enum value for path `type`.","stack":null}
+{"timestamp":"2025-08-20 10:56:20","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 10:56:21","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 11:00:19","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: type: `Finance Disbursement` is not a valid enum value for path `type`.","stack":null}
+{"timestamp":"2025-08-20 11:01:04","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 11:01:04","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 11:16:15","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 11:16:15","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 11:37:55","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 11:37:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 12:19:18","level":"\u001b[31MERROR\u001b[39M","message":"allocateOnAccount error: Ledger validation failed: cashLocation: Path `cashLocation` is required.","stack":null}
+{"timestamp":"2025-08-20 12:19:45","level":"\u001b[31MERROR\u001b[39M","message":"allocateOnAccount error: Ledger validation failed: cashLocation: Path `cashLocation` is required.","stack":null}
+{"timestamp":"2025-08-20 12:20:20","level":"\u001b[31MERROR\u001b[39M","message":"allocateOnAccount error: Ledger validation failed: cashLocation: Path `cashLocation` is required.","stack":null}
+{"timestamp":"2025-08-20 12:22:33","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 12:22:33","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 12:44:29","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 12:44:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 12:45:27","level":"\u001b[31MERROR\u001b[39M","message":"getSubdealerOnAccountDetails error: Cannot populate path `allocations.booking.customerDetails.customer` because it is not in your schema. Set the `strictPopulate` option to false to override.","stack":null}
+{"timestamp":"2025-08-20 12:54:48","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 12:54:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 12:57:52","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 12:57:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 13:07:54","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 13:07:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 13:10:02","level":"\u001b[31MERROR\u001b[39M","message":"Error creating/updating commission master: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-20 13:48:18","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 13:48:19","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 13:52:48","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 13:52:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 14:36:06","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 14:36:06","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 14:50:16","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 14:50:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 14:53:03","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 14:53:04","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 15:04:56","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 15:04:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 15:23:51","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 15:23:51","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 15:36:50","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 15:36:50","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 15:43:08","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 15:43:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 15:46:19","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 15:46:19","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 15:48:29","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: bank: Path `bank` is required.","stack":null}
+{"timestamp":"2025-08-20 15:48:49","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: bank: Path `bank` is required.","stack":null}
+{"timestamp":"2025-08-20 15:50:46","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 15:50:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 15:53:27","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: bank: Path `bank` is required.","stack":null}
+{"timestamp":"2025-08-20 16:02:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 16:02:43","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 16:05:30","level":"\u001b[31MERROR\u001b[39M","message":"createFinanceDisbursement error: Ledger validation failed: bank: Path `bank` is required.","stack":null}
+{"timestamp":"2025-08-20 16:08:26","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 16:08:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 17:15:27","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 17:15:27","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 17:36:29","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 17:36:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 17:39:06","level":"\u001b[31MERROR\u001b[39M","message":"listOnAccountReceipts error: FinanceDisbursement is not defined","stack":null}
+{"timestamp":"2025-08-20 17:40:40","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 17:40:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 17:43:40","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 17:43:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 17:58:40","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 17:58:41","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 18:51:05","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 18:51:05","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 19:12:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 19:12:43","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 19:13:00","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 19:13:01","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 19:52:44","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 19:52:45","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 20:00:17","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 20:00:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 20:09:58","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 20:09:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-20 20:42:25","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-20 20:42:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

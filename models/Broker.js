@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// Update the BrokerBranchSchema in models/Broker.js
 const BrokerBranchSchema = new mongoose.Schema({
   branch: {
     type: mongoose.Schema.Types.ObjectId,
@@ -11,21 +12,38 @@ const BrokerBranchSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'Added by user reference is required']
   },
-  commissionType: {
-    type: String,
-    enum: ['FIXED', 'VARIABLE'],
-    required: [true, 'Commission type is required']
-  },
-  fixedCommission: {
-    type: Number,
-    required: function() { return this.commissionType === 'FIXED'; },
-    min: [0, 'Fixed commission cannot be negative']
-  },
-  commissionRange: {
-    type: String,
-    enum: ['1-20000', '20001-40000', '40001-60000', '60001'],
-    required: function() { return this.commissionType === 'VARIABLE'; }
-  },
+  commissionConfigurations: [{
+    commissionType: {
+      type: String,
+      enum: ['FIXED', 'VARIABLE'],
+      required: [true, 'Commission type is required']
+    },
+    fixedCommission: {
+      type: Number,
+      required: function() { return this.commissionType === 'FIXED'; },
+      min: [0, 'Fixed commission cannot be negative']
+    },
+    commissionRanges: [{
+      commissionRangeMaster: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CommissionRangeMaster',
+        required: function() { return this.commissionType === 'VARIABLE'; }
+      },
+      amount: {
+        type: Number,
+        required: function() { return this.commissionType === 'VARIABLE'; },
+        min: [0, 'Commission amount cannot be negative']
+      }
+    }],
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   isActive: {
     type: Boolean,
     default: true

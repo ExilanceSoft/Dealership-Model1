@@ -4,7 +4,6 @@ const FinanceDisbursement = require('../models/FinanceDisbursement');
 const Booking = require('../models/Booking');
 const Ledger = require('../models/Ledger');
 const FinanceProvider = require('../models/FinanceProvider');
-const Bank = require('../models/Bank');
 const AppError = require('../utils/appError');
 const logger = require('../config/logger');
 
@@ -32,12 +31,7 @@ exports.createFinanceDisbursement = async (req, res, next) => {
       financeProviderId,
       disbursementReference,
       disbursementDate,
-      disbursementAmount,
-      receivedAmount,
-      paymentMode,
-      bankId,
-      transactionReference,
-      remark
+      amount
     } = req.body;
 
     // Validate required fields
@@ -53,19 +47,9 @@ exports.createFinanceDisbursement = async (req, res, next) => {
       return next(new AppError('Disbursement reference is required', 400));
     }
 
-    const disbAmount = toNum(disbursementAmount);
-    const recvAmount = toNum(receivedAmount);
-
-    if (disbAmount <= 0) {
-      return next(new AppError('Disbursement amount must be greater than 0', 400));
-    }
-
-    if (recvAmount <= 0) {
-      return next(new AppError('Received amount must be greater than 0', 400));
-    }
-
-    if (recvAmount > disbAmount) {
-      return next(new AppError('Received amount cannot exceed disbursement amount', 400));
+    const disbursementAmount = toNum(amount);
+    if (disbursementAmount <= 0) {
+      return next(new AppError('Amount must be greater than 0', 400));
     }
 
     // Check for duplicate disbursement reference
@@ -99,14 +83,6 @@ exports.createFinanceDisbursement = async (req, res, next) => {
       return next(new AppError('Finance provider not found', 404));
     }
 
-    // Validate bank if provided
-    if (bankId) {
-      const bank = await Bank.findById(bankId);
-      if (!bank) {
-        return next(new AppError('Bank not found', 404));
-      }
-    }
-
     // Start transaction only if supported
     const useTransactions = supportsTransactions();
     if (useTransactions) {
@@ -122,38 +98,32 @@ exports.createFinanceDisbursement = async (req, res, next) => {
       financeProvider: financeProviderId,
       disbursementReference: String(disbursementReference).trim(),
       disbursementDate: disbursementDate ? new Date(disbursementDate) : new Date(),
-      disbursementAmount: disbAmount,
-      receivedAmount: recvAmount,
-      paymentMode: paymentMode || 'NEFT',
-      transactionReference: transactionReference || '',
-      remark: remark || '',
+      amount: disbursementAmount,
+      paymentMode: 'Finance Disbursement',
+      transactionReference: '',
       createdBy: req.user.id,
-      status: recvAmount < disbAmount ? 'PARTIAL' : 'COMPLETED'
+      status: 'COMPLETED'
     };
-
-    if (bankId) disbursementData.bank = bankId;
 
     const disbursement = await FinanceDisbursement.create([disbursementData], options);
 
-    // Create ledger entry for the received amount
+    // Create ledger entry for the disbursement amount
     const ledgerData = {
       booking: bookingId,
-      type: 'FINANCE_DISBURSEMENT',
+      type: 'Finance Disbursement',
       isDebit: false,
-      paymentMode: disbursementData.paymentMode,
+      paymentMode: 'Finance Disbursement',
       transactionReference: disbursementData.disbursementReference,
-      amount: recvAmount,
+      amount: disbursementAmount,
       receivedBy: req.user.id,
-      remark: `Finance disbursement from ${financeProvider.name} - ${disbursementData.remark}`,
+      remark: `Finance disbursement from ${financeProvider.name}`,
       source: {
-        kind: 'FINANCE_DISBURSEMENT',
+        kind: 'Finance Disbursement',
         refId: disbursement[0]._id,
         refModel: 'FinanceDisbursement',
         refReceipt: null
       }
     };
-
-    if (bankId) ledgerData.bank = bankId;
 
     const ledger = await Ledger.create([ledgerData], options);
 
@@ -162,7 +132,7 @@ exports.createFinanceDisbursement = async (req, res, next) => {
     await disbursement[0].save(options);
 
     // Update booking received amount and balance
-    const newReceivedAmount = (booking.receivedAmount || 0) + recvAmount;
+    const newReceivedAmount = (booking.receivedAmount || 0) + disbursementAmount;
     
     await Booking.findByIdAndUpdate(
       bookingId,
@@ -187,7 +157,6 @@ exports.createFinanceDisbursement = async (req, res, next) => {
     const populatedDisbursement = await FinanceDisbursement.findById(disbursement[0]._id)
       .populate('booking', 'bookingNumber customerDetails.name discountedAmount receivedAmount balanceAmount')
       .populate('financeProvider', 'name code')
-      .populate('bank', 'name accountNumber ifsc')
       .populate('createdBy', 'name email')
       .populate('ledgerEntry', 'amount paymentMode transactionReference createdAt');
 
@@ -233,7 +202,7 @@ exports.listFinanceDisbursements = async (req, res, next) => {
       filter.financeProvider = financeProviderId;
     }
 
-    if (status && ['PENDING', 'PARTIAL', 'COMPLETED', 'CANCELLED'].includes(status)) {
+    if (status && ['PENDING', 'COMPLETED', 'CANCELLED'].includes(status)) {
       filter.status = status;
     }
 
@@ -250,7 +219,6 @@ exports.listFinanceDisbursements = async (req, res, next) => {
       populate: [
         { path: 'booking', select: 'bookingNumber customerDetails.name discountedAmount receivedAmount balanceAmount' },
         { path: 'financeProvider', select: 'name code' },
-        { path: 'bank', select: 'name accountNumber ifsc' },
         { path: 'createdBy', select: 'name email' },
         { path: 'ledgerEntry', select: 'amount paymentMode transactionReference createdAt' }
       ],
@@ -282,7 +250,6 @@ exports.getFinanceDisbursement = async (req, res, next) => {
     const disbursement = await FinanceDisbursement.findById(id)
       .populate('booking', 'bookingNumber customerDetails.name discountedAmount receivedAmount balanceAmount payment')
       .populate('financeProvider', 'name code')
-      .populate('bank', 'name accountNumber ifsc')
       .populate('createdBy', 'name email')
       .populate('ledgerEntry', 'amount paymentMode transactionReference createdAt');
 
@@ -307,11 +274,7 @@ exports.updateFinanceDisbursement = async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
-      receivedAmount,
-      paymentMode,
-      bankId,
-      transactionReference,
-      remark,
+      amount,
       status
     } = req.body;
 
@@ -321,7 +284,8 @@ exports.updateFinanceDisbursement = async (req, res, next) => {
 
     const disbursement = await FinanceDisbursement.findById(id)
       .populate('booking', 'receivedAmount discountedAmount')
-      .populate('ledgerEntry', '_id');
+      .populate('ledgerEntry', '_id')
+      .populate('financeProvider', 'name');
 
     if (!disbursement) {
       return next(new AppError('Finance disbursement not found', 404));
@@ -340,39 +304,22 @@ exports.updateFinanceDisbursement = async (req, res, next) => {
 
     const options = useTransactions && session ? { session } : {};
     let amountChanged = false;
-    let oldReceivedAmount = disbursement.receivedAmount;
+    let oldAmount = disbursement.amount;
 
-    // Update received amount if provided
-    if (receivedAmount !== undefined) {
-      const newReceivedAmount = toNum(receivedAmount);
+    // Update amount if provided
+    if (amount !== undefined) {
+      const newAmount = toNum(amount);
       
-      if (newReceivedAmount < 0) {
-        return next(new AppError('Received amount must be non-negative', 400));
+      if (newAmount <= 0) {
+        return next(new AppError('Amount must be greater than 0', 400));
       }
 
-      if (newReceivedAmount > disbursement.disbursementAmount) {
-        return next(new AppError('Received amount cannot exceed disbursement amount', 400));
-      }
-
-      disbursement.receivedAmount = newReceivedAmount;
+      disbursement.amount = newAmount;
       amountChanged = true;
-
-      // Update status based on received amount
-      if (newReceivedAmount === 0) {
-        disbursement.status = 'PENDING';
-      } else if (newReceivedAmount < disbursement.disbursementAmount) {
-        disbursement.status = 'PARTIAL';
-      } else {
-        disbursement.status = 'COMPLETED';
-      }
     }
 
-    // Update other fields if provided
-    if (paymentMode) disbursement.paymentMode = paymentMode;
-    if (bankId) disbursement.bank = bankId;
-    if (transactionReference !== undefined) disbursement.transactionReference = transactionReference;
-    if (remark !== undefined) disbursement.remark = remark;
-    if (status && ['PENDING', 'PARTIAL', 'COMPLETED', 'CANCELLED'].includes(status)) {
+    // Update status if provided
+    if (status && ['PENDING', 'COMPLETED', 'CANCELLED'].includes(status)) {
       disbursement.status = status;
     }
 
@@ -380,15 +327,14 @@ exports.updateFinanceDisbursement = async (req, res, next) => {
 
     // Update ledger and booking if amount changed
     if (amountChanged && disbursement.ledgerEntry) {
-      const amountDifference = disbursement.receivedAmount - oldReceivedAmount;
+      const amountDifference = disbursement.amount - oldAmount;
 
       // Update ledger entry
       await Ledger.findByIdAndUpdate(
         disbursement.ledgerEntry,
         { 
           $set: { 
-            amount: disbursement.receivedAmount,
-            paymentMode: disbursement.paymentMode
+            amount: disbursement.amount
           }
         },
         options
@@ -421,7 +367,6 @@ exports.updateFinanceDisbursement = async (req, res, next) => {
     const updatedDisbursement = await FinanceDisbursement.findById(id)
       .populate('booking', 'bookingNumber customerDetails.name discountedAmount receivedAmount balanceAmount')
       .populate('financeProvider', 'name code')
-      .populate('bank', 'name accountNumber ifsc')
       .populate('createdBy', 'name email')
       .populate('ledgerEntry', 'amount paymentMode transactionReference createdAt');
 
@@ -451,12 +396,16 @@ exports.getDisbursementsByBooking = async (req, res, next) => {
 
     const disbursements = await FinanceDisbursement.find({ booking: bookingId })
       .populate('financeProvider', 'name code')
-      .populate('bank', 'name accountNumber ifsc')
       .populate('createdBy', 'name email')
       .populate('ledgerEntry', 'amount paymentMode transactionReference createdAt')
       .sort({ disbursementDate: -1 });
 
-    const totalDisbursed = disbursements.reduce((sum, d) => sum + (d.receivedAmount || 0), 0);
+    const totalDisbursed = disbursements.reduce((sum, d) => {
+      if (d.status !== 'CANCELLED') {
+        return sum + (d.amount || 0);
+      }
+      return sum;
+    }, 0);
 
     res.json({
       success: true,

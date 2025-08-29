@@ -1,0 +1,12 @@
+{"timestamp":"2025-08-22 00:16:02","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-22 00:16:02","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-22 09:47:59","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-22 09:47:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-22 10:07:09","level":"\u001b[31MERROR\u001b[39M","message":"Error getting commission payments: Cast to ObjectId failed for value \"{}\" (type string) at path \"subdealer_id\" for model \"CommissionPayment\"","stack":null}
+{"timestamp":"2025-08-22 11:05:56","level":"\u001b[31MERROR\u001b[39M","message":"createOnAccountReceipt error: Cast to ObjectId failed for value \"Admin1\" (type string) at path \"_id\" for model \"Bank\"","stack":null}
+{"timestamp":"2025-08-22 18:13:52","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-22 18:13:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-22 18:31:09","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-22 18:31:09","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-22 18:34:23","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-22 18:34:23","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

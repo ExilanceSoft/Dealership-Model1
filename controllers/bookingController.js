@@ -12,6 +12,7 @@ const FinanceProvider = require('../models/FinanceProvider');
 const FinancerRate = require('../models/FinancerRate');
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
+const multer = require('multer');
 const Color = require('../models/Color');
 const { generatePDFFromHtml } = require('../utils/pdfGenerator1');
 const qrController = require('../controllers/qrController');
@@ -20,7 +21,252 @@ const KYC = require('../models/KYC');
 const FinanceLetter = require('../models/FinanceLetter');
 const { generateOTP, sendOTPSMS } = require('../utils/otpService');
 const Role = require('../models/Role')
+// Add these imports at the top of the file
+const BrokerLedger = require('../models/BrokerLedger');
 // Configure Handlebars helpers
+
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads/documents');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `doc-${uniqueSuffix}${ext}`);
+  }
+});
+
+const documentUpload = multer({
+  storage: documentStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /pdf|jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only PDF, JPEG, JPG, and PNG files are allowed'));
+    }
+  }
+});
+// Upload deal form
+// Upload deal form
+exports.uploadDealForm = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const bookingId = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      // Delete the uploaded file if booking ID is invalid
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      // Delete the uploaded file if booking doesn't exist
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Delete old deal form if exists
+    if (booking.dealForm && booking.dealForm.path) {
+      try {
+        fs.unlinkSync(path.join(__dirname, '../', booking.dealForm.path));
+      } catch (err) {
+        console.warn('Could not delete old deal form:', err.message);
+      }
+    }
+
+    // Update booking with new deal form and set status to COMPLETED
+    booking.dealForm = {
+      path: `/uploads/documents/${req.file.filename}`,
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      uploadedAt: new Date(),
+      uploadedBy: req.user.id
+    };
+    
+    // Update deal form status
+    booking.dealFormStatus = 'COMPLETED';
+
+    await booking.save();
+
+    await AuditLog.create({
+      action: 'UPLOAD_DEAL_FORM',
+      entity: 'Booking',
+      entityId: booking._id,
+      user: req.user.id,
+      ip: req.ip,
+      status: 'SUCCESS',
+      metadata: {
+        filename: req.file.originalname,
+        size: req.file.size
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Deal form uploaded successfully',
+      data: {
+        dealForm: booking.dealForm,
+        dealFormStatus: booking.dealFormStatus
+      }
+    });
+
+  } catch (err) {
+    // Clean up uploaded file on error
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupErr) {
+        console.error('Error cleaning up file:', cleanupErr);
+      }
+    }
+
+    console.error('Error uploading deal form:', err);
+    
+    await AuditLog.create({
+      action: 'UPLOAD_DEAL_FORM',
+      entity: 'Booking',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading deal form',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Upload delivery challan
+// Upload delivery challan
+exports.uploadDeliveryChallan = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const bookingId = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Delete old delivery challan if exists
+    if (booking.deliveryChallan && booking.deliveryChallan.path) {
+      try {
+        fs.unlinkSync(path.join(__dirname, '../', booking.deliveryChallan.path));
+      } catch (err) {
+        console.warn('Could not delete old delivery challan:', err.message);
+      }
+    }
+
+    // Update booking with new delivery challan and set status to COMPLETED
+    booking.deliveryChallan = {
+      path: `/uploads/documents/${req.file.filename}`,
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      uploadedAt: new Date(),
+      uploadedBy: req.user.id
+    };
+    
+    // Update delivery challan status
+    booking.deliveryChallanStatus = 'COMPLETED';
+
+    await booking.save();
+
+    await AuditLog.create({
+      action: 'UPLOAD_DELIVERY_CHALLAN',
+      entity: 'Booking',
+      entityId: booking._id,
+      user: req.user.id,
+      ip: req.ip,
+      status: 'SUCCESS',
+      metadata: {
+        filename: req.file.originalname,
+        size: req.file.size
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Delivery challan uploaded successfully',
+      data: {
+        deliveryChallan: booking.deliveryChallan,
+        deliveryChallanStatus: booking.deliveryChallanStatus
+      }
+    });
+
+  } catch (err) {
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupErr) {
+        console.error('Error cleaning up file:', cleanupErr);
+      }
+    }
+
+    console.error('Error uploading delivery challan:', err);
+    
+    await AuditLog.create({
+      action: 'UPLOAD_DELIVERY_CHALLAN',
+      entity: 'Booking',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading delivery challan',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
 Handlebars.registerHelper('formatDate', function(date) {
     return moment(date).format('DD/MM/YYYY');
 });
@@ -55,6 +301,111 @@ Handlebars.registerHelper('gt', function(a, b) {
 Handlebars.registerHelper('divide', function(a, b) {
     return a / b;
 });
+// Gracefully handle broker-ledger failures without breaking booking creation
+const handleBrokerLedgerError = async (error, context, phase, extra = {}) => {
+  try {
+    console.error(`[BrokerLedger:${phase}] ${context}`, error);
+    await AuditLog.create({
+      action: 'BROKER_LEDGER_' + (phase || 'ERROR'),
+      entity: 'BrokerLedger',
+      entityId: extra.ledgerId,
+      user: extra.userId,
+      ip: extra.ip,
+      status: 'FAILED',
+      metadata: {
+        context,
+        bookingId: extra.bookingId,
+        brokerId: extra.brokerId,
+        payload: extra.payload || null,
+      },
+      error: error?.message || String(error),
+    });
+  } catch (logErr) {
+    console.error('Failed to write audit log for broker ledger error:', logErr);
+  }
+};
+
+// Add this helper function before the createBooking function
+// Update the calculateBrokerCommission function
+const calculateBrokerCommission = async (brokerId, exchangeAmount, branchId) => {
+  try {
+    if (!brokerId || !branchId) return 0;
+    
+    // Populate the broker with branch configurations
+    const broker = await Broker.findById(brokerId)
+      .populate({
+        path: 'branches.branch',
+        select: 'name'
+      })
+      .lean();
+    
+    if (!broker) return 0;
+
+    // Find the branch configuration for this specific branch
+    const branchCfg = (broker.branches || []).find(
+      (b) => b.branch && String(b.branch._id) === String(branchId)
+    );
+    
+    if (!branchCfg) return 0;
+
+    // Check if we have commission configurations
+    if (!branchCfg.commissionConfigurations || branchCfg.commissionConfigurations.length === 0) {
+      return 0;
+    }
+
+    // Get the active commission configuration (assuming only one active at a time)
+    const activeCommissionConfig = branchCfg.commissionConfigurations.find(
+      config => config.isActive
+    );
+
+    if (!activeCommissionConfig) return 0;
+
+    if (activeCommissionConfig.commissionType === 'FIXED') {
+      return Number(activeCommissionConfig.fixedCommission || 0);
+    }
+
+    if (activeCommissionConfig.commissionType === 'VARIABLE' && 
+        Array.isArray(activeCommissionConfig.commissionRanges)) {
+      
+      // First, populate the commission ranges with their master data if needed
+      const populatedRanges = await Promise.all(
+        activeCommissionConfig.commissionRanges.map(async (range) => {
+          if (range.commissionRangeMaster) {
+            const rangeMaster = await mongoose.model('CommissionRangeMaster')
+              .findById(range.commissionRangeMaster)
+              .lean();
+            return {
+              ...range,
+              minAmount: rangeMaster?.minAmount || 0,
+              maxAmount: rangeMaster?.maxAmount || null,
+              amount: range.amount
+            };
+          }
+          return range;
+        })
+      );
+
+      // Sort ranges by minAmount for proper evaluation
+      populatedRanges.sort((a, b) => a.minAmount - b.minAmount);
+
+      for (const range of populatedRanges) {
+        const min = Number(range.minAmount || 0);
+        const max = range.maxAmount ? Number(range.maxAmount) : null;
+        
+        if (max === null) {
+          // This is the "and above" range
+          if (exchangeAmount >= min) return Number(range.amount || 0);
+        } else if (exchangeAmount >= min && exchangeAmount <= max) {
+          return Number(range.amount || 0);
+        }
+      }
+    }
+    return 0;
+  } catch (err) {
+    console.error('calculateBrokerCommission error:', err);
+    return 0;
+  }
+};
 
 // Load the booking form template
 const templatePath = path.join(__dirname, '../templates/bookingFormTemplate.html');
@@ -112,727 +463,673 @@ const generateBookingFormHTML = async (booking, saveToFile = true) => {
 
 // Helper function to calculate discounts
 const calculateDiscounts = (priceComponents, discountAmount, discountType) => {
-    const eligibleComponents = priceComponents.filter(c => 
-        c.isDiscountable && c.headerDetails?.header_key !== 'HYPOTHECATION CHARGES (IF APPLICABLE)'
-    );
+  const components = priceComponents.map((c) => ({ ...c }));
+  const DISALLOW_KEY = 'HYPOTHECATION CHARGES (IF APPLICABLE)';
 
-    if (eligibleComponents.length === 0 && discountAmount > 0) {
-        throw new Error('No discountable components available');
-    }
+  const eligible = components.filter(
+    (c) =>
+      c.isDiscountable &&
+      (!c.headerDetails?.header_key || c.headerDetails?.header_key !== DISALLOW_KEY)
+  );
 
-    eligibleComponents.sort((a, b) => {
-        const gstA = a.headerDetails?.metadata?.gst_rate || 0;
-        const gstB = b.headerDetails?.metadata?.gst_rate || 0;
-        return gstB - gstA;
-    });
+  if (eligible.length === 0 && discountAmount > 0) {
+    throw new Error('No discountable components available');
+  }
 
-    const totalEligible = eligibleComponents.reduce((sum, c) => sum + c.originalValue, 0);
-    let remainingDiscount = discountType === 'PERCENTAGE'
-        ? (totalEligible * discountAmount) / 100 
-        : discountAmount;
+  // higher GST first
+  eligible.sort((a, b) => {
+    const gstA = a.headerDetails?.metadata?.gst_rate || a.metadata?.gstRate || 0;
+    const gstB = b.headerDetails?.metadata?.gst_rate || b.metadata?.gstRate || 0;
+    return gstB - gstA;
+  });
 
-    return priceComponents.map(component => {
-        if (component.headerDetails?.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
-            return component;
-        }
-        
-        if (!component.isDiscountable) {
-            return component;
-        }
+  const totalEligible = eligible.reduce((s, c) => s + Number(c.originalValue || 0), 0);
+  let remaining =
+    discountType === 'PERCENTAGE' ? (totalEligible * Number(discountAmount || 0)) / 100 : Number(discountAmount || 0);
 
-        const targetComponent = eligibleComponents.find(c => c.header === component.header);
-        if (!targetComponent || remainingDiscount <= 0) {
-            return component;
-        }
+  for (const c of components) {
+    if (!c.isDiscountable) continue;
+    if (c.headerDetails?.header_key === DISALLOW_KEY) continue;
+    if (remaining <= 0) break;
 
-        const maxDiscount = component.originalValue * 0.95;
-        const desiredDiscount = Math.min(maxDiscount, remainingDiscount);
-        remainingDiscount -= desiredDiscount;
+    const maxDiscount = Number(c.originalValue) * 0.95; // cannot reduce below 5%
+    const currentDiscount = Number(c.originalValue) - Number(c.discountedValue || c.originalValue);
+    const canStillDiscount = Math.max(0, maxDiscount - currentDiscount);
+    const apply = Math.min(canStillDiscount, remaining);
 
-        return {
-            ...component,
-            discountedValue: component.originalValue - desiredDiscount
-        };
-    });
+    c.discountedValue = Number(c.originalValue) - (currentDiscount + apply);
+    remaining -= apply;
+  }
+
+  return components;
 };
 
 const validateDiscountLimits = (priceComponents) => {
-    const violations = priceComponents.filter(
-        c => c.isDiscountable && 
-             c.headerDetails?.header_key !== 'HYPOTHECATION CHARGES (IF APPLICABLE)' &&
-             c.discountedValue < (0.05 * c.originalValue)
-    );
-
-    if (violations.length > 0) {
-        const itemNames = violations.map(v => v.headerDetails?.header_key).join(', ');
-        throw new Error(`Discount cannot exceed 95% for: ${itemNames}`);
-    }
+  const bad = priceComponents.filter((c) => {
+    if (!c.isDiscountable) return false;
+    if (c.headerDetails?.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') return false;
+    return Number(c.discountedValue) < Number(c.originalValue) * 0.05;
+  });
+  if (bad.length) {
+    const names = bad.map((b) => b.headerDetails?.header_key || 'UNKNOWN').join(', ');
+    throw new Error(`Discount cannot exceed 95% for: ${names}`);
+  }
 };
 
 // Create a new booking
 exports.createBooking = async (req, res) => {
-    try {
-        // Validate required fields
-        const requiredFields = [
-            { field: 'model_id', message: 'Model selection is required' },
-            { field: 'model_color', message: 'Color selection is required' },
-            { field: 'customer_type', message: 'Customer type (B2B/B2C/CSD) is required' },
-            { field: 'rto_type', message: 'RTO state (MH/BH/CRTM) is required' },
-            { field: 'customer_details', message: 'Customer details are required' },
-            { field: 'payment', message: 'Payment details are required' }
-        ];
-        
-        const missingFields = requiredFields.filter(item => !req.body[item.field]);
-        if (missingFields.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: `Missing required fields: ${missingFields.map(f => f.message).join(', ')}`
-            });
-        }
-
-        // Validate customer type
-        if (!['B2B', 'B2C', 'CSD'].includes(req.body.customer_type)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid customer type. Must be B2B, B2C, or CSD'
-            });
-        }
-
-        // Check if either branch or subdealer is provided (but not both)
-        if (!req.body.branch && !req.body.subdealer) {
-            return res.status(400).json({
-                success: false,
-                message: 'Either branch or subdealer selection is required'
-            });
-        }
-
-        if (req.body.branch && req.body.subdealer) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot select both branch and subdealer'
-            });
-        }
-
-        let entityId, entityType, entityModel, bookingType;
-        if (req.body.branch) {
-            const branchExists = await mongoose.model('Branch').exists({ _id: req.body.branch });
-            if (!branchExists) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid branch selected'
-                });
-            }
-            entityId = req.body.branch;
-            entityType = 'branch';
-            entityModel = 'Branch';
-            bookingType = 'BRANCH';
-        } else {
-            const subdealerExists = await mongoose.model('Subdealer').exists({ _id: req.body.subdealer });
-            if (!subdealerExists) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid subdealer selected'
-                });
-            }
-            entityId = req.body.subdealer;
-            entityType = 'subdealer';
-            entityModel = 'Subdealer';
-            bookingType = 'SUBDEALER';
-        }
-
-        // Handle user assignment based on booking type
-        let userAssignment = {};
-        if (bookingType === 'SUBDEALER') {
-            // For subdealer booking, find the subdealer user
-            const subdealerRole = await Role.findOne({ name: 'SUBDEALER' });
-            if (!subdealerRole) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'SUBDEALER role not found in system'
-                });
-            }
-
-            const subdealerUser = await User.findOne({ 
-                subdealer: entityId,
-                roles: subdealerRole._id,
-                status: 'ACTIVE'
-            }).populate('roles');
-            
-            if (!subdealerUser) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'No active subdealer user found for this subdealer'
-                });
-            }
-            
-            userAssignment.subdealerUser = subdealerUser._id;
-        } else {
-            // For branch booking, handle sales executive
-            if (req.body.sales_executive) {
-                if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Invalid sales executive ID format'
-                    });
-                }
-
-                const salesExecutive = await User.findById(req.body.sales_executive).populate('roles');
-                
-                if (!salesExecutive || salesExecutive.status !== 'ACTIVE') {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Invalid or inactive sales executive selected'
-                    });
-                }
-
-                if (!salesExecutive.branch || salesExecutive.branch.toString() !== entityId.toString()) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Sales executive must belong to the selected branch'
-                    });
-                }
-                
-                userAssignment.salesExecutive = req.body.sales_executive;
-            } else {
-                // Default to current user for branch bookings
-                userAssignment.salesExecutive = req.user.id;
-            }
-        }
-
-        // Validate salutation
-        const validSalutations = ['Mr.', 'Mrs.', 'Miss', 'Dr.', 'Prof.'];
-        if (!req.body.customer_details.salutation || 
-            !validSalutations.includes(req.body.customer_details.salutation)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Valid salutation (Mr., Mrs., Miss, Dr., Prof.) is required'
-            });
-        }
-
-        // Validate model and color
-        const model = await Model.findById(req.body.model_id).populate('colors');
-        if (!model) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid model selected'
-            });
-        }
-
-        // Check if model type matches customer type for CSD
-        if (req.body.customer_type === 'CSD' && model.type !== 'CSD') {
-            return res.status(400).json({
-                success: false,
-                message: 'Selected model is not available for CSD customers'
-            });
-        }
-
-        const color = await Color.findById(req.body.model_color);
-        if (!color || !model.colors.some(c => c._id.toString() === req.body.model_color.toString())) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid color selected'
-            });
-        }
-
-        // Validate GSTIN for B2B (not required for CSD)
-        if (req.body.customer_type === 'B2B' && !req.body.gstin) {
-            return res.status(400).json({
-                success: false,
-                message: 'GSTIN is required for B2B customers'
-            });
-        }
-
-        // Prevent exchange for subdealer bookings
-        if (req.body.exchange?.is_exchange && bookingType === 'SUBDEALER') {
-            return res.status(400).json({
-                success: false,
-                message: 'Exchange is not allowed for subdealer bookings'
-            });
-        }
-
-        // Get all headers for the model type
-        const headers = await Header.find({ type: model.type }).sort({ priority: 1 });
-
-        // Create price components based on branch or subdealer
-        const priceComponents = await Promise.all(
-            headers.map(async (header) => {
-                // Find price data for this entity (branch or subdealer)
-                const priceData = model.prices.find(p => 
-                    p.header_id.equals(header._id) && 
-                    (entityType === 'branch' ? 
-                        p.branch_id?.equals(entityId) : 
-                        p.subdealer_id?.equals(entityId))
-                );
-
-                // Skip if no price data found for this entity
-                if (!priceData) return null;
-
-                // Special handling for hypothecation charges
-                if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
-                    return {
-                        header: header._id,
-                        headerDetails: header,
-                        originalValue: priceData.value,
-                        discountedValue: req.body.hpa ? priceData.value : 0,
-                        isDiscountable: false,
-                        isMandatory: false,
-                        metadata: priceData.metadata || {}
-                    };
-                }
-
-                // Handle mandatory components - always include these
-                if (header.is_mandatory) {
-                    return {
-                        header: header._id,
-                        headerDetails: header,
-                        originalValue: priceData.value,
-                        discountedValue: priceData.value,
-                        isDiscountable: header.is_discount,
-                        isMandatory: true,
-                        metadata: priceData.metadata || {}
-                    };
-                }
-
-                // Handle optional components - only include if explicitly selected
-                if (req.body.optionalComponents && 
-                    Array.isArray(req.body.optionalComponents) &&
-                    req.body.optionalComponents.includes(header._id.toString())) {
-                    return {
-                        header: header._id,
-                        headerDetails: header,
-                        originalValue: priceData.value,
-                        discountedValue: priceData.value,
-                        isDiscountable: header.is_discount,
-                        isMandatory: false,
-                        metadata: priceData.metadata || {}
-                    };
-                }
-
-                // Skip all other optional components that weren't selected
-                return null;
-            })
-        );
-
-        // Filter out null components
-        const filteredComponents = priceComponents.filter(c => c !== null);
-
-        // Verify at least one price component exists
-        if (filteredComponents.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: `No valid price components found for this model and ${entityType}`
-            });
-        }
-
-        // Calculate base amount using filtered components
-        const baseAmount = filteredComponents.reduce((sum, c) => sum + c.discountedValue, 0);
-
-        // Set HPA charges
-        const hpaHeader = headers.find(h => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
-        const hypothecationCharges = req.body.hpa 
-            ? (model.prices.find(
-                p => p.header_id.equals(hpaHeader?._id) && 
-                    (entityType === 'branch' ? 
-                        p.branch_id?.equals(entityId) : 
-                        p.subdealer_id?.equals(entityId))
-                ))?.value || 0 
-            : 0;
-
-        // Set RTO amount
-        let rtoAmount = 0;
-        if (['BH', 'CRTM'].includes(req.body.rto_type)) {
-            rtoAmount = req.body.rto_type === 'BH' ? 5000 : 4500;
-        }
-
-        // Handle accessories
-        let accessoriesTotal = 0;
-        let accessories = [];
-
-        if (req.body.accessories?.selected?.length > 0) {
-            const accessoryIds = req.body.accessories.selected.map(acc => {
-                if (!mongoose.Types.ObjectId.isValid(acc.id)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Invalid accessory ID: ${acc.id}`
-                    });
-                }
-                return new mongoose.Types.ObjectId(acc.id);
-            });
-
-            const validAccessories = await Accessory.find({
-                _id: { $in: accessoryIds },
-                status: 'active'
-            }).lean();
-
-            if (validAccessories.length !== req.body.accessories.selected.length) {
-                const missingIds = req.body.accessories.selected
-                    .filter(a => !validAccessories.some(v => v._id.toString() === a.id))
-                    .map(a => a.id);
-                return res.status(400).json({
-                    success: false,
-                    message: `Invalid accessory IDs: ${missingIds.join(', ')}`
-                });
-            }
-
-            const incompatibleAccessories = validAccessories.filter(
-                a => !a.applicable_models.some(m => m.toString() === req.body.model_id.toString())
-            );
-            if (incompatibleAccessories.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Incompatible accessories: ${
-                        incompatibleAccessories.map(a => a.name).join(', ')
-                    }`
-                });
-            }
-
-            const accessoriesTotalHeader = await Header.findOne({
-                header_key: 'ACCESSORIES TOTAL',
-                type: model.type
-            });
-            if (!accessoriesTotalHeader) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'ACCESSORIES TOTAL header not configured'
-                });
-            }
-
-            const accessoriesTotalPrice = model.prices.find(
-                p => p.header_id.equals(accessoriesTotalHeader._id) && 
-                    (entityType === 'branch' ? 
-                        p.branch_id?.equals(entityId) : 
-                        p.subdealer_id?.equals(entityId))
-            )?.value || 0;
-
-            const selectedAccessoriesTotal = validAccessories.reduce(
-                (sum, acc) => sum + acc.price, 
-                0
-            );
-
-            accessoriesTotal = Math.max(selectedAccessoriesTotal, accessoriesTotalPrice);
-            
-            accessories = validAccessories.map(acc => ({
-                accessory: acc._id,
-                price: acc.price,
-                discount: 0
-            }));
-
-            if (selectedAccessoriesTotal < accessoriesTotalPrice) {
-                const difference = accessoriesTotalPrice - selectedAccessoriesTotal;
-                accessories.push({
-                    accessory: null, 
-                    price: difference,
-                    discount: 0
-                });
-            }
-        }
-
-        // Handle exchange (only for branch bookings)
-        let exchangeDetails = null;
-        if (req.body.exchange?.is_exchange && bookingType === 'BRANCH') {
-            if (!req.body.exchange.broker_id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Broker selection is required for exchange'
-                });
-            }
-
-            const broker = await Broker.findById(req.body.exchange.broker_id);
-            if (!broker) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid broker selected'
-                });
-            }
-
-            // Check broker-level OTP requirement
-            if (broker.otp_required) {
-                if (!req.body.exchange.otp) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'OTP is required for this broker'
-                    });
-                }
-
-                // Verify against broker-level OTP
-                const now = new Date();
-                if (!broker.otp || 
-                    broker.otp !== req.body.exchange.otp || 
-                    !broker.otpExpiresAt || 
-                    broker.otpExpiresAt < now) {
-                    console.log('OTP verification failed:', {
-                        storedOTP: broker.otp,
-                        providedOTP: req.body.exchange.otp,
-                        expiresAt: broker.otpExpiresAt,
-                        currentTime: now
-                    });
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Invalid or expired OTP'
-                    });
-                }
-
-                // Clear OTP after successful verification
-                broker.otp = null;
-                broker.otpExpiresAt = null;
-                await broker.save();
-            }
-            exchangeDetails = {
-                broker: req.body.exchange.broker_id,
-                price: req.body.exchange.exchange_price,
-                vehicleNumber: req.body.exchange.vehicle_number,
-                chassisNumber: req.body.exchange.chassis_number,
-                otpVerified: broker.otp_required ? true : false,
-                status: 'PENDING'
-            };
-        }
-
-        // Handle payment
-        let payment = {};
-        if (req.body.payment.type.toLowerCase() === 'finance') {
-            if (!req.body.payment.financer_id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Financer selection is required'
-                });
-            }
-
-            const financer = await FinanceProvider.findById(req.body.payment.financer_id);
-            if (!financer) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid financer selected'
-                });
-            }
-
-            let gcAmount = 0;
-            if (req.body.payment.gc_applicable) {
-                const financerRate = await FinancerRate.findOne({
-                    financeProvider: req.body.payment.financer_id,
-                    branch: entityType === 'branch' ? entityId : null,
-                    subdealer: entityType === 'subdealer' ? entityId : null,
-                    is_active: true
-                });
-
-                if (!financerRate) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Financer rate not found for this ${entityType}`
-                    });
-                }
-
-                gcAmount = (baseAmount * financerRate.gcRate) / 100;
-            }
-
-            payment = {
-                type: 'FINANCE',
-                financer: req.body.payment.financer_id,
-                scheme: req.body.payment.scheme || null,
-                emiPlan: req.body.payment.emi_plan || null,
-                gcApplicable: req.body.payment.gc_applicable,
-                gcAmount: gcAmount
-            };
-        } else {
-            payment = {
-                type: 'CASH'
-            };
-        }
-
-        // Check discount scenarios
-        const modelHasDiscount = model.model_discount && model.model_discount > 0;
-        const isApplyingDiscount = req.body.discount && req.body.discount.value > 0;
-
-        // Initialize variables for status and form generation
-        let status = 'PENDING_APPROVAL';
-        let requiresApproval = false;
-        let approvalNote = '';
-
-        // Determine status based on discount scenarios
-        if (modelHasDiscount || isApplyingDiscount) {
-            status = 'PENDING_APPROVAL';
-            requiresApproval = true;
-            approvalNote = 'Discount requires approval';
-        } else {
-            // No discounts - status remains DRAFT
-            status = 'PENDING_APPROVAL';
-        }
-
-        // Apply discounts if any
-        let discounts = [];
-        let totalDiscount = 0;
-        
-        if (modelHasDiscount) {
-            discounts.push({
-                amount: model.model_discount,
-                type: 'FIXED',
-                approvalStatus: 'PENDING',
-                approvalNote: 'Model discount',
-                isModelDiscount: true,
-                appliedOn: new Date()
-            });
-        }
-
-        if (isApplyingDiscount) {
-            discounts.push({
-                amount: req.body.discount.value,
-                type: req.body.discount.type === 'percentage' ? 'PERCENTAGE' : 'FIXED',
-                approvalStatus: 'PENDING',
-                approvalNote: 'Discount applied',
-                isModelDiscount: false,
-                appliedOn: new Date()
-            });
-        }
-
-        // Calculate all discounts if any exist
-        if (discounts.length > 0) {
-            let updatedComponents = [...filteredComponents];
-            
-            for (const discount of discounts) {
-                updatedComponents = calculateDiscounts(updatedComponents, discount.amount, discount.type);
-                validateDiscountLimits(updatedComponents);
-            }
-            // Update components with discounted values
-            updatedComponents.forEach(updated => {
-                const original = filteredComponents.find(c => c.header?.toString() === updated.header?.toString());
-                if (original) {
-                    original.discountedValue = updated.discountedValue;
-                }
-            });
-
-            totalDiscount = filteredComponents.reduce((sum, component) => {
-                return sum + (component.originalValue - component.discountedValue);
-            }, 0);
-        }
-
-        // Calculate total amounts
-        const totalAmount = baseAmount + accessoriesTotal + rtoAmount;
-        const discountedAmount = totalAmount - totalDiscount;
-
-        // Create booking data object
-        const bookingData = {
-            model: req.body.model_id,
-            color: req.body.model_color,
-            customerType: req.body.customer_type,
-            isCSD: req.body.customer_type === 'CSD',
-            gstin: req.body.gstin || '',
-            rto: req.body.rto_type,
-            rtoAmount: ['BH', 'CRTM'].includes(req.body.rto_type) ? rtoAmount : undefined,
-            hpa: req.body.hpa || false,
-            hypothecationCharges: hypothecationCharges,
-            insuranceStatus: 'AWAITING',
-            customerDetails: {
-                salutation: req.body.customer_details.salutation,
-                name: req.body.customer_details.name,
-                panNo: req.body.customer_details.pan_no || '',
-                dob: req.body.customer_details.dob,
-                occupation: req.body.customer_details.occupation,
-                address: req.body.customer_details.address,
-                taluka: req.body.customer_details.taluka,
-                district: req.body.customer_details.district,
-                pincode: req.body.customer_details.pincode,
-                mobile1: req.body.customer_details.mobile1,
-                mobile2: req.body.customer_details.mobile2 || '',
-                aadharNumber: req.body.customer_details.aadhar_number || '',
-                nomineeName: req.body.customer_details.nomineeName || undefined,
-                nomineeRelation: req.body.customer_details.nomineeRelation || undefined,
-                nomineeAge: req.body.customer_details.nomineeAge ? parseInt(req.body.customer_details.nomineeAge) : undefined
-            },
-            exchange: req.body.exchange ? req.body.exchange.is_exchange : false,
-            exchangeDetails: exchangeDetails,
-            payment: payment,
-            accessories: accessories,
-            priceComponents: filteredComponents,
-            discounts: discounts,
-            accessoriesTotal: accessoriesTotal,
-            totalAmount: totalAmount,
-            discountedAmount: discountedAmount,
-            status: status,
-            bookingType: bookingType,
-            [entityType]: entityId, // This will be either branch or subdealer
-            createdBy: req.user.id,
-            formGenerated: false,
-            formPath: '',
-            ...userAssignment // This includes either salesExecutive or subdealerUser based on booking type
-        };
-
-        const booking = await Booking.create(bookingData);
-        const qrCode = await qrController.generateQRCode(booking._id);
-        booking.qrCode = qrCode;
-        await booking.save();
-
-        // Populate the booking with all necessary data
-        const populatedBooking = await Booking.findById(booking._id)
-            .populate('modelDetails')
-            .populate('colorDetails')
-            .populate(entityType === 'branch' ? 'branchDetails' : 'subdealerDetails')
-            .populate('createdByDetails')
-            .populate(bookingType === 'SUBDEALER' ? 'subdealerUserDetails' : 'salesExecutiveDetails')
-            .populate({ path: 'priceComponents.header', model: 'Header' })
-            .populate({ path: 'accessories.accessory', model: 'Accessory' })
-            .populate({ path: 'exchangeDetails.broker', model: 'Broker' })
-            .populate({ path: 'payment.financer', model: 'FinanceProvider' });
-
-        // Generate and save the booking form HTML in ALL cases
-        try {
-            const formResult = await generateBookingFormHTML(populatedBooking);
-            populatedBooking.formPath = formResult.url;
-            populatedBooking.formGenerated = true;
-            await populatedBooking.save();
-        } catch (pdfError) {
-            console.error('Error generating booking form HTML:', pdfError);
-            // Continue even if HTML generation fails
-        }
-
-        await AuditLog.create({
-            action: 'CREATE',
-            entity: 'Booking',
-            entityId: booking._id,
-            user: req.user.id,
-            ip: req.ip,
-            metadata: bookingData,
-            status: 'SUCCESS'
-        });
-
-        // Transform the response to show the correct user field based on booking type
-        const responseData = populatedBooking.toObject();
-        if (responseData.bookingType === 'SUBDEALER') {
-            responseData.subdealerUser = responseData.subdealerUserDetails;
-            delete responseData.salesExecutive;
-            delete responseData.salesExecutiveDetails;
-        } else {
-            responseData.salesExecutive = responseData.salesExecutiveDetails;
-        }
-
-        res.status(201).json({
-            success: true,
-            data: responseData
-        });
-    } catch (err) {
-        console.error('Error creating booking:', err);
-        
-        let message = 'Error creating booking';
-        if (err.name === 'ValidationError') {
-            message = Object.values(err.errors).map(val => val.message).join(', ');
-        } else if (err.message) {
-            message = err.message;
-        }
-
-        await AuditLog.create({
-            action: 'CREATE',
-            entity: 'Booking',
-            user: req.user?.id,
-            ip: req.ip,
-            status: 'FAILED',
-            metadata: req.body,
-            error: message
-        }).catch(logErr => console.error('Failed to create audit log:', logErr));
-        
-        res.status(400).json({
-            success: false,
-            message,
-            error: process.env.NODE_ENV === 'development' ? err.stack : undefined
-        });
+  try {
+    // -------- Basic required fields
+    const required = [
+      { key: 'model_id', msg: 'Model selection is required' },
+      { key: 'model_color', msg: 'Color selection is required' },
+      { key: 'customer_type', msg: 'Customer type (B2B/B2C/CSD) is required' },
+      { key: 'rto_type', msg: 'RTO state (MH/BH/CRTM) is required' },
+      { key: 'customer_details', msg: 'Customer details are required' },
+      { key: 'payment', msg: 'Payment details are required' },
+    ];
+    const missing = required.filter((r) => !req.body[r.key]).map((r) => r.msg);
+    if (missing.length) {
+      return res.status(400).json({ success: false, message: `Missing required fields: ${missing.join(', ')}` });
     }
+
+    if (!['B2B', 'B2C', 'CSD'].includes(req.body.customer_type)) {
+      return res.status(400).json({ success: false, message: 'Invalid customer type. Must be B2B, B2C, or CSD' });
+    }
+
+    // -------- Either branch or subdealer (not both)
+    if (!req.body.branch && !req.body.subdealer) {
+      return res.status(400).json({ success: false, message: 'Either branch or subdealer selection is required' });
+    }
+    if (req.body.branch && req.body.subdealer) {
+      return res.status(400).json({ success: false, message: 'Cannot select both branch and subdealer' });
+    }
+
+    let entityId, entityType, bookingType;
+    if (req.body.branch) {
+      const ok = await mongoose.model('Branch').exists({ _id: req.body.branch });
+      if (!ok) return res.status(400).json({ success: false, message: 'Invalid branch selected' });
+      entityId = req.body.branch;
+      entityType = 'branch';
+      bookingType = 'BRANCH';
+    } else {
+      const ok = await mongoose.model('Subdealer').exists({ _id: req.body.subdealer });
+      if (!ok) return res.status(400).json({ success: false, message: 'Invalid subdealer selected' });
+      entityId = req.body.subdealer;
+      entityType = 'subdealer';
+      bookingType = 'SUBDEALER';
+    }
+
+    // -------- Assign user based on booking type
+    const userAssignment = {};
+    if (bookingType === 'SUBDEALER') {
+      const subRole = await Role.findOne({ name: 'SUBDEALER' });
+      if (!subRole) return res.status(400).json({ success: false, message: 'SUBDEALER role not found in system' });
+
+      const subUser = await User.findOne({
+        subdealer: entityId,
+        roles: subRole._id,
+        status: 'ACTIVE',
+      }).populate('roles');
+      if (!subUser) {
+        return res.status(400).json({ success: false, message: 'No active subdealer user found for this subdealer' });
+      }
+      userAssignment.subdealerUser = subUser._id;
+    } else {
+      if (req.body.sales_executive) {
+        if (!mongoose.Types.ObjectId.isValid(req.body.sales_executive)) {
+          return res.status(400).json({ success: false, message: 'Invalid sales executive ID format' });
+        }
+        const se = await User.findById(req.body.sales_executive).populate('roles');
+        if (!se || se.status !== 'ACTIVE') {
+          return res.status(400).json({ success: false, message: 'Invalid or inactive sales executive selected' });
+        }
+        if (!se.branch || String(se.branch) !== String(entityId)) {
+          return res.status(400).json({ success: false, message: 'Sales executive must belong to the selected branch' });
+        }
+        userAssignment.salesExecutive = req.body.sales_executive;
+      } else {
+        userAssignment.salesExecutive = req.user.id;
+      }
+    }
+
+    // -------- Salutation & Model / Color validations
+    const validSalutations = ['Mr.', 'Mrs.', 'Miss', 'Dr.', 'Prof.'];
+    if (!req.body.customer_details.salutation || !validSalutations.includes(req.body.customer_details.salutation)) {
+      return res.status(400).json({ success: false, message: 'Valid salutation (Mr., Mrs., Miss, Dr., Prof.) is required' });
+    }
+
+    const model = await Model.findById(req.body.model_id).populate('colors');
+    if (!model) return res.status(400).json({ success: false, message: 'Invalid model selected' });
+
+    if (req.body.customer_type === 'CSD' && model.type !== 'CSD') {
+      return res.status(400).json({ success: false, message: 'Selected model is not available for CSD customers' });
+    }
+
+    const color = await Color.findById(req.body.model_color);
+    const colorOk = color && (model.colors || []).some((c) => String(c._id) === String(req.body.model_color));
+    if (!colorOk) return res.status(400).json({ success: false, message: 'Invalid color selected' });
+
+    if (req.body.customer_type === 'B2B' && !req.body.gstin) {
+      return res.status(400).json({ success: false, message: 'GSTIN is required for B2B customers' });
+    }
+
+    // -------- Prevent exchange for SUBDEALER
+    if (req.body.exchange?.is_exchange && bookingType === 'SUBDEALER') {
+      return res.status(400).json({ success: false, message: 'Exchange is not allowed for subdealer bookings' });
+    }
+
+    // -------- Headers & price components
+    const headers = await Header.find({ type: model.type }).sort({ priority: 1 }).lean();
+
+    const priceComponentsRaw = await Promise.all(
+      headers.map(async (header) => {
+        const priceData = (model.prices || []).find((p) => {
+          if (!p.header_id) return false;
+          const matchHeader = String(p.header_id) === String(header._id);
+          const matchEntity =
+            entityType === 'branch'
+              ? p.branch_id && String(p.branch_id) === String(entityId)
+              : p.subdealer_id && String(p.subdealer_id) === String(entityId);
+          return matchHeader && matchEntity;
+        });
+
+        if (!priceData) return null;
+
+        if (header.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)') {
+          return {
+            header: header._id,
+            headerDetails: header,
+            originalValue: Number(priceData.value || 0),
+            discountedValue: req.body.hpa ? Number(priceData.value || 0) : 0,
+            isDiscountable: false,
+            isMandatory: false,
+            metadata: priceData.metadata || {},
+          };
+        }
+
+        if (header.is_mandatory) {
+          return {
+            header: header._id,
+            headerDetails: header,
+            originalValue: Number(priceData.value || 0),
+            discountedValue: Number(priceData.value || 0),
+            isDiscountable: !!header.is_discount,
+            isMandatory: true,
+            metadata: priceData.metadata || {},
+          };
+        }
+
+        const selected = Array.isArray(req.body.optionalComponents)
+          ? req.body.optionalComponents.map(String)
+          : [];
+        if (selected.includes(String(header._id))) {
+          return {
+            header: header._id,
+            headerDetails: header,
+            originalValue: Number(priceData.value || 0),
+            discountedValue: Number(priceData.value || 0),
+            isDiscountable: !!header.is_discount,
+            isMandatory: false,
+            metadata: priceData.metadata || {},
+          };
+        }
+
+        return null;
+      })
+    );
+
+    const priceComponents = priceComponentsRaw.filter(Boolean);
+    if (!priceComponents.length) {
+      return res.status(400).json({
+        success: false,
+        message: `No valid price components found for this model and ${entityType}`,
+      });
+    }
+
+    // base amount from components (HPA included only if req.body.hpa true)
+    const baseAmount = priceComponents.reduce((s, c) => s + Number(c.discountedValue || 0), 0);
+
+    // Hypothecation (explicit)
+    const hpaHeader = headers.find((h) => h.header_key === 'HYPOTHECATION CHARGES (IF APPLICABLE)');
+    const hypothecationCharges =
+      req.body.hpa && hpaHeader
+        ? Number(
+            (model.prices || []).find((p) => {
+              const matchHeader = String(p.header_id) === String(hpaHeader._id);
+              const matchEntity =
+                entityType === 'branch'
+                  ? p.branch_id && String(p.branch_id) === String(entityId)
+                  : p.subdealer_id && String(p.subdealer_id) === String(entityId);
+              return matchHeader && matchEntity;
+            })?.value || 0
+          )
+        : 0;
+
+    // RTO amount (simple BH/CRTM flat if you use that rule)
+    let rtoAmount = 0;
+    if (req.body.rto_type === 'BH') rtoAmount = 5000;
+    if (req.body.rto_type === 'CRTM') rtoAmount = 4500;
+
+    // -------- Accessories
+    let accessories = [];
+    let accessoriesTotal = 0;
+
+    if (req.body.accessories?.selected?.length) {
+      const accessoryIds = req.body.accessories.selected.map((acc) => new mongoose.Types.ObjectId(acc.id));
+      const validAccessories = await Accessory.find({
+        _id: { $in: accessoryIds },
+        status: 'active',
+      }).lean();
+
+      if (validAccessories.length !== req.body.accessories.selected.length) {
+        const missing = req.body.accessories.selected
+          .filter((a) => !validAccessories.some((v) => String(v._id) === String(a.id)))
+          .map((a) => a.id);
+        return res.status(400).json({
+          success: false,
+          message: `Invalid accessory IDs: ${missing.join(', ')}`,
+        });
+      }
+
+      const incompatible = validAccessories.filter(
+        (a) => !(a.applicable_models || []).some((m) => String(m) === String(req.body.model_id))
+      );
+      if (incompatible.length) {
+        return res.status(400).json({
+          success: false,
+          message: `Incompatible accessories: ${incompatible.map((a) => a.name).join(', ')}`,
+        });
+      }
+
+      const accessoriesTotalHeader = await Header.findOne({
+        header_key: 'ACCESSORIES TOTAL',
+        type: model.type,
+      }).lean();
+      if (!accessoriesTotalHeader) {
+        return res.status(400).json({ success: false, message: 'ACCESSORIES TOTAL header not configured' });
+      }
+
+      const accessoriesTotalPrice =
+        (model.prices || []).find((p) => {
+          const matchHeader = String(p.header_id) === String(accessoriesTotalHeader._id);
+          const matchEntity =
+            entityType === 'branch'
+              ? p.branch_id && String(p.branch_id) === String(entityId)
+              : p.subdealer_id && String(p.subdealer_id) === String(entityId);
+          return matchHeader && matchEntity;
+        })?.value || 0;
+
+      const selectedAccessoriesTotal = validAccessories.reduce((s, acc) => s + Number(acc.price || 0), 0);
+      accessoriesTotal = Math.max(Number(selectedAccessoriesTotal), Number(accessoriesTotalPrice || 0));
+
+      accessories = validAccessories.map((acc) => ({
+        accessory: acc._id,
+        price: Number(acc.price || 0),
+        discount: 0,
+        isAdjustment: false,
+      }));
+
+      if (selectedAccessoriesTotal < accessoriesTotalPrice) {
+        const diff = Number(accessoriesTotalPrice) - Number(selectedAccessoriesTotal);
+        accessories.push({
+          accessory: null, // adjustment line
+          price: diff,
+          discount: 0,
+          isAdjustment: true,
+        });
+      }
+    }
+
+    // -------- Exchange (BRANCH only)
+    let exchangeDetails = null;
+    if (bookingType === 'BRANCH' && req.body.exchange?.is_exchange) {
+      if (!req.body.exchange.broker_id) {
+        return res.status(400).json({ success: false, message: 'Broker selection is required for exchange' });
+      }
+      const broker = await Broker.findById(req.body.exchange.broker_id);
+      if (!broker) return res.status(400).json({ success: false, message: 'Invalid broker selected' });
+
+      if (broker.otp_required) {
+        if (!req.body.exchange.otp) {
+          return res.status(400).json({ success: false, message: 'OTP is required for this broker' });
+        }
+        const now = new Date();
+        if (!broker.otp || broker.otp !== req.body.exchange.otp || !broker.otpExpiresAt || broker.otpExpiresAt < now) {
+          return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+        }
+        broker.otp = null;
+        broker.otpExpiresAt = null;
+        await broker.save();
+      }
+
+      exchangeDetails = {
+        broker: req.body.exchange.broker_id,
+        price: Number(req.body.exchange.exchange_price || 0),
+        vehicleNumber: req.body.exchange.vehicle_number,
+        chassisNumber: req.body.exchange.chassis_number,
+        otpVerified: !!broker.otp_required,
+        status: 'PENDING',
+      };
+    }
+
+    // -------- Payment
+    let payment = {};
+const pay = req.body?.payment || {};
+const payType = String(pay.type || '').toUpperCase();
+
+if (payType === 'FINANCE') {
+  // financer is still required for FINANCE
+  if (!pay.financer_id) {
+    return res.status(400).json({ success: false, message: 'Financer selection is required' });
+  }
+
+  const financer = await FinanceProvider.findById(pay.financer_id);
+  if (!financer) {
+    return res.status(400).json({ success: false, message: 'Invalid financer selected' });
+  }
+
+  const gcApplicable = !!pay.gc_applicable;
+
+  // gc_amount is OPTIONAL; if present must be >= 0
+  let gcAmount;
+  if (pay.gc_amount != null && pay.gc_amount !== '') {
+    const n = Number(pay.gc_amount);
+    if (!Number.isFinite(n) || n < 0) {
+      return res.status(400).json({ success: false, message: 'GC amount must be a non-negative number when provided' });
+    }
+    gcAmount = n;
+  }
+
+  payment = {
+    type: 'FINANCE',
+    financer: pay.financer_id,
+    scheme: pay.scheme || null,      // OPTIONAL everywhere
+    emiPlan: pay.emi_plan || null,   // OPTIONAL everywhere
+    gcApplicable,
+    ...(gcAmount !== undefined ? { gcAmount } : {})
+  };
+} else {
+  // default to CASH (or keep your existing logic)
+  payment = { type: 'CASH' };
+}
+
+    // -------- Discounts (model-level + requested)
+    const modelHasDiscount = Number(model.model_discount || 0) > 0;
+    const isApplyingDiscount = req.body.discount && Number(req.body.discount.value || 0) > 0;
+
+    const discounts = [];
+    if (modelHasDiscount) {
+      discounts.push({
+        amount: Number(model.model_discount),
+        type: 'FIXED',
+        approvalStatus: 'PENDING',
+        approvalNote: 'Model discount',
+        isModelDiscount: true,
+        appliedOn: new Date(),
+      });
+    }
+    if (isApplyingDiscount) {
+      const dtype = String(req.body.discount.type || '').toUpperCase() === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED';
+      discounts.push({
+        amount: Number(req.body.discount.value),
+        type: dtype,
+        approvalStatus: 'PENDING',
+        approvalNote: 'Discount applied',
+        isModelDiscount: false,
+        appliedOn: new Date(),
+      });
+    }
+
+    // apply discounts to price components
+    let finalComponents = priceComponents.map((c) => ({ ...c }));
+    for (const d of discounts) {
+      finalComponents = calculateDiscounts(finalComponents, d.amount, d.type);
+      validateDiscountLimits(finalComponents);
+    }
+
+    // sync discounted values back
+    finalComponents.forEach((u) => {
+      const idx = priceComponents.findIndex((o) => String(o.header) === String(u.header));
+      if (idx >= 0) priceComponents[idx].discountedValue = Number(u.discountedValue);
+    });
+
+    const totalDiscount = priceComponents.reduce(
+      (s, c) => s + (Number(c.originalValue) - Number(c.discountedValue)),
+      0
+    );
+
+    // -------- Totals
+    const totalAmount = Number(baseAmount) + Number(accessoriesTotal) + Number(rtoAmount);
+    const discountedAmount = totalAmount - Number(totalDiscount);
+
+    // -------- Booking data
+    const bookingData = {
+      model: req.body.model_id,
+      color: req.body.model_color,
+      customerType: req.body.customer_type,
+      isCSD: req.body.customer_type === 'CSD',
+      gstin: req.body.gstin || '',
+      rto: req.body.rto_type,
+      rtoAmount: ['BH', 'CRTM'].includes(req.body.rto_type) ? Number(rtoAmount) : undefined,
+      hpa: !!req.body.hpa,
+      hypothecationCharges,
+      insuranceStatus: 'AWAITING',
+      note: req.body.note || '',
+
+      customerDetails: {
+        salutation: req.body.customer_details.salutation,
+        name: req.body.customer_details.name,
+        panNo: req.body.customer_details.pan_no || '',
+        dob: req.body.customer_details.dob,
+        occupation: req.body.customer_details.occupation,
+        address: req.body.customer_details.address,
+        taluka: req.body.customer_details.taluka,
+        district: req.body.customer_details.district,
+        pincode: req.body.customer_details.pincode,
+        mobile1: req.body.customer_details.mobile1,
+        mobile2: req.body.customer_details.mobile2 || '',
+        aadharNumber: req.body.customer_details.aadhar_number || '',
+        nomineeName: req.body.customer_details.nomineeName || undefined,
+        nomineeRelation: req.body.customer_details.nomineeRelation || undefined,
+        nomineeAge: req.body.customer_details.nomineeAge ? parseInt(req.body.customer_details.nomineeAge) : undefined,
+      },
+      
+      exchange: !!req.body.exchange?.is_exchange,
+      exchangeDetails,
+
+      payment,
+      accessories,
+      priceComponents,
+      discounts,
+      accessoriesTotal: Number(accessoriesTotal),
+      totalAmount: Number(totalAmount),
+      discountedAmount: Number(discountedAmount),
+
+      status: 'PENDING_APPROVAL',
+      bookingType,
+      [entityType]: entityId,
+      createdBy: req.user.id,
+      formGenerated: false,
+      formPath: '',
+      ...userAssignment,
+    };
+
+    // -------- Create + QR + populate
+    const booking = await Booking.create(bookingData);
+
+    try {
+      const qrCode = await qrController.generateQRCode(booking._id);
+      booking.qrCode = qrCode || '';
+      await booking.save();
+    } catch (e) {
+      console.warn('QR generation failed (continuing):', e.message);
+    }
+
+    let populatedBooking = await Booking.findById(booking._id)
+      .populate('modelDetails')
+      .populate('colorDetails')
+      .populate(bookingType === 'BRANCH' ? 'branchDetails' : 'subdealerDetails')
+      .populate('createdByDetails')
+      .populate(bookingType === 'SUBDEALER' ? 'subdealerUserDetails' : 'salesExecutiveDetails')
+      .populate({ path: 'priceComponents.header', model: 'Header' })
+      .populate({ path: 'accessories.accessory', model: 'Accessory' })
+      .populate({ path: 'exchangeDetails.broker', model: 'Broker' })
+      .populate({ path: 'payment.financer', model: 'FinanceProvider' });
+
+    try {
+      const form = await generateBookingFormHTML(populatedBooking);
+      if (form?.url) {
+        populatedBooking.formPath = form.url;
+        populatedBooking.formGenerated = true;
+        await populatedBooking.save();
+      }
+    } catch (e) {
+      console.warn('Booking form HTML generation failed (continuing):', e.message);
+    }
+
+    await AuditLog.create({
+      action: 'CREATE',
+      entity: 'Booking',
+      entityId: booking._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: bookingData,
+      status: 'SUCCESS',
+    });
+
+    // -------- Broker Ledger (AFTER creation) — atomic upsert
+    // In the createBooking function, update the broker ledger section:
+if (populatedBooking.exchange && populatedBooking.exchangeDetails?.broker) {
+  try {
+    const brokerId = populatedBooking.exchangeDetails.broker?._id || populatedBooking.exchangeDetails.broker;
+    if (!brokerId) throw new Error('Missing broker id on exchangeDetails');
+
+    // Get the branch ID - this was missing!
+    const branchId = populatedBooking.branch || populatedBooking.branchDetails?._id;
+    if (!branchId) {
+      throw new Error('Branch ID is required for broker ledger');
+    }
+
+    const exchangePrice = Number(populatedBooking.exchangeDetails.price || 0);
+    const commission = await calculateBrokerCommission(brokerId, exchangePrice, branchId);
+
+    // Create transaction data
+    const transactions = [
+      {
+        type: 'DEBIT',
+        amount: exchangePrice,
+        modeOfPayment: 'Exchange',
+        remark: `Exchange vehicle: ${populatedBooking.exchangeDetails.vehicleNumber || 'N/A'}`,
+        booking: populatedBooking._id,
+        branch: branchId, // Add branch to transaction
+        createdBy: req.user.id,
+        date: new Date()
+      }
+    ];
+
+    if (commission > 0) {
+      transactions.push({
+        type: 'DEBIT',
+        amount: commission,
+        modeOfPayment: 'Exchange',
+        remark: `Commission for exchange booking ${populatedBooking.bookingNumber}`,
+        booking: populatedBooking._id,
+        branch: branchId, // Add branch to transaction
+        createdBy: req.user.id,
+        date: new Date()
+      });
+    }
+
+    // Find or create ledger with upsert
+    const ledger = await BrokerLedger.findOneAndUpdate(
+      { broker: brokerId, branch: branchId },
+      {
+        $push: { transactions: { $each: transactions } },
+        $inc: { 
+          currentBalance: exchangePrice + commission,
+          onAccount: 0 // Initialize if not exists
+        },
+        $setOnInsert: {
+          createdBy: req.user.id,
+          lastUpdatedBy: req.user.id
+        }
+      },
+      { 
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true 
+      }
+    );
+
+    // Update booking with ledger reference
+    await Booking.findByIdAndUpdate(
+      populatedBooking._id,
+      {
+        $push: {
+          brokerLedgerEntries: {
+            ledger: ledger._id,
+            amount: exchangePrice + commission,
+            type: 'EXCHANGE_AND_COMMISSION',
+            createdAt: new Date()
+          }
+        }
+      }
+    );
+
+  } catch (err) {
+    await handleBrokerLedgerError(err, 'NEW_BOOKING', 'creating', {
+      bookingId: populatedBooking?._id,
+      brokerId: populatedBooking?.exchangeDetails?.broker?._id,
+      userId: req.user?.id,
+      ip: req.ip,
+    });
+  }
+}
+
+    // -------- Shape response (SE vs Subdealer user)
+    const out = populatedBooking.toObject();
+    if (out.bookingType === 'SUBDEALER') {
+      out.subdealerUser = out.subdealerUserDetails;
+      delete out.salesExecutive;
+      delete out.salesExecutiveDetails;
+    } else {
+      out.salesExecutive = out.salesExecutiveDetails;
+      delete out.subdealerUser;
+      delete out.subdealerUserDetails;
+    }
+
+    return res.status(201).json({ success: true, data: out });
+  } catch (err) {
+    console.error('Error creating booking:', err);
+
+    let message = 'Error creating booking';
+    if (err.name === 'ValidationError') {
+      message = Object.values(err.errors).map((v) => v.message).join(', ');
+    } else if (err.message) {
+      message = err.message;
+    }
+
+    try {
+      await AuditLog.create({
+        action: 'CREATE',
+        entity: 'Booking',
+        user: req.user?.id,
+        ip: req.ip,
+        status: 'FAILED',
+        metadata: req.body,
+        error: message,
+      });
+    } catch (logErr) {
+      console.error('Failed to create audit log:', logErr);
+    }
+
+    return res.status(400).json({
+      success: false,
+      message,
+      error: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    });
+  }
 };
 
 // Get booking statistics and document counts
@@ -1168,6 +1465,7 @@ exports.getBookingByChassisNumber = async (req, res) => {
   }
 };
 
+
 // Approve booking
 exports.approveBooking = async (req, res) => {
   try {
@@ -1365,6 +1663,16 @@ exports.getBookingById = async (req, res) => {
         branch: booking.salesExecutive.branch
       };
     }
+    
+    // Add document status information
+    bookingObj.documentStatus = {
+      dealForm: {
+        status: bookingObj.dealFormStatus || 'NOT_UPLOADED'
+      },
+      deliveryChallan: {
+        status: bookingObj.deliveryChallanStatus || 'NOT_UPLOADED'
+      }
+    };
 
     res.status(200).json({
       success: true,
@@ -1393,7 +1701,9 @@ exports.getAllBookings = async (req, res) => {
       customerType,
       model,
       kycStatus,
-      financeLetterStatus
+      financeLetterStatus,
+      dealFormStatus, // Added dealFormStatus filter
+      deliveryChallanStatus // Added deliveryChallanStatus filter
     } = req.query;
     
     // Build filter object
@@ -1414,6 +1724,16 @@ exports.getAllBookings = async (req, res) => {
       filter.model = model;
     }
     
+    // Deal Form Status filter
+    if (dealFormStatus) {
+      filter.dealFormStatus = dealFormStatus;
+    }
+    
+    // Delivery Challan Status filter
+    if (deliveryChallanStatus) {
+      filter.deliveryChallanStatus = deliveryChallanStatus;
+    }
+    
     // Date range filter
     if (fromDate || toDate) {
       filter.createdAt = {};
@@ -1421,15 +1741,19 @@ exports.getAllBookings = async (req, res) => {
       if (toDate) filter.createdAt.$lte = new Date(toDate);
     }
 
-    // Branch filter logic
+    // Check if user is a sales executive
+    const isSalesExecutive = req.user.roles && 
+                            req.user.roles.some(role => role.name === 'SALES_EXECUTIVE');
+
+    // Branch filter logic - FIXED: Sales executives should only see their own bookings
     if (!req.user.isSuperAdmin) {
-      if (req.user.isSalesExecutive) {
+      if (isSalesExecutive) {
         // Sales Executive can only see their own bookings
         filter.$or = [
-          { createdBy: req.user.id },
-          { salesExecutive: req.user.id }
+          { createdBy: req.user._id },
+          { salesExecutive: req.user._id }
         ];
-      } else {
+      } else if (req.user.branch) {
         // Other users can see all bookings from their branch
         filter.branch = req.user.branch;
       }
@@ -1438,13 +1762,21 @@ exports.getAllBookings = async (req, res) => {
       filter.branch = branch;
     }
 
-    // Add KYC and Finance Letter status filters if provided
-    const docFilters = {};
+    // Add KYC and Finance Letter status filters to the main query
     if (kycStatus) {
-      docFilters['documentStatus.kyc.status'] = kycStatus;
+      if (kycStatus === 'NOT_UPLOADED') {
+        filter.kycStatus = { $in: ['NOT_SUBMITTED', 'NOT_UPLOADED'] };
+      } else {
+        filter.kycStatus = kycStatus;
+      }
     }
+    
     if (financeLetterStatus) {
-      docFilters['documentStatus.financeLetter.status'] = financeLetterStatus;
+      if (financeLetterStatus === 'NOT_UPLOADED') {
+        filter.financeLetterStatus = { $in: ['NOT_SUBMITTED', 'NOT_UPLOADED'] };
+      } else {
+        filter.financeLetterStatus = financeLetterStatus;
+      }
     }
     
     const options = {
@@ -1475,11 +1807,11 @@ exports.getAllBookings = async (req, res) => {
       lean: true
     };
     
-    // First get the paginated bookings
+    // Get paginated bookings with all filters applied
     let bookings = await Booking.paginate(filter, options);
     
-    // Get KYC and Finance Letter details for each booking
-    const bookingsWithDocStatus = await Promise.all(
+    // Get KYC and Finance Letter details for each booking (for display only)
+    const bookingsWithDocDetails = await Promise.all(
       bookings.docs.map(async (booking) => {
         const [kyc, financeLetter] = await Promise.all([
           mongoose.model('KYC').findOne({ booking: booking._id })
@@ -1492,66 +1824,53 @@ exports.getAllBookings = async (req, res) => {
             .lean()
         ]);
         
-        // Create simplified status objects
-        const kycStatus = kyc ? {
+        // Create simplified status objects for display
+        const kycStatusObj = kyc ? {
           status: kyc.status,
           verifiedBy: kyc.verifiedBy?.name || null,
           verificationNote: kyc.verificationNote || null,
           updatedAt: kyc.updatedAt
         } : {
-          status: 'NOT_UPLOADED',
+          status: booking.kycStatus || 'NOT_UPLOADED',
           verifiedBy: null,
           verificationNote: null,
           updatedAt: null
         };
 
-        const financeLetterStatus = financeLetter ? {
+        const financeLetterStatusObj = financeLetter ? {
           status: financeLetter.status,
           verifiedBy: financeLetter.verifiedBy?.name || null,
           verificationNote: financeLetter.verificationNote || null,
           updatedAt: financeLetter.updatedAt
         } : {
-          status: 'NOT_UPLOADED',
+          status: booking.financeLetterStatus || 'NOT_UPLOADED',
           verifiedBy: null,
           verificationNote: null,
           updatedAt: null
         };
 
-        // Apply additional filtering if KYC or Finance Letter status filters were provided
-        let includeBooking = true;
-        if (kycStatus && docFilters['documentStatus.kyc.status'] && kycStatus.status !== docFilters['documentStatus.kyc.status']) {
-          includeBooking = false;
-        }
-        if (financeLetterStatus && docFilters['documentStatus.financeLetter.status'] && financeLetterStatus.status !== docFilters['documentStatus.financeLetter.status']) {
-          includeBooking = false;
-        }
-
-        return includeBooking ? {
+        return {
           ...booking,
           documentStatus: {
-            kyc: kycStatus,
-            financeLetter: financeLetterStatus
+            kyc: kycStatusObj,
+            financeLetter: financeLetterStatusObj,
+            dealForm: {
+              status: booking.dealFormStatus || 'NOT_UPLOADED'
+            },
+            deliveryChallan: {
+              status: booking.deliveryChallanStatus || 'NOT_UPLOADED'
+            }
           }
-        } : null;
+        };
       })
     );
 
-    // Filter out null bookings (excluded by document status filters)
-    const filteredBookings = bookingsWithDocStatus.filter(booking => booking !== null);
-    
-    // Adjust pagination counts
-    const adjustedTotal = filteredBookings.length === bookings.docs.length ? 
-      bookings.totalDocs : 
-      await Booking.countDocuments({ ...filter, ...docFilters });
-    
-    const adjustedPages = Math.ceil(adjustedTotal / parseInt(limit));
-    
     res.status(200).json({
       success: true,
       data: {
-        bookings: filteredBookings,
-        total: adjustedTotal,
-        pages: adjustedPages,
+        bookings: bookingsWithDocDetails,
+        total: bookings.totalDocs,
+        pages: bookings.totalPages,
         currentPage: parseInt(page)
       }
     });
@@ -1641,7 +1960,10 @@ exports.updateBooking = async (req, res) => {
             
             updateData.model = req.body.model_id;
         }
-
+        // Add this to the update logic in updateBooking function
+if (req.body.note !== undefined) {
+  updateData.note = req.body.note;
+}
         if (req.body.model_color) {
             const color = await Color.findById(req.body.model_color);
             if (!color) {
@@ -1791,8 +2113,15 @@ exports.updateBooking = async (req, res) => {
         }
 
         // Update exchange details if provided (only for branch bookings)
-        if (req.body.exchange !== undefined && bookingType === 'BRANCH') {
+        if (req.body.exchange && req.body.exchange.is_exchange !== undefined) {
             if (req.body.exchange.is_exchange) {
+                if (bookingType === 'SUBDEALER') {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Exchange is not allowed for subdealer bookings'
+                    });
+                }
+
                 if (!req.body.exchange.broker_id) {
                     return res.status(400).json({
                         success: false,
@@ -1855,20 +2184,135 @@ exports.updateBooking = async (req, res) => {
                     otpVerified: otpVerified,
                     status: 'PENDING'
                 };
+
+                // ============ ADD BROKER LEDGER CODE HERE ============
+                // After exchange validation, handle broker ledger updates
+                try {
+                    // Check if we need to update ledger (either new exchange or changed exchange details)
+                    const exchangePriceChanged = existingBooking.exchangeDetails && 
+                        existingBooking.exchangeDetails.price !== req.body.exchange.exchange_price;
+                    
+                    const brokerChanged = existingBooking.exchangeDetails && 
+                        existingBooking.exchangeDetails.broker.toString() !== req.body.exchange.broker_id;
+                    
+                    if (!existingBooking.exchangeDetails || exchangePriceChanged || brokerChanged) {
+                        // Remove old ledger entries if they exist
+                        if (existingBooking.brokerLedgerEntries && existingBooking.brokerLedgerEntries.length > 0) {
+                            for (const entry of existingBooking.brokerLedgerEntries) {
+                                const ledger = await BrokerLedger.findById(entry.ledger);
+                                if (ledger) {
+                                    // Remove transactions related to this booking
+                                    ledger.transactions = ledger.transactions.filter(
+                                        t => t.booking && t.booking.toString() !== existingBooking._id.toString()
+                                    );
+                                    
+                                    // Recalculate balance
+                                    ledger.currentBalance = ledger.transactions.reduce((balance, txn) => {
+                                        return txn.type === 'DEBIT' ? balance + txn.amount : balance - txn.amount;
+                                    }, 0);
+                                    
+                                    await ledger.save();
+                                }
+                            }
+                            updateData.brokerLedgerEntries = [];
+                        }
+                        
+                        // Create new ledger entries
+                        let brokerLedger = await BrokerLedger.findOne({ broker: req.body.exchange.broker_id });
+                        
+                        // Initialize ledger if it doesn't exist
+                        if (!brokerLedger) {
+                            brokerLedger = new BrokerLedger({
+                                broker: req.body.exchange.broker_id,
+                                currentBalance: 0,
+                                transactions: []
+                            });
+                        }
+                        
+                        // Calculate commission
+                        const commission = await calculateBrokerCommission(
+                            req.body.exchange.broker_id, 
+                            req.body.exchange.exchange_price,
+                            entityId
+                        );
+                        
+                        // Create debit for exchange amount
+                        brokerLedger.transactions.push({
+                            type: 'DEBIT',
+                            amount: req.body.exchange.exchange_price,
+                            modeOfPayment: 'Exchange',
+                            remark: `Exchange vehicle: ${req.body.exchange.vehicle_number}`,
+                            booking: existingBooking._id,
+                            createdBy: req.user.id,
+                            date: new Date()
+                        });
+                        
+                        // Create debit for commission if commission is greater than 0
+                        if (commission > 0) {
+                            brokerLedger.transactions.push({
+                                type: 'DEBIT',
+                                amount: commission,
+                                modeOfPayment: 'Exchange',
+                                remark: `Commission for exchange booking ${existingBooking.bookingNumber}`,
+                                booking: existingBooking._id,
+                                createdBy: req.user.id,
+                                date: new Date()
+                            });
+                        }
+                        
+                        // Update balance
+                        const totalDebit = req.body.exchange.exchange_price + commission;
+                        brokerLedger.currentBalance += totalDebit;
+                        
+                        await brokerLedger.save();
+                        
+                        // Add reference to ledger in booking update data
+                        updateData.brokerLedgerEntries = [{
+                            ledger: brokerLedger._id,
+                            amount: totalDebit,
+                            type: 'EXCHANGE_AND_COMMISSION',
+                            createdAt: new Date()
+                        }];
+                    }
+                } catch (error) {
+                    console.error('Error updating broker ledger:', error);
+                    // Handle broker ledger error appropriately
+                }
             } else {
+                // Exchange was removed - clean up ledger entries
+                try {
+                    if (existingBooking.brokerLedgerEntries && existingBooking.brokerLedgerEntries.length > 0) {
+                        for (const entry of existingBooking.brokerLedgerEntries) {
+                            const ledger = await BrokerLedger.findById(entry.ledger);
+                            if (ledger) {
+                                // Remove transactions related to this booking
+                                ledger.transactions = ledger.transactions.filter(
+                                    t => t.booking && t.booking.toString() !== existingBooking._id.toString()
+                                );
+                                
+                                // Recalculate balance
+                                ledger.currentBalance = ledger.transactions.reduce((balance, txn) => {
+                                    return txn.type === 'DEBIT' ? balance + txn.amount : balance - txn.amount;
+                                }, 0);
+                                
+                                await ledger.save();
+                            }
+                        }
+                        updateData.brokerLedgerEntries = [];
+                    }
+                } catch (error) {
+                    console.error('Error removing broker ledger entries:', error);
+                    // Handle broker ledger error appropriately
+                }
+                
                 updateData.exchange = false;
                 updateData.exchangeDetails = undefined;
             }
-        } else if (req.body.exchange?.is_exchange && bookingType === 'SUBDEALER') {
-            return res.status(400).json({
-                success: false,
-                message: 'Exchange is not allowed for subdealer bookings'
-            });
         }
 
         // Update payment details if provided
         if (req.body.payment !== undefined) {
-            if (req.body.payment.type.toLowerCase() === 'finance') {
+            if (req.body.payment.type && req.body.payment.type.toLowerCase() === 'finance') {
                 if (!req.body.payment.financer_id) {
                     return res.status(400).json({
                         success: false,
@@ -1884,26 +2328,16 @@ exports.updateBooking = async (req, res) => {
                     });
                 }
 
+                // Manual GC amount input
                 let gcAmount = 0;
                 if (req.body.payment.gc_applicable) {
-                    const financerRate = await FinancerRate.findOne({
-                        financeProvider: req.body.payment.financer_id,
-                        branch: entityType === 'branch' ? entityId : null,
-                        subdealer: entityType === 'subdealer' ? entityId : null,
-                        is_active: true
-                    });
-
-                    if (!financerRate) {
+                    if (!req.body.payment.gc_amount || req.body.payment.gc_amount <= 0) {
                         return res.status(400).json({
                             success: false,
-                            message: `Financer rate not found for this ${entityType}`
+                            message: 'GC amount is required and must be greater than 0 when GC is applicable'
                         });
                     }
-
-                    const baseAmount = updateData.priceComponents?.reduce((sum, c) => sum + c.originalValue, 0) || 
-                                      existingBooking.priceComponents.reduce((sum, c) => sum + c.originalValue, 0);
-                    
-                    gcAmount = (baseAmount * financerRate.gcRate) / 100;
+                    gcAmount = parseFloat(req.body.payment.gc_amount);
                 }
 
                 updateData.payment = {
@@ -1926,7 +2360,7 @@ exports.updateBooking = async (req, res) => {
             let accessoriesTotal = 0;
             let accessories = [];
 
-            if (req.body.accessories.selected?.length > 0) {
+            if (req.body.accessories.selected && req.body.accessories.selected.length > 0) {
                 const accessoryIds = req.body.accessories.selected.map(acc => {
                     if (!mongoose.Types.ObjectId.isValid(acc.id)) {
                         throw new Error(`Invalid accessory ID: ${acc.id}`);
@@ -3178,7 +3612,169 @@ exports.getBookingsBySubdealer = async (req, res) => {
     });
   }
 };
+// Get deal form document
+exports.getDealForm = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
 
+    const booking = await Booking.findById(bookingId);
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if deal form exists
+    if (!booking.dealForm || !booking.dealForm.path) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deal form not found for this booking'
+      });
+    }
+
+    // Construct the full file path
+    const filePath = path.join(__dirname, '../', booking.dealForm.path);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deal form file not found'
+      });
+    }
+
+    // Set appropriate headers
+    res.setHeader('Content-Type', booking.dealForm.mimetype || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${booking.dealForm.originalName}"`);
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    await AuditLog.create({
+      action: 'DOWNLOAD_DEAL_FORM',
+      entity: 'Booking',
+      entityId: booking._id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'SUCCESS',
+      metadata: {
+        filename: booking.dealForm.originalName,
+        size: booking.dealForm.size
+      }
+    });
+
+  } catch (err) {
+    console.error('Error getting deal form:', err);
+    
+    await AuditLog.create({
+      action: 'DOWNLOAD_DEAL_FORM',
+      entity: 'Booking',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching deal form',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Get delivery challan document
+exports.getDeliveryChallan = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+
+    const booking = await Booking.findById(bookingId);
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if delivery challan exists
+    if (!booking.deliveryChallan || !booking.deliveryChallan.path) {
+      return res.status(404).json({
+        success: false,
+        message: 'Delivery challan not found for this booking'
+      });
+    }
+
+    // Construct the full file path
+    const filePath = path.join(__dirname, '../', booking.deliveryChallan.path);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Delivery challan file not found'
+      });
+    }
+
+    // Set appropriate headers
+    res.setHeader('Content-Type', booking.deliveryChallan.mimetype || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${booking.deliveryChallan.originalName}"`);
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    await AuditLog.create({
+      action: 'DOWNLOAD_DELIVERY_CHALLAN',
+      entity: 'Booking',
+      entityId: booking._id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'SUCCESS',
+      metadata: {
+        filename: booking.deliveryChallan.originalName,
+        size: booking.deliveryChallan.size
+      }
+    });
+
+  } catch (err) {
+    console.error('Error getting delivery challan:', err);
+    
+    await AuditLog.create({
+      action: 'DOWNLOAD_DELIVERY_CHALLAN',
+      entity: 'Booking',
+      entityId: req.params.id,
+      user: req.user?.id,
+      ip: req.ip,
+      status: 'FAILED',
+      error: err.message
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching delivery challan',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
 // Get subdealer booking statistics
 exports.getSubdealerBookingStats = async (req, res) => {
   try {

@@ -1,0 +1,55 @@
+{"timestamp":"2025-08-24 11:01:42","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 11:01:43","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 11:18:21","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 11:18:21","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 12:48:27","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 12:48:28","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 12:53:13","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 12:53:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 13:09:10","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 13:09:11","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 13:23:46","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 13:23:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 13:57:50","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 13:57:51","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 15:19:13","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 15:19:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 15:25:26","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 15:25:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 15:58:41","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 15:58:41","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 16:07:02","level":"\u001b[31MERROR\u001b[39M","message":"Error importing Excel: Can't find end of central directory : is this a zip file ? If it is, see https://stuk.github.io/jszip/documentation/howto/read_zip.html","stack":null}
+{"timestamp":"2025-08-24 16:17:51","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 16:17:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 16:32:16","level":"\u001b[31MERROR\u001b[39M","message":"Excel parsing error: Can't find end of central directory : is this a zip file ? If it is, see https://stuk.github.io/jszip/documentation/howto/read_zip.html","stack":null}
+{"timestamp":"2025-08-24 16:39:28","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 16:39:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 16:49:07","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 16:49:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 17:03:18","level":"\u001b[31MERROR\u001b[39M","message":"Excel parsing error: Can't find end of central directory : is this a zip file ? If it is, see https://stuk.github.io/jszip/documentation/howto/read_zip.html","stack":null}
+{"timestamp":"2025-08-24 17:10:08","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 17:10:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 17:21:18","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 17:21:18","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 17:28:41","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 17:28:41","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 17:50:06","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 17:50:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 18:23:59","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 18:23:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Excel file loaded successfully","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Found header row at index 9 with headers: vehicle model, color, battery no, key no, chassis no, engine no","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Found 7 data rows to process","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Updated vehicle with chassis: CHS23098751234567","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Updated vehicle with chassis: CHS89012345678901","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Updated vehicle with chassis: MH12ABCDE12345634","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Updated vehicle with chassis: MH12ABCDE12345675","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Updated vehicle with chassis: CHS99011223344556","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Updated vehicle with chassis: CHS67054329876543","stack":null}
+{"timestamp":"2025-08-24 18:33:30","level":"\u001b[32MINFO\u001b[39M","message":"Updated vehicle with chassis: CHS87023114560987","stack":null}
+{"timestamp":"2025-08-24 19:16:45","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 19:16:45","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 22:36:59","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 22:36:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-24 23:40:21","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-24 23:40:21","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

@@ -2,12 +2,10 @@ const RtoProcess = require("../models/RtoProcessModel");
 const AuditLog = require("../models/AuditLog");
 const Booking = require("../models/Booking");
 
-
 exports.createRtoProcess = async (req, res) => {
   try {
     const { bookingId, applicationNumber } = req.body;
 
-    
     if (!bookingId || !applicationNumber) {
       return res.status(400).json({
         success: false,
@@ -15,7 +13,6 @@ exports.createRtoProcess = async (req, res) => {
       });
     }
 
-    
     const appNumberRegex = /^[A-Za-z0-9\-\/]+$/;
     if (!appNumberRegex.test(applicationNumber)) {
       return res.status(400).json({
@@ -32,9 +29,9 @@ exports.createRtoProcess = async (req, res) => {
       });
     }
 
+    // Include all fields from the request body
     const newRtoData = {
-      bookingId: bookingId,
-      applicationNumber,
+      ...req.body,
       createdBy: req.user.id,
     };
 
@@ -73,7 +70,6 @@ exports.createRtoProcess = async (req, res) => {
     });
   }
 };
-
 exports.getAllRtoProcesses = async (req, res) => {
   try {
     let rtos = await RtoProcess.find()
@@ -106,7 +102,6 @@ exports.getAllRtoProcesses = async (req, res) => {
         };
       }
 
-     
       delete itemObj.batteryNumber;
       delete itemObj.keyNumber;
       delete itemObj.motorNumber;
@@ -133,7 +128,6 @@ exports.getAllRtoProcesses = async (req, res) => {
 
 exports.getAllRtoProcessRecords = async (req, res) => {
   try {
-    // Find all RTO processes with basic population
     const rtoProcesses = await RtoProcess.find()
       .sort({ createdAt: -1 })
       .populate({
@@ -175,9 +169,8 @@ exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
       },
     });
 
-    // Clean and flatten data
     rtoProcesses = rtoProcesses.map((item) => {
-      const itemObj = item.toObject(); // convert mongoose doc to plain JS
+      const itemObj = item.toObject();
       const booking = itemObj.bookingId;
 
       if (booking) {
@@ -211,7 +204,6 @@ exports.getRtoProcessesWithApplicationNumbers = async (req, res) => {
   }
 };
 
-
 exports.getRtoProcessesWithRtoTaxPending = async (req, res) => {
   try {
     let rtoProcesses = await RtoProcess.find({
@@ -226,12 +218,10 @@ exports.getRtoProcessesWithRtoTaxPending = async (req, res) => {
       },
     });
 
-    
     rtoProcesses = rtoProcesses.map((item) => {
       const booking = item.bookingId;
 
       if (booking) {
-        
         const flattenedBooking = {
           id: booking.id,
           bookingNumber: booking.bookingNumber,
@@ -294,7 +284,7 @@ exports.getRtoProcessesWithRtoTaxCompleted = async (req, res) => {
         return itemObj;
       }
 
-      return item; // in case booking is null
+      return item;
     });
 
     res.status(200).json({
@@ -342,7 +332,7 @@ exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
         return itemObj;
       }
 
-      return item.toObject(); // Still convert it to a plain object
+      return item.toObject();
     });
 
     res.status(200).json({
@@ -358,7 +348,6 @@ exports.getRtoProcessesWithRtoPaperStatus = async (req, res) => {
     });
   }
 };
-
 
 exports.getRtoProcessesWithRtoPaperStatusAsNotSubmitted = async (req, res) => {
   try {
@@ -695,6 +684,104 @@ exports.getRtoProcessesWithRcConfirmationStatusIsfalse = async (req, res) => {
   }
 };
 
+// New method to get RTO processes with RC dispatch date
+exports.getRtoProcessesWithRcDispatchDate = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      rcDispatchDate: { $ne: null },
+    }).populate({
+      path: "bookingId",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "model_name type",
+      },
+    });
+
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
+    res.status(200).json({
+      success: true,
+      data: processedData,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO records with RC dispatch date:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// New method to get RTO processes without RC dispatch date
+exports.getRtoProcessesWithoutRcDispatchDate = async (req, res) => {
+  try {
+    const rtoProcesses = await RtoProcess.find({
+      rcDispatchDate: null,
+    }).populate({
+      path: "bookingId",
+      select: "bookingNumber chassisNumber customerDetails.name customerDetails.mobile1 model",
+      populate: {
+        path: "model",
+        select: "model_name type",
+      },
+    });
+
+    const processedData = rtoProcesses.map((item) => {
+      const booking = item.bookingId;
+
+      if (booking) {
+        const flattenedBooking = {
+          id: booking._id,
+          bookingNumber: booking.bookingNumber,
+          chassisNumber: booking.chassisNumber,
+          customerName: booking.customerDetails?.name,
+          customerMobile: booking.customerDetails?.mobile1,
+          model: booking.model,
+        };
+
+        const itemObj = item.toObject();
+        itemObj.bookingId = flattenedBooking;
+        return itemObj;
+      }
+
+      return item.toObject(); 
+    });
+
+    res.status(200).json({
+      success: true,
+      data: processedData,
+    });
+  } catch (error) {
+    console.error("Error fetching RTO records without RC dispatch date:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 exports.getRtoProcessById = async (req, res) => {
   try {
     let rto = await RtoProcess.findById(req.params.id).populate({
@@ -711,7 +798,6 @@ exports.getRtoProcessById = async (req, res) => {
       return res.status(404).json({ success: false, message: "RTO not found" });
     }
 
-    // Flatten bookingId object
     const booking = rto.bookingId;
     if (booking) {
       const flattenedBooking = {
@@ -723,7 +809,7 @@ exports.getRtoProcessById = async (req, res) => {
         model: booking.model,
       };
 
-      rto = rto.toObject(); // convert to plain object
+      rto = rto.toObject();
       rto.bookingId = flattenedBooking;
     }
 
@@ -736,11 +822,14 @@ exports.getRtoProcessById = async (req, res) => {
   }
 };
 
-
-
 exports.updateRtoProcess = async (req, res) => {
   try {
     const updates = req.body;
+
+    // If rcConfirmation is being set to true and rcDispatchDate is not provided, set it to current date
+    if (updates.rcConfirmation === true && !updates.rcDispatchDate) {
+      updates.rcDispatchDate = new Date();
+    }
 
     const rto = await RtoProcess.findByIdAndUpdate(
       req.params.id,
@@ -781,8 +870,6 @@ exports.updateRtoProcess = async (req, res) => {
   }
 };
 
-
-
 exports.updateMultipleRtoProcessesTaxDetails = async (req, res) => {
   try {
     const { updates, receiptNumber } = req.body;
@@ -802,7 +889,6 @@ exports.updateMultipleRtoProcessesTaxDetails = async (req, res) => {
           numberPlate: item.numberPlate,
           receiptNumber: receiptNumber,
           rtoPendingTaxStatus: true
-
         },
         { new: true }
       )
@@ -823,9 +909,6 @@ exports.updateMultipleRtoProcessesTaxDetails = async (req, res) => {
     });
   }
 };
-
-
-
 
 exports.deleteRtoProcess = async (req, res) => {
   try {
@@ -866,7 +949,6 @@ exports.deleteRtoProcess = async (req, res) => {
   }
 };
 
-
 exports.getRtoProcessStats = async (req, res) => {
   try {
     const today = new Date();
@@ -894,6 +976,7 @@ exports.getRtoProcessStats = async (req, res) => {
       hsrpOrdering: await getCount({ hsrbOrdering: true }),
       hsrpInstallation: await getCount({ hsrbInstallation: true }),
       rcConfirmation: await getCount({ rcConfirmation: true }),
+      rcDispatched: await getCount({ rcDispatchDate: { $ne: null } }),
     };
 
     res.status(200).json({

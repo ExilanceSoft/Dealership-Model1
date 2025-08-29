@@ -19,7 +19,7 @@ const superAdminExists = async () => {
     return false;
   }
 };
-// authController.js - Add this debug endpoint
+
 exports.verifyToken = (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ success: false, message: 'No token' });
@@ -31,10 +31,21 @@ exports.verifyToken = (req, res) => {
     res.status(401).json({ success: false, message: 'Invalid token', error: err.message });
   }
 };
-// In authController.js - Complete register function with permissions handling
+
 exports.register = async (req, res) => {
   try {
-    const { name, email, mobile, roleId, branch, subdealer, discount, permissions } = req.body;
+    const { 
+      name, 
+      email, 
+      mobile, 
+      roleId, 
+      branch, 
+      subdealer, 
+      discount, 
+      permissions,
+      totalDeviationAmount,
+      perTransactionDeviationLimit
+    } = req.body;
 
     // 1. Validate basics
     if (!name || !email || !mobile) {
@@ -60,7 +71,32 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'User cannot be associated with both branch and subdealer' });
     }
 
-    // 4. Create user
+    // 4. Validate deviation amounts for appropriate roles - FIXED
+    const allowedDeviationRoles = ['MANAGER'];
+    
+    // Convert undefined/null values to 0 for comparison
+    const totalDeviation = totalDeviationAmount || 0;
+    const perTransactionLimit = perTransactionDeviationLimit || 0;
+
+    // Check if any deviation amount is provided (greater than 0)
+    const hasDeviationAmounts = totalDeviation > 0 || perTransactionLimit > 0;
+
+    if (hasDeviationAmounts && !allowedDeviationRoles.includes(roleToAssign.name)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Deviation amounts can only be assigned to MANAGER roles' 
+      });
+    }
+
+    // 5. Validate deviation limits - FIXED
+    if (perTransactionLimit > totalDeviation) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Per transaction deviation limit cannot exceed total deviation amount' 
+      });
+    }
+
+    // 6. Create user
     const userData = {
       name,
       email,
@@ -81,9 +117,14 @@ exports.register = async (req, res) => {
     }
 
     if (discount !== undefined && discount > 0) userData.discount = discount;
+    
+    // Set deviation amounts if provided - FIXED
+    if (totalDeviationAmount !== undefined) userData.totalDeviationAmount = totalDeviation;
+    if (perTransactionDeviationLimit !== undefined) userData.perTransactionDeviationLimit = perTransactionLimit;
+
     const newUser = await User.create(userData);
 
-    // 5. Handle permissions if provided
+    // 7. Handle permissions if provided
     if (permissions && Array.isArray(permissions) && permissions.length > 0) {
       const Permission = require('../models/Permission');
       const permissionDocs = await Permission.find({ _id: { $in: permissions }, is_active: true });
@@ -100,7 +141,7 @@ exports.register = async (req, res) => {
       await newUser.save();
     }
 
-    // 6. OTP handling
+    // 8. OTP handling
     const otp = generateOTP();
     await User.findByIdAndUpdate(newUser._id, { otp, otpExpires: new Date(Date.now() + 10 * 60 * 1000) });
     await sendOTPSMS(mobile, otp);
@@ -116,6 +157,10 @@ exports.register = async (req, res) => {
         role: roleToAssign.name,
         branch: newUser.branch,
         subdealer: newUser.subdealer,
+        discount: newUser.discount,
+        totalDeviationAmount: newUser.totalDeviationAmount,
+        perTransactionDeviationLimit: newUser.perTransactionDeviationLimit,
+        currentDeviationUsage: newUser.currentDeviationUsage,
         directPermissions: permissions?.length || 0,
         rolePermissions: roleToAssign.permissions.length
       }

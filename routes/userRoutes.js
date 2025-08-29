@@ -12,43 +12,51 @@ const { requirePermission } = require('../middlewares/requirePermission');
  * @swagger
  * components:
  *   schemas:
- *     User:
+ *     UserUpdateRequest:
  *       type: object
  *       properties:
- *         id:
- *           type: string
- *           description: The auto-generated ID of the user
  *         name:
  *           type: string
  *           description: The user's full name
+ *           example: "John Doe"
  *         email:
  *           type: string
  *           format: email
  *           description: The user's email address
+ *           example: "john.doe@example.com"
  *         mobile:
  *           type: string
  *           description: The user's mobile number
+ *           example: "9876543210"
  *         discount:
  *           type: number
  *           description: Discount amount for SALES_EXECUTIVE users
  *           example: 100
- *         isActive:
- *           type: boolean
- *           description: Whether the user account is active
- *         roles:
- *           type: array
- *           items:
- *             type: string
- *           description: Array of role IDs assigned to the user
  *         branch:
  *           type: string
- *           description: The branch ID the user belongs to
+ *           description: The branch ID the user belongs to (SuperAdmin only)
+ *           example: "60a1b2c3d4e5f6a7b8c9d0e1"
+ *         subdealer:
+ *           type: string
+ *           description: The subdealer ID the user belongs to (SuperAdmin only)
+ *           example: "60a1b2c3d4e5f6a7b8c9d0e2"
  * 
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
+ *     DeviationUpdateRequest:
+ *       type: object
+ *       required:
+ *         - totalDeviationAmount
+ *         - perTransactionDeviationLimit
+ *       properties:
+ *         totalDeviationAmount:
+ *           type: number
+ *           description: Total deviation amount available for the user
+ *           minimum: 0
+ *           example: 5000
+ *         perTransactionDeviationLimit:
+ *           type: number
+ *           description: Maximum deviation amount per transaction
+ *           minimum: 0
+ *           example: 1000
  */
 
 /**
@@ -275,10 +283,21 @@ router.get('/:id',
  *                   $ref: '#/components/schemas/User'
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation error: Discount can only be assigned to SALES_EXECUTIVE users"
  *       401:
  *         description: Unauthorized (missing or invalid token)
  *       403:
- *         description: Forbidden (insufficient permissions)
+ *         description: Forbidden (insufficient permissions or trying to update user from different branch)
  *       404:
  *         description: User not found
  *       500:
@@ -288,8 +307,75 @@ router.put(
   '/:id',
   protect,
   requirePermission('USER.UPDATE'),
-  logAction('UPDATE', 'User'),
+  // logAction('UPDATE', 'User'),
   userController.updateUser
+);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/deviation:
+ *   put:
+ *     summary: Update user deviation amounts
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DeviationUpdateRequest'
+ *     responses:
+ *       200:
+ *         description: Deviation amounts updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Deviation amounts updated successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Invalid input or user role cannot have deviation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Deviation amounts can only be assigned to SALES_EXECUTIVE or MANAGER users"
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (not authorized to update this user)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put(
+  '/:id/deviation',
+  protect,
+  requirePermission('USER.UPDATE'),
+  // logAction('UPDATE_DEVIATION_AMOUNTS', 'User'),
+  userController.updateDeviationAmounts
 );
 
 /**

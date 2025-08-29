@@ -198,6 +198,7 @@ exports.deleteSubdealer = async (req, res, next) => {
 // Add this method to subdealerController.js
 
 // In subdealerController.js - Update the existing method
+// In subdealerController.js - Update the getSubdealerFinancialSummary method
 exports.getSubdealerFinancialSummary = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -235,7 +236,7 @@ exports.getSubdealerFinancialSummary = async (req, res, next) => {
       if (to) dateFilter.createdAt.$lte = new Date(to + 'T23:59:59.999Z');
     }
 
-    // 1. Get booking statistics - FIXED: Convert subdealer ID to ObjectId
+    // 1. Get booking statistics
     const bookingMatch = {
       subdealer: new mongoose.Types.ObjectId(id),
       bookingType: 'SUBDEALER',
@@ -264,7 +265,7 @@ exports.getSubdealerFinancialSummary = async (req, res, next) => {
       totalDiscountedAmount: 0
     };
 
-    // 2. Get on-account summary - FIXED: Convert subdealer ID to ObjectId
+    // 2. Get on-account summary
     const onAccountMatch = {
       subdealer: new mongoose.Types.ObjectId(id),
       ...dateFilter
@@ -291,8 +292,8 @@ exports.getSubdealerFinancialSummary = async (req, res, next) => {
     };
 
     // 3. Calculate financial overview
-    const totalOutstanding = bookingSummary.totalBalanceAmount; // Amount yet to be received from customers
-    const availableCredit = onAccountSummary.totalBalance; // Available on-account balance
+    const totalOutstanding = bookingSummary.totalBalanceAmount;
+    const availableCredit = onAccountSummary.totalBalance;
     const netPosition = availableCredit - totalOutstanding;
 
     const financialOverview = {
@@ -313,15 +314,49 @@ exports.getSubdealerFinancialSummary = async (req, res, next) => {
       .limit(10)
       .lean();
 
-    // 5. Get recent on-account receipts (last 10)
+    // 5. Get detailed recent on-account receipts with allocation details
     const recentReceipts = await SubdealerOnAccountRef.find({
       subdealer: id,
       ...dateFilter
     })
-      .select('refNumber amount allocatedTotal status receivedDate')
+      .populate({
+        path: 'allocations.booking',
+        select: 'bookingNumber customerDetails.name totalAmount'
+      })
+      .populate({
+        path: 'allocations.allocatedBy',
+        select: 'name'
+      })
+      .select('refNumber paymentMode amount allocatedTotal status receivedDate remark allocations')
       .sort({ receivedDate: -1 })
       .limit(10)
       .lean();
+
+    // Format the receipts to include detailed allocation information
+    const formattedReceipts = recentReceipts.map(receipt => {
+      const formattedAllocations = receipt.allocations.map(allocation => ({
+        bookingNumber: allocation.booking?.bookingNumber || 'N/A',
+        customerName: allocation.booking?.customerDetails?.name || 'N/A',
+        allocatedAmount: allocation.amount,
+        allocatedAt: allocation.allocatedAt,
+        allocatedBy: allocation.allocatedBy?.name || 'N/A',
+        remark: allocation.remark || ''
+      }));
+
+      return {
+        _id: receipt._id,
+        refNumber: receipt.refNumber,
+        paymentMode: receipt.paymentMode,
+        amount: receipt.amount,
+        allocatedTotal: receipt.allocatedTotal,
+        remainingBalance: receipt.amount - receipt.allocatedTotal,
+        status: receipt.status,
+        receivedDate: receipt.receivedDate,
+        remark: receipt.remark || '',
+        allocations: formattedAllocations,
+        allocationCount: receipt.allocations.length
+      };
+    });
 
     res.status(200).json({
       status: 'success',
@@ -348,7 +383,7 @@ exports.getSubdealerFinancialSummary = async (req, res, next) => {
         },
         financialOverview,
         recentTransactions,
-        recentReceipts,
+        recentReceipts: formattedReceipts, // Use the formatted receipts
         period: {
           from: from || 'All time',
           to: to || 'Present'

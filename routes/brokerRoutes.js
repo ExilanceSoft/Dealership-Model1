@@ -17,6 +17,23 @@ const { requirePermission } = require('../middlewares/requirePermission');
  * @swagger
  * components:
  *   schemas:
+ *     CommissionRange:
+ *       type: object
+ *       required:
+ *         - range
+ *         - amount
+ *       properties:
+ *         range:
+ *           type: string
+ *           enum: ['1-20000', '20001-40000', '40001-60000', '60001']
+ *           description: Predefined commission range
+ *           example: "40001-60000"
+ *         amount:
+ *           type: number
+ *           minimum: 0
+ *           description: Commission amount for this range
+ *           example: 1500
+ * 
  *     BrokerBranch:
  *       type: object
  *       required:
@@ -44,11 +61,11 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *           minimum: 0
  *           description: Fixed commission amount (required for FIXED type)
  *           example: 1000
- *         commissionRange:
- *           type: string
- *           enum: ['1-20000', '20001-40000', '40001-60000', '60001']
- *           description: Predefined commission range (required for VARIABLE type)
- *           example: "40001-60000"
+ *         commissionRanges:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CommissionRange'
+ *           description: Commission ranges with amounts (required for VARIABLE type)
  *         isActive:
  *           type: boolean
  *           default: true
@@ -153,10 +170,22 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *                 type: number
  *                 minimum: 0
  *                 example: 1000
- *               commissionRange:
- *                 type: string
- *                 enum: ['1-20000', '20001-40000', '40001-60000', '60001']
- *                 example: "40001-60000"
+ *               commissionRanges:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - range
+ *                     - amount
+ *                   properties:
+ *                     range:
+ *                       type: string
+ *                       enum: ['1-20000', '20001-40000', '40001-60000', '60001']
+ *                       example: "40001-60000"
+ *                     amount:
+ *                       type: number
+ *                       minimum: 0
+ *                       example: 1500
  *               isActive:
  *                 type: boolean
  *                 default: true
@@ -181,8 +210,8 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *           schema:
  *             $ref: '#/components/schemas/BrokerInput'
  *           examples:
- *             multipleBranchesExample:
- *               summary: Example with multiple branches
+ *             fixedCommissionExample:
+ *               summary: Example with fixed commission
  *               value:
  *                 name: "John Doe"
  *                 mobile: "9876543210"
@@ -194,11 +223,25 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *                     commissionType: "FIXED",
  *                     fixedCommission: 1000,
  *                     isActive: true
- *                   },
+ *                   }
+ *                 ]
+ *             variableCommissionExample:
+ *               summary: Example with variable commission ranges
+ *               value:
+ *                 name: "Jane Smith"
+ *                 mobile: "9876543211"
+ *                 email: "jane.smith@example.com"
+ *                 otp_required: false
+ *                 branchesData: [
  *                   {
- *                     branch: "507f1f77bcf86cd799439012",
+ *                     branch: "507f1f77bcf86cd799439011",
  *                     commissionType: "VARIABLE",
- *                     commissionRange: "40001-60000",
+ *                     commissionRanges: [
+ *                       { range: "1-20000", amount: 500 },
+ *                       { range: "20001-40000", amount: 1000 },
+ *                       { range: "40001-60000", amount: 1500 },
+ *                       { range: "60001", amount: 2000 }
+ *                     ],
  *                     isActive: true
  *                   }
  *                 ]
@@ -223,6 +266,7 @@ const { requirePermission } = require('../middlewares/requirePermission');
  *           - Broker already associated with one or more branches
  *           - One or more branches not found
  *           - Invalid commission range
+ *           - Commission amount is required for each range
  *       401:
  *         description: Unauthorized (missing or invalid token)
  *       403:

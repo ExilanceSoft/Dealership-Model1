@@ -1,0 +1,103 @@
+{"timestamp":"2025-08-28 00:01:57","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 00:01:57","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 08:35:07","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 08:35:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 09:00:44","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 09:00:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 09:05:34","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 09:05:35","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 09:17:01","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 09:17:01","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 10:09:36","level":"\u001b[31MERROR\u001b[39M","message":"Error approving ledger entry: Cannot destructure property 'remark' of 'req.body' as it is undefined.","stack":null}
+{"timestamp":"2025-08-28 10:26:49","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 10:26:50","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 10:26:56","level":"\u001b[31MERROR\u001b[39M","message":"Error getting ledger report: Cannot populate path `approvedByDetails` because it is not in your schema. Set the `strictPopulate` option to false to override.","stack":null}
+{"timestamp":"2025-08-28 10:27:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 10:27:43","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 11:01:48","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 11:01:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 11:07:40","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 11:07:40","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 11:40:41","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 11:40:42","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 11:42:53","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 11:42:53","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 12:17:01","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 12:17:02","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 12:32:44","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 12:32:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 12:36:55","level":"\u001b[33MWARN\u001b[39M","message":"No matching vehicle found for booking 68affdcd5eda588a6f81a280. Model: 685d1c1d7c59ad32056ab6e7, Color: 68934206cc7882bd852f5256","stack":null}
+{"timestamp":"2025-08-28 12:43:22","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 12:43:22","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 13:40:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 13:40:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 13:58:55","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 13:58:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 14:16:13","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 14:16:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 14:57:36","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 14:57:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 15:09:54","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 15:11:39","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 15:11:49","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 15:11:49","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 15:19:30","level":"\u001b[32MINFO\u001b[39M","message":"Vehicle MD625AF96S1F28782 (Model: XL 100 HD KICKSTART OBD IIB) status changed from in_stock to sold (100.00% paid)","stack":null}
+{"timestamp":"2025-08-28 15:24:52","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 15:24:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 15:26:36","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 15:26:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 15:40:55","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 15:40:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 16:10:23","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 16:10:23","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 16:23:07","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 16:23:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 16:25:05","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 16:25:05","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 16:46:25","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 16:46:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 16:50:10","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 16:50:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 17:03:48","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 17:03:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 17:21:11","level":"\u001b[33MWARN\u001b[39M","message":"No matching vehicle found for booking 68b03d2083deb5342f9e3007. Model: 685d1c1d7c59ad32056ab6e7, Color: 68934206cc7882bd852f5256","stack":null}
+{"timestamp":"2025-08-28 17:22:10","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 17:22:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 17:24:02","level":"\u001b[32MINFO\u001b[39M","message":"Vehicle MD625AF96S1F28783 (Model: XL 100 HD KICKSTART OBD IIB) status changed from in_stock to sold (100.00% paid)","stack":null}
+{"timestamp":"2025-08-28 17:28:26","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 17:28:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 17:32:55","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 17:32:55","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 17:39:12","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 17:39:12","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 17:47:49","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 17:47:49","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 17:51:09","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 17:51:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 18:02:56","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 18:02:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 18:11:38","level":"\u001b[32MINFO\u001b[39M","message":"Excel file loaded successfully","stack":null}
+{"timestamp":"2025-08-28 18:11:38","level":"\u001b[32MINFO\u001b[39M","message":"Found header row at index 9 with headers: vehicle model, color, battery no, key no, chassis no, engine no","stack":null}
+{"timestamp":"2025-08-28 18:11:38","level":"\u001b[32MINFO\u001b[39M","message":"Found 1 data rows to process","stack":null}
+{"timestamp":"2025-08-28 18:11:38","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: MH12ABCDE1234588","stack":null}
+{"timestamp":"2025-08-28 18:53:58","level":"\u001b[32MINFO\u001b[39M","message":"Vehicle MD625AF96S1F28784 (Model: XL 100 HD KICKSTART OBD IIB) status changed from in_stock to sold (100.00% paid)","stack":null}
+{"timestamp":"2025-08-28 18:55:35","level":"\u001b[33MWARN\u001b[39M","message":"No matching vehicle found for booking 68b052f43fcd750878588f9f. Model: 685d1c1d7c59ad32056ab6e7, Color: 6893499d5ad17a37aa50efd0","stack":null}
+{"timestamp":"2025-08-28 19:57:22","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 19:57:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 20:25:33","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 20:25:33","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 20:33:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 20:33:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 20:49:44","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 20:49:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 21:00:26","level":"\u001b[32MINFO\u001b[39M","message":"Vehicle MH12ABCDE12345675 (Model: XL 100 HD KICKSTART OBD IIB) status changed from in_stock to sold (100.00% paid)","stack":null}
+{"timestamp":"2025-08-28 21:20:34","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 21:20:34","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 21:26:24","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 21:26:24","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 21:27:27","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 21:27:27","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 21:37:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 21:37:43","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-28 21:43:16","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-28 21:43:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

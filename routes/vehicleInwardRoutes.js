@@ -410,7 +410,52 @@ router.get('/export-csv',
   logAction('EXPORT_CSV', 'Vehicle'),
   vehicleController.exportCSVTemplate
 );
-
+/**
+ * @swagger
+ * /api/v1/vehicles/row/export-csv:
+ *   get:
+ *     summary: Export vehicles as CSV template Row (Admin+, Inventory Manager)
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [EV, ICE]
+ *         description: Vehicle type to export
+ *       - in: query
+ *         name: branch_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID to filter vehicles
+ *     responses:
+ *       200:
+ *         description: CSV file downloaded
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: Missing type or branch_id, or invalid branch ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (insufficient permissions)
+ *       404:
+ *         description: Branch not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/row/export-csv',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+  logAction('EXPORT_CSV', 'Vehicle'),
+  vehicleController.exportCSVTemplaterow
+);
 /**
  * @swagger
  * /api/v1/vehicles/import-csv:
@@ -479,6 +524,125 @@ router.post('/import-csv',
   upload.single('file'),
   logAction('IMPORT_CSV', 'Vehicle'),
   vehicleController.importCSV
+);
+// In vehicleInwardRoutes.js
+
+/**
+ * @swagger
+ * /api/v1/vehicles/export-excel:
+ *   get:
+ *     summary: Export Excel with template and data sheets
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [EV, ICE]
+ *         description: Vehicle type to export
+ *       - in: query
+ *         name: branch_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID to filter vehicles
+ *     responses:
+ *       200:
+ *         description: Excel file with template and data sheets
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Missing type or branch_id, or invalid branch ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Branch not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/export-excel',
+  protect,
+  requirePermission('VEHICLE_INWARD.READ'),
+  logAction('EXPORT_EXCEL', 'Vehicle'),
+  vehicleController.exportExcelWithSheets
+);
+
+/**
+ * @swagger
+ * /api/v1/vehicles/import-excel:
+ *   post:
+ *     summary: Import vehicles from Excel
+ *     tags: [Vehicle Inward]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [EV, ICE]
+ *         description: Vehicle type for imported vehicles
+ *       - in: query
+ *         name: branch_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Branch ID for imported vehicles
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Excel file to import
+ *     responses:
+ *       200:
+ *         description: Excel import completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 imported:
+ *                   type: integer
+ *                 updated:
+ *                   type: integer
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         description: No file uploaded or invalid Excel format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.post('/import-excel',
+  protect,
+  requirePermission('VEHICLE_INWARD.CREATE'),
+  upload.single('file'),
+  logAction('IMPORT_EXCEL', 'Vehicle'),
+  vehicleController.importExcel
 );
 /**
  * @swagger

@@ -1,0 +1,89 @@
+{"timestamp":"2025-08-21 08:57:17","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 08:57:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 09:42:36","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 09:42:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:11:16","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:11:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:16:40","level":"\u001b[32MINFO\u001b[39M","message":"Vehicle CHS45098765432109 (Model: XL 100 HD KICKSTART OBD IIB) status changed from in_stock to sold (100.00% paid)","stack":null}
+{"timestamp":"2025-08-21 10:23:03","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:23:03","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:23:28","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:23:28","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:27:56","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:27:57","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:28:05","level":"\u001b[31MERROR\u001b[39M","message":"Error calculating subdealer commission: Booking is not defined","stack":null}
+{"timestamp":"2025-08-21 10:29:19","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:29:19","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:29:26","level":"\u001b[31MERROR\u001b[39M","message":"Error calculating subdealer commission: Cannot populate path `priceComponents.header_id` because it is not in your schema. Set the `strictPopulate` option to false to override.","stack":null}
+{"timestamp":"2025-08-21 10:33:20","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:33:20","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:40:05","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:40:06","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:47:46","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:47:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:48:15","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:48:15","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 10:57:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 10:57:44","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 11:07:19","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 11:07:20","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 11:13:55","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 11:13:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 11:14:47","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 11:14:47","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 11:18:33","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 11:18:33","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 11:20:28","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 11:20:28","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 11:41:38","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 11:41:38","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 11:44:32","level":"\u001b[31MERROR\u001b[39M","message":"allocateOnAccount error: Ledger validation failed: cashLocation: Path `cashLocation` is required.","stack":null}
+{"timestamp":"2025-08-21 11:50:08","level":"\u001b[31MERROR\u001b[39M","message":"allocateOnAccount error: Ledger validation failed: cashLocation: Path `cashLocation` is required.","stack":null}
+{"timestamp":"2025-08-21 12:03:26","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 12:03:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 12:08:36","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 12:08:36","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 13:03:39","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 13:03:39","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 13:05:15","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 13:05:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 13:14:25","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 13:14:25","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 13:19:47","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 13:19:47","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 13:32:07","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 13:32:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 14:35:43","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 14:35:43","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 15:18:12","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 15:18:12","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 15:49:05","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 15:49:05","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:25:14","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:25:15","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:28:15","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:28:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:31:13","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:31:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:32:20","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:32:20","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:32:34","level":"\u001b[31MERROR\u001b[39M","message":"Error calculating monthly commission: Booking is not defined","stack":null}
+{"timestamp":"2025-08-21 16:32:34","level":"\u001b[31MERROR\u001b[39M","message":"Error processing commission payment: Booking is not defined","stack":null}
+{"timestamp":"2025-08-21 16:34:39","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:34:39","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:34:48","level":"\u001b[31MERROR\u001b[39M","message":"Error calculating monthly commission: CommissionMaster is not defined","stack":null}
+{"timestamp":"2025-08-21 16:34:48","level":"\u001b[31MERROR\u001b[39M","message":"Error processing commission payment: CommissionMaster is not defined","stack":null}
+{"timestamp":"2025-08-21 16:35:31","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:35:31","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:35:38","level":"\u001b[31MERROR\u001b[39M","message":"Error processing commission payment: Transaction numbers are only allowed on a replica set member or mongos","stack":null}
+{"timestamp":"2025-08-21 16:40:50","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:40:50","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 16:52:17","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 16:52:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 17:00:58","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 17:00:58","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 21:24:59","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 21:24:59","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-21 21:30:50","level":"\u001b[31MERROR\u001b[39M","message":"Error creating/updating commission master: CommissionMaster validation failed: rate_history.60.applicable_from: Path `applicable_from` is required.","stack":null}
+{"timestamp":"2025-08-21 21:39:09","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-21 21:39:09","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}

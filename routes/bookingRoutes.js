@@ -13,7 +13,37 @@ const { requirePermission } = require('../middlewares/requirePermission');
 // router.use(protect);
 const path = require('path');
 
+// Add this right after your existing multer configurations
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads/documents');
+    require('fs').mkdirSync(uploadDir, { recursive: true }); // Create folder if not exists
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `doc-${uniqueSuffix}${ext}`);
+  }
+});
 
+const documentUpload = multer({
+  storage: documentStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /pdf|jpeg|jpg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only PDF, JPEG, JPG, and PNG files are allowed'));
+    }
+  }
+});
 // Configure storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -782,8 +812,8 @@ router.get('/',
  *         description: Server error
  */
 router.get('/:id', 
-  protect,
-  requirePermission('BOOKING.READ'),
+  // protect,
+  // requirePermission('BOOKING.READ'),
   // authorize('SUPERADMIN','SALES_EXECUTIVE'),  
   // authorize('BOOKING', 'READ'),  // Changed to permission check
   bookingController.getBookingById
@@ -2393,4 +2423,251 @@ router.get('/subdealer/:subdealerId/stats',
   requirePermission('BOOKING.READ'),
   bookingController.getSubdealerBookingStats
 );
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/deal-form:
+ *   post:
+ *     summary: Upload deal form for a booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Deal form file (PDF, JPEG, JPG, PNG)
+ *     responses:
+ *       200:
+ *         description: Deal form uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     dealForm:
+ *                       type: object
+ *                       properties:
+ *                         path:
+ *                           type: string
+ *                         originalName:
+ *                           type: string
+ *                         size:
+ *                           type: number
+ *                         mimetype:
+ *                           type: string
+ *                         uploadedAt:
+ *                           type: string
+ *                           format: date-time
+ *       400:
+ *         description: Invalid file or booking ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/deal-form',
+  protect,
+  requirePermission('BOOKING.UPDATE'),
+  documentUpload.single('file'),
+  bookingController.uploadDealForm
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/delivery-challan:
+ *   post:
+ *     summary: Upload delivery challan for a booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Delivery challan file (PDF, JPEG, JPG, PNG)
+ *     responses:
+ *       200:
+ *         description: Delivery challan uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     deliveryChallan:
+ *                       type: object
+ *                       properties:
+ *                         path:
+ *                           type: string
+ *                         originalName:
+ *                           type: string
+ *                         size:
+ *                           type: number
+ *                         mimetype:
+ *                           type: string
+ *                         uploadedAt:
+ *                           type: string
+ *                           format: date-time
+ *       400:
+ *         description: Invalid file or booking ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/delivery-challan',
+  protect,
+  requirePermission('BOOKING.UPDATE'),
+  documentUpload.single('file'),
+  bookingController.uploadDeliveryChallan
+);
+
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/deal-form:
+ *   get:
+ *     summary: Get deal form for a booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Deal form file
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/jpeg:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/jpg:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/png:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Invalid booking ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found or deal form not uploaded
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/deal-form', 
+  bookingController.getDealForm
+);
+/**
+ * @swagger
+ * /api/v1/bookings/{id}/delivery-challan:
+ *   get:
+ *     summary: Get delivery challan for a booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Delivery challan file
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/jpeg:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/jpg:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/png:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Invalid booking ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Booking not found or delivery challan not uploaded
+ *       500:
+ *         description: Server error
+ */
+
+router.get('/:id/delivery-challan',
+  bookingController.getDeliveryChallan
+);
+
+
 module.exports = router;

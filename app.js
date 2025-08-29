@@ -47,6 +47,7 @@ for (const envVar of requiredEnvVars) {
 // -------------------------------
 const app = express();
 
+
 // -------------------------------
 // Static assets
 // -------------------------------
@@ -76,8 +77,10 @@ app.use(cors({
   origin: [
     'http://localhost:5002',
     `http://${getLocalIp()}:5002`,
+    'http://localhost:3001',
     'http://localhost:3000',
     'http://localhost:3000/tvs',
+    'http://localhost:3001/tvs',
     'http://127.0.0.1:5500',
     'https://exilance.com/tvs',
     'https://exilance.com',
@@ -166,6 +169,12 @@ const subdealerRoutes = require('./routes/subdealerRoutes');
 const subDealerModelsRoutes = require('./routes/SubDealerModelsRoutes');
 const subDealerOnAccountRoutes = require('./routes/subdealerOnAccountRoutes')
 const financeDisbursementRoutes = require('./routes/financeDisbursementRoutes');
+const commissionMasterRoutes = require('./routes/commissionMasterRoutes');
+const commissionPaymentRoutes = require('./routes/commissionPaymentRoutes');
+const bankSubPaymentModeRoutes = require('./routes/bankSubPaymentRoutes');
+const commissionRangeRoutes = require('./routes/commissionRangeRoutes');
+const disbursementRoutes = require('./routes/disbursementRoutes');
+// const financeDisbursementRoutes1 = require('./routes/financeDisbursementRoutes1')
 // -------------------------------
 // Route mounts
 // -------------------------------
@@ -218,7 +227,13 @@ app.use('/api/v1/workshop-receipts', workshopReciptRoutes);
 app.use('/api/v1/subdealers', subdealerRoutes);
 app.use('/api/v1/subdealer/models', subDealerModelsRoutes);
 app.use('/api/v1/subdealersonaccount', subDealerOnAccountRoutes);
-app.use('/api/finance-disbursements', financeDisbursementRoutes);
+app.use('/api/v1/finance-disbursements', financeDisbursementRoutes);
+app.use('/api/v1/commission-master', commissionMasterRoutes);
+app.use('/api/v1/commission-payments', commissionPaymentRoutes);
+app.use('/api/v1/banksubpaymentmodes', bankSubPaymentModeRoutes);
+app.use('/api/v1/commission-ranges', commissionRangeRoutes);
+// app.use('/api/v1/down-payments', downPaymentRoutes);
+app.use('/api/v1/disbursements', disbursementRoutes);
 require('./bootstrap/subdealerLedgerBootstrap');
 
 

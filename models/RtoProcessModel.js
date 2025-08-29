@@ -19,7 +19,7 @@ const RtoProcessSchema = new mongoose.Schema({
   },
   rtoPaperStatus: {
     type: String,
-    enum: ['Not Submitted', 'Submitted'],
+    enum: ['Not Submitted', 'Submitted', 'Verified', 'Rejected'],
     default: 'Not Submitted',
   },
   rtoAmount: {
@@ -52,6 +52,10 @@ const RtoProcessSchema = new mongoose.Schema({
   rcConfirmation: {
     type: Boolean,
     default: false,
+  },
+  rcDispatchDate: {
+    type: Date,
+    default: null,
   },
   rtoNumber: {
     type: String,

@@ -281,7 +281,7 @@ const Permission = require('../models/Permission');
 exports.getPermissions = async (req, res, next) => {
   try {
     const page = Number(req.query.page || 1);
-    const limit = Number(req.query.limit || 200);
+    const limit = Number(req.query.limit || 1000);
     const module = req.query.module || undefined;
     const search = req.query.search || undefined;
 

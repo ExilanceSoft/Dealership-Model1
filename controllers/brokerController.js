@@ -3,53 +3,112 @@ const Branch = require('../models/Branch');
 const AuditLog = require('../models/AuditLog');
 const BrokerLedger = require('../models/BrokerLedger');
 const { generateOTP, sendOTPSMS } = require('../utils/otpService');
+const CommissionRangeMaster = require('../models/CommissionRangeMaster');
 
-const validateBranchData = (branchData) => {
+// In brokerController.js - update validateBranchData function
+const validateBranchData = async (branchData) => {
   if (!branchData.branch) {
     throw new Error('Branch reference is required');
   }
 
-  if (branchData.commissionType === 'FIXED') {
-    if (branchData.commissionRange !== undefined) {
-      throw new Error('Cannot set commission range for FIXED type');
+  if (!branchData.commissionConfigurations || !Array.isArray(branchData.commissionConfigurations)) {
+    throw new Error('Commission configurations array is required');
+  }
+
+  if (branchData.commissionConfigurations.length === 0) {
+    throw new Error('At least one commission configuration is required');
+  }
+
+  const seenTypes = new Set();
+  
+  for (const config of branchData.commissionConfigurations) {
+    if (!config.commissionType) {
+      throw new Error('Commission type is required for each configuration');
     }
-    if (branchData.fixedCommission === undefined) {
-      throw new Error('Fixed commission is required for FIXED type');
+
+    if (seenTypes.has(config.commissionType)) {
+      throw new Error(`Duplicate commission type: ${config.commissionType} for the same branch`);
     }
-    if (branchData.fixedCommission < 0) {
-      throw new Error('Fixed commission cannot be negative');
-    }
-  } else if (branchData.commissionType === 'VARIABLE') {
-    if (branchData.fixedCommission !== undefined) {
-      throw new Error('Cannot set fixed commission for VARIABLE type');
-    }
-    if (!branchData.commissionRange) {
-      throw new Error('Commission range is required for VARIABLE type');
-    }
-    const validRanges = ['1-20000', '20001-40000', '40001-60000', '60001'];
-    if (!validRanges.includes(branchData.commissionRange)) {
-      throw new Error('Invalid commission range');
+    seenTypes.add(config.commissionType);
+
+    if (config.commissionType === 'FIXED') {
+      if (config.commissionRanges && config.commissionRanges.length > 0) {
+        throw new Error('Cannot set commission ranges for FIXED type');
+      }
+      if (config.fixedCommission === undefined || config.fixedCommission === null) {
+        throw new Error('Fixed commission is required for FIXED type');
+      }
+      if (config.fixedCommission < 0) {
+        throw new Error('Fixed commission cannot be negative');
+      }
+    } else if (config.commissionType === 'VARIABLE') {
+      if (config.fixedCommission !== undefined && config.fixedCommission !== null) {
+        throw new Error('Cannot set fixed commission for VARIABLE type');
+      }
+      if (!config.commissionRanges || !Array.isArray(config.commissionRanges) || config.commissionRanges.length === 0) {
+        throw new Error('Commission ranges are required for VARIABLE type');
+      }
+      
+      const seenRanges = new Set();
+      
+      for (const rangeData of config.commissionRanges) {
+        if (!rangeData.commissionRangeMaster) {
+          throw new Error('Commission range master reference is required for each range');
+        }
+        
+        // Validate that the commission range master exists and is active
+        const commissionRangeMaster = await CommissionRangeMaster.findById(rangeData.commissionRangeMaster);
+        if (!commissionRangeMaster) {
+          throw new Error(`Commission range master not found: ${rangeData.commissionRangeMaster}`);
+        }
+        if (!commissionRangeMaster.isActive) {
+          throw new Error(`Commission range master is not active: ${rangeData.commissionRangeMaster}`);
+        }
+        
+        if (rangeData.amount === undefined || rangeData.amount === null) {
+          throw new Error('Commission amount is required for each range');
+        }
+        if (rangeData.amount < 0) {
+          throw new Error('Commission amount cannot be negative');
+        }
+        
+        const rangeKey = rangeData.commissionRangeMaster.toString();
+        if (seenRanges.has(rangeKey)) {
+          throw new Error(`Duplicate commission range master: ${rangeData.commissionRangeMaster}`);
+        }
+        seenRanges.add(rangeKey);
+      }
+    } else {
+      throw new Error('Invalid commission type. Must be FIXED or VARIABLE');
     }
   }
 };
 
-const initializeLedger = async (brokerId, userId) => {
+const initializeLedger = async (brokerId, branchId, userId) => {
   try {
-    const existingLedger = await BrokerLedger.findOne({ broker: brokerId });
-    if (!existingLedger) {
-      return await BrokerLedger.create({
-        broker: brokerId,
-        currentBalance: 0,
-        createdBy: userId
-      });
-    }
-    return existingLedger;
+    return await BrokerLedger.findOneAndUpdate(
+      { broker: brokerId, branch: branchId },
+      {
+        $setOnInsert: {
+          broker: brokerId,
+          branch: branchId,
+          currentBalance: 0,
+          onAccount: 0,
+          createdBy: userId,
+          transactions: []
+        }
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true
+      }
+    );
   } catch (error) {
     console.error('Error initializing ledger:', error);
     throw error;
   }
 };
-
 exports.createOrAddBroker = async (req, res) => {
   try {
     const { name, mobile, email, branchesData, otp_required } = req.body;
@@ -64,7 +123,14 @@ exports.createOrAddBroker = async (req, res) => {
 
     // Validate all branch data
     for (const branchData of branchesData) {
-      validateBranchData(branchData);
+      try {
+        await validateBranchData(branchData); // Added await here
+      } catch (validationError) {
+        return res.status(400).json({
+          success: false,
+          message: validationError.message
+        });
+      }
     }
 
     // Check if all branches exist
@@ -72,8 +138,9 @@ exports.createOrAddBroker = async (req, res) => {
     const existingBranches = await Branch.find({ _id: { $in: branchIds } });
     
     if (existingBranches.length !== branchIds.length) {
+      const existingBranchIds = existingBranches.map(b => b._id.toString());
       const missingBranches = branchIds.filter(
-        id => !existingBranches.some(b => b._id.toString() === id)
+        id => !existingBranchIds.includes(id.toString())
       );
       return res.status(400).json({
         success: false,
@@ -89,25 +156,79 @@ exports.createOrAddBroker = async (req, res) => {
     let broker = await Broker.findOne({ $or: [{ mobile }, { email }] });
 
     if (broker) {
-      // Check for existing branch associations
-      const existingBranches = broker.branches.filter(b => 
-        branchIds.includes(b.branch.toString())
-      );
+      // Check for existing branch associations to avoid duplicates
+      const newBranchesData = [];
       
-      if (existingBranches.length > 0) {
-        const branchNames = await Branch.find({ 
-          _id: { $in: existingBranches.map(b => b.branch) } 
-        }).select('name');
+      for (const branchData of completeBranchesData) {
+        const isAlreadyAssociated = broker.branches.some(
+          b => b.branch.toString() === branchData.branch.toString()
+        );
         
-        return res.status(400).json({
-          success: false,
-          message: `Broker already associated with branches: ${branchNames.map(b => b.name).join(', ')}`
-        });
+        if (!isAlreadyAssociated) {
+          newBranchesData.push(branchData);
+        } else {
+          // Branch already exists, add new commission configurations
+          const existingBranch = broker.branches.find(
+            b => b.branch.toString() === branchData.branch.toString()
+          );
+          
+          // Check for duplicate commission types
+          const newConfigs = branchData.commissionConfigurations.filter(
+            newConfig => !existingBranch.commissionConfigurations.some(
+              existingConfig => existingConfig.commissionType === newConfig.commissionType
+            )
+          );
+          
+          if (newConfigs.length > 0) {
+            existingBranch.commissionConfigurations.push(...newConfigs);
+            broker.markModified('branches');
+          }
+        }
+      }
+      
+      if (newBranchesData.length === 0) {
+        // Check if any new commission configurations were added to existing branches
+        const hasNewConfigs = broker.branches.some(branch => 
+          branch.commissionConfigurations.length > 0
+        );
+        
+        if (!hasNewConfigs) {
+          // All branches already associated with this broker and no new configs
+          const branchNames = await Branch.find({ 
+            _id: { $in: branchIds } 
+          }).select('name');
+          
+          return res.status(400).json({
+            success: false,
+            message: `Broker already associated with all specified branches: ${branchNames.map(b => b.name).join(', ')}`
+          });
+        }
       }
 
-      // Add all new branches
-      broker.branches.push(...completeBranchesData);
+      // Add only the new branches that aren't already associated
+      if (newBranchesData.length > 0) {
+        broker.branches.push(...newBranchesData);
+      }
+      
       broker = await broker.save();
+      
+      // Initialize ledger only for NEW branches
+      for (const branchData of newBranchesData) {
+        await initializeLedger(broker._id, branchData.branch, userId);
+      }
+      
+      await AuditLog.create({
+        action: 'ADD_BRANCHES',
+        entity: 'Broker',
+        entityId: broker._id,
+        user: userId,
+        ip: req.ip,
+        metadata: {
+          branches: newBranchesData.map(b => b.branch),
+          action: 'added_branches',
+          otp_required: broker.otp_required
+        }
+      });
     } else {
       // Create new broker with all branches
       broker = await Broker.create({
@@ -119,23 +240,43 @@ exports.createOrAddBroker = async (req, res) => {
         otp_required: otp_required !== undefined ? otp_required : true
       });
 
-      // Initialize ledger for the new broker
-      await initializeLedger(broker._id, userId);
+      // Initialize ledger for each branch for the new broker
+      for (const branchData of completeBranchesData) {
+        await initializeLedger(broker._id, branchData.branch, userId);
+      }
+      
+      await AuditLog.create({
+        action: 'CREATE',
+        entity: 'Broker',
+        entityId: broker._id,
+        user: userId,
+        ip: req.ip,
+        metadata: {
+          branches: branchIds,
+          action: 'created_broker',
+          otp_required: broker.otp_required
+        }
+      });
     }
 
-    // Log the action
-    await AuditLog.create({
-      action: broker.branches.length > branchesData.length ? 'ADD_BRANCHES' : 'CREATE',
-      entity: 'Broker',
-      entityId: broker._id,
-      user: userId,
-      ip: req.ip,
-      metadata: {
-        branches: branchIds,
-        action: broker.branches.length > branchesData.length ? 'added_branches' : 'created_broker',
-        otp_required: broker.otp_required
-      }
-    });
+    // Populate the broker for response
+    broker = await Broker.findById(broker._id)
+      .populate({
+        path: 'branches.branch',
+        select: 'name code'
+      })
+      .populate({
+        path: 'branches.addedBy',
+        select: 'name email'
+      })
+      .populate({
+        path: 'branches.commissionConfigurations.commissionRanges.commissionRangeMaster',
+        select: 'minAmount maxAmount'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name email'
+      });
 
     res.status(201).json({
       success: true,
@@ -162,6 +303,10 @@ exports.getAllBrokers = async (req, res) => {
         select: 'name email'
       })
       .populate({
+        path: 'branches.commissionConfigurations.commissionRanges.commissionRangeMaster',
+        select: 'minAmount maxAmount'
+      })
+      .populate({
         path: 'createdBy',
         select: 'name email'
       });
@@ -180,6 +325,7 @@ exports.getAllBrokers = async (req, res) => {
   }
 };
 
+
 exports.getBrokersByBranch = async (req, res) => {
   try {
     const { branchId } = req.params;
@@ -187,12 +333,18 @@ exports.getBrokersByBranch = async (req, res) => {
     const brokers = await Broker.find({ 
       'branches.branch': branchId,
       'branches.isActive': true 
-    }).populate({
+    })
+    .populate({
       path: 'branches.branch',
       select: 'name code'
-    }).populate({
+    })
+    .populate({
       path: 'branches.addedBy',
       select: 'name email'
+    })
+    .populate({
+      path: 'branches.commissionConfigurations.commissionRanges.commissionRangeMaster',
+      select: 'minAmount maxAmount'
     });
 
     res.status(200).json({
@@ -207,6 +359,7 @@ exports.getBrokersByBranch = async (req, res) => {
     });
   }
 };
+
 
 exports.getBrokerById = async (req, res) => {
   try {
@@ -227,6 +380,10 @@ exports.getBrokerById = async (req, res) => {
       .populate({
         path: 'branches.addedBy',
         select: 'name email'
+      })
+      .populate({
+        path: 'branches.commissionConfigurations.commissionRanges.commissionRangeMaster',
+        select: 'minAmount maxAmount'
       })
       .populate({
         path: 'createdBy',
@@ -252,6 +409,7 @@ exports.getBrokerById = async (req, res) => {
     });
   }
 };
+
 
 exports.updateBroker = async (req, res) => {
   try {
@@ -283,11 +441,18 @@ exports.updateBroker = async (req, res) => {
     if (otp_required !== undefined) updateObj.otp_required = otp_required;
 
     // Handle branch updates if provided
-    if (branchesData && Array.isArray(branchesData)) {
-      // Validate all branch data
+   if (branchesData && Array.isArray(branchesData)) {
       for (const branchData of branchesData) {
-        validateBranchData(branchData);
+        try {
+          await validateBranchData(branchData); // Added await here
+        } catch (validationError) {
+          return res.status(400).json({
+            success: false,
+            message: validationError.message
+          });
+        }
       }
+    
 
       // Check if all branches exist
       const branchIds = branchesData.map(b => b.branch);
@@ -331,6 +496,10 @@ exports.updateBroker = async (req, res) => {
       .populate({
         path: 'branches.addedBy',
         select: 'name email'
+      })
+      .populate({
+        path: 'branches.commissionConfigurations.commissionRanges.commissionRangeMaster',
+        select: 'minAmount maxAmount'
       })
       .populate({
         path: 'createdBy',
@@ -570,6 +739,7 @@ exports.sendBrokerOTP = async (req, res) => {
     });
   }
 };
+
 exports.verifyBrokerOTP = async (req, res) => {
   try {
     const { brokerId, otp } = req.body;

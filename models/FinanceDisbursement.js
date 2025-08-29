@@ -25,30 +25,15 @@ const financeDisbursementSchema = new mongoose.Schema({
     required: [true, 'Disbursement date is required'],
     default: Date.now
   },
-  disbursementAmount: {
+  amount: {
     type: Number,
-    required: [true, 'Disbursement amount is required'],
-    min: [0, 'Disbursement amount must be positive']
-  },
-  receivedAmount: {
-    type: Number,
-    required: [true, 'Received amount is required'],
-    min: [0, 'Received amount must be positive'],
-    validate: {
-      validator: function(v) {
-        return v <= this.disbursementAmount;
-      },
-      message: 'Received amount cannot exceed disbursement amount'
-    }
+    required: [true, 'Amount is required'],
+    min: [0, 'Amount must be positive']
   },
   paymentMode: {
     type: String,
-    enum: ['NEFT', 'RTGS', 'IMPS', 'Cheque', 'DD', 'Other'],
-    default: 'NEFT'
-  },
-  bank: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Bank'
+    enum: ['NEFT', 'RTGS', 'IMPS', 'Cheque', 'DD', 'Other', 'Finance Disbursement'],
+    default: 'Finance Disbursement'
   },
   transactionReference: {
     type: String,
@@ -56,12 +41,8 @@ const financeDisbursementSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['PENDING', 'PARTIAL', 'COMPLETED', 'CANCELLED'],
-    default: 'PENDING'
-  },
-  remark: {
-    type: String,
-    trim: true
+    enum: ['PENDING', 'COMPLETED', 'CANCELLED'],
+    default: 'COMPLETED'
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -76,11 +57,6 @@ const financeDisbursementSchema = new mongoose.Schema({
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
-});
-
-// Virtual for remaining amount
-financeDisbursementSchema.virtual('remainingAmount').get(function() {
-  return this.disbursementAmount - this.receivedAmount;
 });
 
 // Indexes

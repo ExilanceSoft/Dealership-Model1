@@ -139,9 +139,6 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    // Handle discount validation (existing code remains same)
-    // Handle permissions update (existing code remains same)
-
     const user = await User.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true
@@ -191,6 +188,129 @@ exports.updateUser = async (req, res) => {
 
     res.status(500).json({ 
       success: false, 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+exports.updateDeviationAmounts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { totalDeviationAmount, perTransactionDeviationLimit } = req.body;
+
+    if (totalDeviationAmount === undefined && perTransactionDeviationLimit === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Either totalDeviationAmount or perTransactionDeviationLimit is required'
+      });
+    }
+
+    // For non-SuperAdmins, verify the user being updated is from their branch or subdealer
+    if (!req.user.isSuperAdmin()) {
+      const targetUser = await User.findById(id);
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const isSameBranch = targetUser.branch?.toString() === req.user.branch?.toString();
+      const isSameSubdealer = targetUser.subdealer?.toString() === req.user.subdealer?.toString();
+      
+      if (!isSameBranch && !isSameSubdealer) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to update this user'
+        });
+      }
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Validate role can have deviation amounts
+    const allowedDeviationRoles = ['MANAGER'];
+    const userRoles = await Role.find({ _id: { $in: user.roles } });
+    const hasAllowedRole = userRoles.some(role => allowedDeviationRoles.includes(role.name));
+    
+    if (!hasAllowedRole) {
+      return res.status(400).json({
+        success: false,
+        message: 'Deviation amounts can only be assigned to MANAGER users'
+      });
+    }
+
+    // Validate perTransactionDeviationLimit doesn't exceed totalDeviationAmount
+    if (perTransactionDeviationLimit !== undefined && 
+        totalDeviationAmount !== undefined &&
+        perTransactionDeviationLimit > totalDeviationAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Per transaction deviation limit (${perTransactionDeviationLimit}) cannot exceed total deviation amount (${totalDeviationAmount})`
+      });
+    }
+
+    // If only perTransactionDeviationLimit is being updated, check against current total
+    if (perTransactionDeviationLimit !== undefined && 
+        totalDeviationAmount === undefined &&
+        perTransactionDeviationLimit > user.totalDeviationAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Per transaction deviation limit (${perTransactionDeviationLimit}) cannot exceed current total deviation amount (${user.totalDeviationAmount})`
+      });
+    }
+
+    // Update deviation amounts
+    const updates = {};
+    if (totalDeviationAmount !== undefined) updates.totalDeviationAmount = totalDeviationAmount;
+    if (perTransactionDeviationLimit !== undefined) updates.perTransactionDeviationLimit = perTransactionDeviationLimit;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true, runValidators: true }
+    )
+    .select(getUserProjection)
+    .populate('roles')
+    .populate('branchDetails')
+    .populate('subdealerDetails');
+
+    await AuditLog.create({
+      action: 'UPDATE_DEVIATION_AMOUNTS',
+      entity: 'User',
+      entityId: user._id,
+      user: req.user.id,
+      ip: req.ip,
+      metadata: {
+        totalDeviationAmount,
+        perTransactionDeviationLimit,
+        previousTotal: user.totalDeviationAmount,
+        previousPerTransaction: user.perTransactionDeviationLimit
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Deviation amounts updated successfully',
+      data: updatedUser
+    });
+
+  } catch (err) {
+    console.error('Error updating deviation amounts:', err);
+    
+    let errorMessage = 'Error updating deviation amounts';
+    if (err.name === 'ValidationError') {
+      errorMessage = Object.values(err.errors).map(val => val.message).join(', ');
+    }
+
+    res.status(500).json({
+      success: false,
       message: errorMessage,
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });

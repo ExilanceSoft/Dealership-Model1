@@ -59,6 +59,13 @@ const SubdealerOnAccountRefSchema = new mongoose.Schema(
       required: [true, 'Amount is required'],
       min: [0, 'Amount must be >= 0'],
     },
+    subPaymentMode: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'BankSubPaymentMode',
+        required: function() {
+          return this.paymentMode === 'Bank';
+        }
+      },
     receivedDate: { type: Date, default: Date.now },
     receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     remark: { type: String, trim: true },

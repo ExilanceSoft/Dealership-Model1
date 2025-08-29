@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Booking Form - BK000092</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin:89px 173px 113px 139px;
+            line-height: 1.5;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+        .header-table {
+            border: none;
+        }
+        .header-table td {
+            border: none;
+            padding: 2px 8px;
+        }
+        .item-table {
+            font-size: 13px;
+        }
+        .item-table td {
+            padding: 3px 5px;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-bold {
+            font-weight: bold;
+        }
+        .section-title {
+            font-weight: bold;
+            margin: 15px 0 5px 0;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3px;
+        }
+        .signature-table {
+            margin-top: 50px;
+        }
+        .signature-table td {
+            border: none;
+            padding-top: 50px;
+            width: 25%;
+        }
+        .declaration {
+            font-size: 10px;
+            text-align: justify;
+            margin-top: 20px;
+        }
+        @media print {
+            body {
+                margin: 20mm;
+                font-size: 12px;
+                color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .no-print {
+                display: none;
+            }
+            .qr-code-container {
+                position: absolute;
+                top: 15mm;
+                right: 20mm;
+            }
+            .section-title {
+                page-break-after: avoid;
+            }
+            table, tr, td, th {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="qr-code-container">
+        <img src="data:image/png;base64,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" width="80" height="80" alt="Booking QR Code">
+        <div class="qr-code-text">Scan to change Booking Details</div>
+    </div>
+
+    <!-- Header Section -->
+    <table class="header-table">
+        <tr>
+            <td width="40%"><font size="5"><b>Gandhi TVS</b></font></td>
+            <td width="40%" class="text-center">
+                <b><u>Booking Form / Order Form</u></b><br>
+            </td>
+            <td width="20%" class="text-right"><img src="dealership.gandhitvs.in/api/v1/images/logo.png" alt="tvs" width="150" height="80"></td>
+        </tr>
+        <tr>
+            <td colspan="2">Authorized Main Dealer: TVS Motor Company Ltd.</td>
+            <td class="text-right">Date: 24/08/2025</td>
+        </tr>
+        <tr>
+            <td colspan="3">
+                
+            </td>
+        </tr>
+    </table>
+
+    <!-- Vehicle Details Section -->
+
+    <!-- Customer Details -->
+    <div class="section-title">Customer & Vehicle Details</div>
+    <table class="header-table">
+        <tr>
+            <td width="20%"><b>Booking No.:</b></td>
+            <td width="30%">BK000092</td>
+            <td width="20%"><b>GSTIN:</b></td>
+            <td width="30%">N/A</td>
+        </tr>
+        <tr>
+            <td><b>Customer Name:</b></td>
+            <td>Mr. ABC Distributors</td>
+            <td><b>RTO Type:</b></td>
+            <td>MH</td>
+        </tr>
+        <tr>
+            <td><b>Address:</b></td>
+            <td colspan="3">456 Business Park, Nashik, Nashik, Nashik, 422005</td>
+        </tr>
+        <tr>
+            <td><b>Taluka:</b></td>
+            <td>Nashik121</td>
+            <td><b>District:</b></td>
+            <td>Nashik</td>
+        </tr>
+        <tr>
+            <td><b>Pincode:</b></td>
+            <td>423301</td>
+            <td><b>Mobile No.:</b></td>
+            <td>9096256290</td>
+        </tr>
+        <tr>
+            <td><b>D.O.B.:</b></td>
+            <td>24/08/2025</td>
+            <td><b>Aadhar No.:</b></td>
+            <td>123456789012</td>
+        </tr>
+        <tr>
+            <td><b>Exchange Mode:</b></td>
+            <td>NO</td>
+            <td><b>Payment Mode:</b></td>
+            <td>FINANCE (ABC Finance)</td>
+        </tr>
+        <tr>
+            <td><b>Model:</b></td>
+            <td></td>
+            <td><b>Color:</b></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td><b>Sales Rep:</b></td>
+            <td>
+                
+            </td>
+            <td><b>HPA:</b></td>
+            <td>YES</td>
+        </tr>
+    </table>
+
+    <!-- Price Components -->
+    <div class="section-title">Price Breakdown</div>
+    <table class="item-table" border="0.5" frame="box">
+        <thead>
+            <tr>
+                <th width="30%"><b>Particulars</b></th>
+                <th><b>HSN</b></th>
+                <th><b>Unit Cost</b></th>
+                <th><b>Taxable</b></th>
+                <th><b>CGST</b></th>
+                <th><b>CGST AMOUNT</b></th>
+                <th><b>SGST</b></th>
+                <th><b>SGST AMOUNT</b></th>
+                <th><b>DIS.</b></th>
+                <th><b>LINE TOTAL</b></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td width="25%"><b>INSURCANCE 4+1 INCLUSIVE OF ADDITIONAL COVERS</b></td>
+                <td align="right">-</td>
+                <td align="right">6409.00</td>
+                <td align="right">6409.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">6409.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>PDI LOGISTIC HANDLING CHARGES</b></td>
+                <td align="right">65465465</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">9</td>
+                <td align="right">0.00</td>
+                <td align="right">9</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>HYPOTHECATION CHARGES (IF APPLICABLE)</b></td>
+                <td align="right">-</td>
+                <td align="right">500.00</td>
+                <td align="right">500.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">500.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>ON ROAD PRICE</b></td>
+                <td align="right">-</td>
+                <td align="right">61994.00</td>
+                <td align="right">61994.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">61994.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>ESSENTIAL FITTMENTS</b></td>
+                <td align="right">54545455</td>
+                <td align="right">750.00</td>
+                <td align="right">550.00</td>
+                <td align="right">9</td>
+                <td align="right">49.50</td>
+                <td align="right">9</td>
+                <td align="right">49.50</td>
+                <td align="right">200.00</td>
+                <td align="right">550.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>Add ON Services Total</b></td>
+                <td align="right">5454545454</td>
+                <td align="right">1500.00</td>
+                <td align="right">1500.00</td>
+                <td align="right">9</td>
+                <td align="right">135.00</td>
+                <td align="right">9</td>
+                <td align="right">135.00</td>
+                <td align="right">0.00</td>
+                <td align="right">1500.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>MANDATORY STEEL ACCESSORIES</b></td>
+                <td align="right">4545454</td>
+                <td align="right">750.00</td>
+                <td align="right">750.00</td>
+                <td align="right">14</td>
+                <td align="right">105.00</td>
+                <td align="right">14</td>
+                <td align="right">105.00</td>
+                <td align="right">0.00</td>
+                <td align="right">750.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>ADDON SERVICES TOTAL</b></td>
+                <td align="right">-</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>Additional Accessory</b></td>
+                <td align="right">54545454</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">14</td>
+                <td align="right">0.00</td>
+                <td align="right">14</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>PLOISH COATING</b></td>
+                <td align="right">-</td>
+                <td align="right">1295.00</td>
+                <td align="right">1295.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">1295.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>ACCESSORIES TOTAL</b></td>
+                <td align="right">4545454545</td>
+                <td align="right">2000.00</td>
+                <td align="right">2000.00</td>
+                <td align="right">9</td>
+                <td align="right">180.00</td>
+                <td align="right">9</td>
+                <td align="right">180.00</td>
+                <td align="right">0.00</td>
+                <td align="right">2000.00</td>
+            </tr>
+            
+            <tr>
+                <td width="25%"><b>Updated Alloy Wheels</b></td>
+                <td align="right">-</td>
+                <td align="right">550.00</td>
+                <td align="right">550.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">550.00</td>
+            </tr>
+            <tr>
+                <td width="25%"><b>Additional Charges</b></td>
+                <td align="right">-</td>
+                <td align="right">1450.00</td>
+                <td align="right">1450.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0</td>
+                <td align="right">0.00</td>
+                <td align="right">0.00</td>
+                <td align="right">1450.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Totals Section -->
+    <table class="header-table">
+        <tr>
+            <td colspan="3"><strong>Total(A)</strong></td>
+            <td width="6%"><strong>77198.00</strong></td>
+        </tr>
+    </table>
+
+    <header class="clearfix"></header>
+    <table>
+        <tbody>
+            
+            <tr>
+                <td width="80%"><b>HP CHARGES</b></td>
+                <td align="right">500.00</td>
+            </tr>
+            
+            <tr>
+                <td width="80%"><b>Insurance</b></td>
+                <td align="right">2000.00</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <header class="clearfix"></header>
+    <table>
+        <tr>
+            <td colspan="3"><strong>Total(B)</strong></td>
+            <td width="6%"><strong>2500.00</strong></td>
+        </tr>
+    </table>
+    
+    <table>
+        <tr>
+            <td><strong>GRAND TOTAL(A) + (B)</strong></td>
+            <td width="9%" align="right"><strong>79698.00</strong></td>
+        </tr>
+    </table>
+
+
+    <!-- Notes -->
+    <table>
+        <tr>
+            <td><strong>Notes:-</strong></td>
+            <td colspan="3"></td>
+        </tr>
+    </table>
+
+    <!-- Declaration -->
+    <table>
+        <tr>
+            <td>
+                <strong>ACC.DETAILS:</strong>
+                - Updated Alloy Wheels,
+            </td>
+        </tr>
+        <tr>
+            <td class="declaration">
+                <strong>Declaration-</strong> I/We Authorize the Dealer to register the vehicle at RTO in my/our name .2) Getting the vehicle insured from insurance company is my entire responsibility & there will be no liability on dealer for any loss. 3) Getting the vehicle registered from RTO is solely my responsibility & exclusively I/we shall/will be responsible for any loss/penalty/legal charge from RTO/Police for not getting the vehicle registered or for delayed registration. 4) Registration Number allotted by RTO will be acceptable to me else I will pre book for choice number at RTO at my own. Dealership has no role in RTO Number allocation 5) I had been informed & understood the T&C about warranty policy as laid by TVS MOTOR CO. LTD & I agree to abide the same 6) I/We agree that the price at the time of delivery will be applicable. 7) I am being informed about the price breakup, I had understood & agreed upon the same & then had booked the vehicle 9)I am bound to pay an interest @24% p.a. as penalty if payment is delayed for more than 5 days from the date of booking. 8) Subject to sangamner Jurisdication. I accept that vehicle once sold by dealer shall not be taken back /replaced for any reason.
+            </td>
+        </tr>
+    </table>
+
+    <!-- Signatures -->
+    <table class="signature-table">
+        <tr>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td>Customer's Signature</td>
+            <td>
+                Sales Executive
+            </td>
+            <td>Manager</td>
+            <td>Accountant</td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -1,0 +1,152 @@
+{"timestamp":"2025-08-26 09:38:17","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 09:38:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 10:20:45","level":"\u001b[31MERROR\u001b[39M","message":"SMS sending failed:","stack":"AxiosError: timeout of 10000ms exceeded\n    at RedirectableRequest.handleRequestTimeout (E:\\Exilance-Project\\Gandhi-TVS(Without-permission)\\Dealership-Model1\\node_modules\\axios\\dist\\node\\axios.cjs:3265:16)\n    at RedirectableRequest.emit (node:events:514:28)\n    at Timeout.<anonymous> (E:\\Exilance-Project\\Gandhi-TVS(Without-permission)\\Dealership-Model1\\node_modules\\follow-redirects\\index.js:221:12)\n    at listOnTimeout (node:internal/timers:573:17)\n    at process.processTimers (node:internal/timers:514:7)\n    at Axios.request (E:\\Exilance-Project\\Gandhi-TVS(Without-permission)\\Dealership-Model1\\node_modules\\axios\\dist\\node\\axios.cjs:4317:41)\n    at async exports.sendOTPSMS (E:\\Exilance-Project\\Gandhi-TVS(Without-permission)\\Dealership-Model1\\utils\\otpService.js:56:22)\n    at async exports.requestOTP (E:\\Exilance-Project\\Gandhi-TVS(Without-permission)\\Dealership-Model1\\controllers\\authController.js:159:5)"}
+{"timestamp":"2025-08-26 10:22:34","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 10:22:35","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 10:42:53","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 10:42:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 10:46:42","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 10:46:42","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 10:55:56","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 10:55:57","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:02:39","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:02:39","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:06:45","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:06:46","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:13:15","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:13:15","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:14:26","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:14:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:43:31","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:43:31","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:51:03","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:51:03","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:52:29","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:52:29","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 11:53:37","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 11:53:37","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Excel file loaded successfully","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Found header row at index 9 with headers: vehicle model, color, battery no, key no, chassis no, engine no","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Found 73 data rows to process","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456789","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456790","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456792","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456793","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456795","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456797","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456798","stack":null}
+{"timestamp":"2025-08-26 12:06:52","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456799","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456800","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456801","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456802","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456803","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456804","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456805","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456806","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456807","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456808","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456809","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456810","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456811","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456812","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456813","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456814","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456815","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456816","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456817","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456818","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456819","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456820","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456821","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456822","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456823","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456824","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456825","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456826","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456827","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456828","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456829","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456830","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456831","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456832","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456833","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456834","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456835","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456836","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456837","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456838","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456839","stack":null}
+{"timestamp":"2025-08-26 12:06:53","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456840","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456841","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456842","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456843","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456844","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456845","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456846","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456847","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456848","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456849","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456850","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456851","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456852","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456853","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456854","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456855","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456856","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456857","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456858","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456859","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456860","stack":null}
+{"timestamp":"2025-08-26 12:06:54","level":"\u001b[32MINFO\u001b[39M","message":"Imported new vehicle with chassis: CHS9X1A23456861","stack":null}
+{"timestamp":"2025-08-26 13:26:54","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 13:26:54","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 14:02:47","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 14:02:48","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 14:09:30","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 14:09:30","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 14:11:00","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 14:11:00","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 14:18:17","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 14:18:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 14:34:10","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 14:34:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 15:27:02","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 15:27:03","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 15:28:30","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 15:28:30","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 15:32:17","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 15:32:17","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 15:34:45","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 15:34:45","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 15:46:10","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 15:46:10","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 15:48:18","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 15:48:19","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 15:50:13","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 15:50:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 16:18:16","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 16:18:16","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 16:34:38","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 16:34:38","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 17:57:31","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 17:57:32","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 19:19:26","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 19:19:26","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 19:22:26","level":"\u001b[32MINFO\u001b[39M","message":"Vehicle CHS9X1A23456789 (Model: XL 100 HD KICKSTART OBD IIB) status changed from not_approved to sold (100.00% paid)","stack":null}
+{"timestamp":"2025-08-26 19:23:07","level":"\u001b[32MINFO\u001b[39M","message":"Vehicle MD625AF96S1F28779 (Model: Model X Updated) status changed from in_stock to sold (100.00% paid)","stack":null}
+{"timestamp":"2025-08-26 19:30:07","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 19:30:07","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 19:32:12","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 19:32:13","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 19:37:51","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 19:37:52","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 20:05:21","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 20:05:21","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 20:06:56","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 20:06:56","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 20:38:28","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 20:38:28","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 21:03:07","level":"\u001b[32MINFO\u001b[39M","message":"Attached opening debit hook to Booking schema (B2B/B2C)","stack":null}
+{"timestamp":"2025-08-26 21:03:08","level":"\u001b[32MINFO\u001b[39M","message":"MongoDB Connected: localhost","stack":null}
+{"timestamp":"2025-08-26 23:47:55","level":"\u001b[33MWARN\u001b[39M","message":"Mongoose disconnected from DB","stack":null}
+{"timestamp":"2025-08-26 23:48:00","level":"\u001b[32MINFO\u001b[39M","message":"Mongoose connected to DB","stack":null}

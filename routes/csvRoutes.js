@@ -77,8 +77,10 @@ const { requirePermission } = require('../middlewares/requirePermission');
 router.get('/export-template',
   protect,
   requirePermission('CSV.READ'),
-  csvController.exportCSVTemplate
+  csvController.exportExcelTemplate
 );
+
+
 
 /**
  * @swagger
@@ -173,7 +175,7 @@ router.post('/import',
   protect,
   requirePermission('CSV.CREATE'),
   upload.single('file'),
-  csvController.importCSV
+  csvController.importExcel
 );
 
 module.exports = router;

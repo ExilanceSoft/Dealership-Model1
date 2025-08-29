@@ -9,6 +9,10 @@ const Color = require('../models/Color');
 const { stringify } = require('csv-stringify');
 const Model = require('../models/ModelModel');
 const _ = require('lodash');
+const excel = require('excel4node');
+const ExcelJS = require('exceljs');
+
+
 const populateOptions = [
   {
     path: 'unloadLocation',
@@ -887,6 +891,88 @@ exports.exportCSVTemplate = async (req, res, next) => {
   }
 };
 
+exports.exportCSVTemplaterow = async (req, res, next) => {
+  try {
+    let { type, branch_id } = req.query;
+
+    // ---- Validate inputs ----------------------------------------------------
+    if (!branch_id || !mongoose.Types.ObjectId.isValid(branch_id)) {
+      return next(new AppError("Invalid branch ID", 400));
+    }
+
+    if (!type) {
+      return next(new AppError("Query param 'type' is required (EV or ICE)", 400));
+    }
+
+    type = String(type).trim().toUpperCase();
+    const ALLOWED_TYPES = new Set(["EV", "ICE"]);
+    if (!ALLOWED_TYPES.has(type)) {
+      return next(new AppError("Invalid type. Allowed: EV or ICE", 400));
+    }
+
+    // ---- Fetch branch -------------------------------------------------------
+    const branch = await Branch.findById(branch_id).lean();
+    if (!branch) return next(new AppError("Branch not found", 404));
+
+    // ---- Build CSV rows (template only, no data) ----------------------------
+    const csvData = [];
+
+    // Meta section
+    csvData.push(["BRANCH:", branch.name || ""]);
+    csvData.push(["ADDRESS:", branch.address || ""]);
+    csvData.push(["VEHICLE TYPE:", type]);
+    csvData.push(["EXPORT DATE:", new Date().toLocaleString("en-IN")]);
+    csvData.push(["NOTE:", "This is a template file. Fill in the data below."]);
+    csvData.push([]);
+
+    // Headers (as requested)
+    const headers =
+      type === "EV"
+        ? [
+            "Vehicle Model",
+            "Color",
+            "Battery No",
+            "Key No",
+            "Chassis No",
+            "Engine No",
+            "Motor No",
+            "Charger No"
+          ]
+        : ["Vehicle Model", "Color", "Battery No", "Key No", "Chassis No", "Engine No"];
+
+    csvData.push(headers);
+
+    // Add empty rows for data entry (5 empty rows as example)
+    for (let i = 0; i < 5; i++) {
+      csvData.push(
+        type === "EV"
+          ? ["", "", "", "", "", "", "", ""]
+          : ["", "", "", "", "", ""]
+      );
+    }
+
+    // ---- Stream CSV to response --------------------------------------------
+    const safeBranchName = (branch.name || "branch").replace(/[^\w\-]+/g, "_");
+    const filename = `${safeBranchName}_${type}_TEMPLATE_${Date.now()}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+    const stringifier = stringify({ header: false });
+    stringifier.on("error", (err) => {
+      // If streaming fails, hand off to error middleware
+      next(new AppError(`CSV stream error: ${err.message}`, 500));
+    });
+
+    stringifier.pipe(res);
+    for (const row of csvData) {
+      stringifier.write(row);
+    }
+    stringifier.end();
+  } catch (err) {
+    next(new AppError(err?.message || "Export failed", 500));
+  }
+};
 // Define the importCSV function as an async function that handles CSV imports
 exports.importCSV = async (req, res, next) => {
   try {
@@ -1226,7 +1312,477 @@ exports.getVehiclesByStatus = async (req, res, next) => {
     next(new AppError('Server Error', 500));
   }
 };
+// Replace the exportCSVTemplate function with this Excel export function
+exports.exportExcelWithSheets = async (req, res, next) => {
+  try {
+    let { type, branch_id } = req.query;
 
+    // ---- Validate inputs ----------------------------------------------------
+    if (!branch_id || !mongoose.Types.ObjectId.isValid(branch_id)) {
+      return next(new AppError("Invalid branch ID", 400));
+    }
+
+    if (!type) {
+      return next(new AppError("Query param 'type' is required (EV or ICE)", 400));
+    }
+
+    type = String(type).trim().toUpperCase();
+    const ALLOWED_TYPES = new Set(["EV", "ICE"]);
+    if (!ALLOWED_TYPES.has(type)) {
+      return next(new AppError("Invalid type. Allowed: EV or ICE", 400));
+    }
+
+    // ---- Fetch branch -------------------------------------------------------
+    const branch = await Branch.findById(branch_id).lean();
+    if (!branch) return next(new AppError("Branch not found", 404));
+
+    // ---- Get all models and colors from master data -------------------------
+    const allModels = await Model.find({ status: 'active' })
+      .populate('colors', 'name')
+      .select('model_name colors')
+      .lean();
+    
+    // Create a map of model names to their available colors
+    const modelColorMap = new Map();
+    allModels.forEach(model => {
+      const colorNames = model.colors.map(color => color.name);
+      modelColorMap.set(model.model_name, colorNames);
+    });
+
+    // ---- Fetch vehicles for branch & type ----------------------------------
+    const vehicles = await Vehicle.find({
+      type,
+      unloadLocation: branch._id
+    })
+      .populate('model', 'model_name')
+      .select(
+        "model modelName color batteryNumber keyNumber chassisNumber engineNumber motorNumber chargerNumber"
+      )
+      .sort({ model: 1, chassisNumber: 1 })
+      .lean();
+
+    // ---- Find duplicate chassis numbers (scoped to this branch & type) -----
+    const dupes = await Vehicle.aggregate([
+      {
+        $match: {
+          type,
+          unloadLocation: new mongoose.Types.ObjectId(branch._id)
+        }
+      },
+      {
+        $group: {
+          _id: "$chassisNumber",
+          count: { $sum: 1 }
+        }
+      },
+      { $match: { count: { $gt: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // ---- Create Excel workbook ---------------------------------------------
+    const workbook = new excel.Workbook();
+    
+    // Create styles
+    const headerStyle = workbook.createStyle({
+      font: { bold: true, color: '#FFFFFF' },
+      fill: { type: 'pattern', patternType: 'solid', fgColor: '#4472C4' },
+      alignment: { horizontal: 'center' }
+    });
+    
+    const titleStyle = workbook.createStyle({
+      font: { bold: true, size: 14 }
+    });
+    
+    const noteStyle = workbook.createStyle({
+      font: { italic: true }
+    });
+    
+    const warningStyle = workbook.createStyle({
+      font: { bold: true, color: '#FF0000' }
+    });
+
+    // ---- Sheet 1: Template -------------------------------------------------
+    const templateSheet = workbook.addWorksheet('Template');
+    
+    // Add metadata
+    templateSheet.cell(1, 1).string('BRANCH:').style(titleStyle);
+    templateSheet.cell(1, 2).string(branch.name || '');
+    
+    templateSheet.cell(2, 1).string('VEHICLE TYPE:').style(titleStyle);
+    templateSheet.cell(2, 2).string(type);
+    
+    templateSheet.cell(3, 1).string('NOTE:').style(titleStyle);
+    templateSheet.cell(3, 2).string('Fill your data in this sheet for import').style(noteStyle);
+    
+    // Add warning if duplicates exist
+    if (dupes.length > 0) {
+      templateSheet.cell(5, 1).string('WARNING:').style(warningStyle);
+      templateSheet.cell(5, 2).string(`${dupes.length} DUPLICATE CHASSIS NUMBERS IN THIS BRANCH (${type})`).style(warningStyle);
+    }
+    
+    // Add headers
+    const headers = type === "EV"
+      ? ["Vehicle Model", "Color", "Battery No", "Key No", "Chassis No", "Engine No", "Motor No", "Charger No"]
+      : ["Vehicle Model", "Color", "Battery No", "Key No", "Chassis No", "Engine No"];
+    
+    let row = 7;
+    headers.forEach((header, index) => {
+      templateSheet.cell(row, index + 1).string(header).style(headerStyle);
+    });
+    
+    // Add empty rows for data entry (10 empty rows)
+    for (let i = 1; i <= 10; i++) {
+      headers.forEach((_, index) => {
+        templateSheet.cell(row + i, index + 1).string('');
+      });
+    }
+
+    // ---- Sheet 2: Master Data Reference ------------------------------------
+    const masterSheet = workbook.addWorksheet('Master Data Reference');
+
+    // Add metadata
+    masterSheet.cell(1, 1).string('MASTER DATA REFERENCE').style(titleStyle);
+    masterSheet.cell(2, 1).string('Valid Model and Color Combinations').style(titleStyle);
+
+    // Add headers
+    masterSheet.cell(4, 1).string('Model').style(headerStyle);
+    masterSheet.cell(4, 2).string('Color').style(headerStyle);
+
+    // Add model and color data as individual rows
+    let masterRow = 5;
+    for (const [modelName, colors] of modelColorMap.entries()) {
+      if (colors && colors.length > 0) {
+        for (const color of colors) {
+          masterSheet.cell(masterRow, 1).string(modelName);
+          masterSheet.cell(masterRow, 2).string(color);
+          masterRow++;
+        }
+      } else {
+        // If no colors available for this model
+        masterSheet.cell(masterRow, 1).string(modelName);
+        masterSheet.cell(masterRow, 2).string('No colors available');
+        masterRow++;
+      }
+    }
+
+    // ---- Send Excel file ---------------------------------------------------
+    const safeBranchName = (branch.name || "branch").replace(/[^\w\-]+/g, "_");
+    const filename = `${safeBranchName}_${type}_${Date.now()}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+    workbook.write(filename, res);
+
+  } catch (err) {
+    next(new AppError(err?.message || "Export failed", 500));
+  }
+};
+// Update the importCSV function to handle Excel files
+exports.importExcel = async (req, res, next) => {
+  try {
+    // 1. Check if file was uploaded
+    if (!req.file) {
+      return next(new AppError('Please upload an Excel file', 400));
+    }
+
+    // 2. Extract query parameters
+    const { type, branch_id } = req.query;
+
+    // 3. Validate type parameter
+    if (!type || !['EV', 'ICE'].includes(type.toUpperCase())) {
+      return next(new AppError('Type is required and must be EV or ICE', 400));
+    }
+
+    // 4. Validate branch_id parameter
+    if (!branch_id || !mongoose.Types.ObjectId.isValid(branch_id)) {
+      return next(new AppError('Valid branch ID is required', 400));
+    }
+
+    // 5. Check if branch exists
+    const branchExists = await Branch.exists({ _id: branch_id });
+    if (!branchExists) return next(new AppError('Branch not found', 404));
+
+    // 6. Check file type
+    if (!req.file.originalname.endsWith('.xlsx') && !req.file.originalname.endsWith('.xls')) {
+      return next(new AppError('Only Excel files (.xlsx, .xls) are allowed', 400));
+    }
+
+    // 7. Parse Excel file using exceljs
+    const workbook = new ExcelJS.Workbook();
+    
+    try {
+      // Load the Excel file from buffer
+      await workbook.xlsx.load(req.file.buffer);
+      logger.info('Excel file loaded successfully');
+    } catch (excelError) {
+      logger.error(`Excel parsing error: ${excelError.message}`);
+      logger.error(`File details: ${req.file.originalname}, size: ${req.file.size} bytes`);
+      return next(new AppError('Invalid Excel file format. Please ensure you\'re uploading a valid Excel file.', 400));
+    }
+    
+    // 8. Try to get the Template sheet or first sheet
+    let templateSheet = workbook.getWorksheet('Template');
+    if (!templateSheet) {
+      // Fallback to first sheet if Template sheet doesn't exist
+      templateSheet = workbook.worksheets[0];
+      if (!templateSheet) {
+        return next(new AppError('No worksheets found in Excel file', 400));
+      }
+      logger.info('Using first sheet as Template sheet was not found');
+    }
+
+    // 9. Find the header row by searching for column headers
+    let headerRowIndex = -1;
+    let headers = [];
+    
+    // Define possible header variations
+    const possibleHeaders = [
+      'vehicle model', 'model', 'color', 'battery no', 'batterynumber',
+      'key no', 'keynumber', 'chassis no', 'chassisnumber', 
+      'engine no', 'enginenumber', 'motor no', 'motornumber',
+      'charger no', 'chargernumber'
+    ];
+
+    // Search for header row
+    for (let rowNumber = 1; rowNumber <= templateSheet.rowCount; rowNumber++) {
+      const row = templateSheet.getRow(rowNumber);
+      let headerCount = 0;
+      const currentHeaders = [];
+      
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        if (cell.value && typeof cell.value === 'string') {
+          const cellValue = cell.value.toString().trim().toLowerCase();
+          currentHeaders.push(cellValue);
+          
+          if (possibleHeaders.includes(cellValue)) {
+            headerCount++;
+          }
+        }
+      });
+      
+      // If we found at least 3 matching headers, consider this the header row
+      if (headerCount >= 3) {
+        headerRowIndex = rowNumber;
+        headers = currentHeaders;
+        logger.info(`Found header row at index ${headerRowIndex} with headers: ${headers.join(', ')}`);
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1 || headers.length === 0) {
+      return next(new AppError('Could not identify header row in Excel file. Please ensure your file has proper column headers.', 400));
+    }
+
+    // 10. Map Excel headers to our field names
+    const headerMapping = {
+      'vehicle model': 'model',
+      'model': 'model',
+      'color': 'color',
+      'battery no': 'batteryNumber',
+      'batterynumber': 'batteryNumber',
+      'key no': 'keyNumber',
+      'keynumber': 'keyNumber',
+      'chassis no': 'chassisNumber',
+      'chassisnumber': 'chassisNumber',
+      'engine no': 'engineNumber',
+      'enginenumber': 'engineNumber',
+      'motor no': 'motorNumber',
+      'motornumber': 'motorNumber',
+      'charger no': 'chargerNumber',
+      'chargernumber': 'chargerNumber'
+    };
+
+    const mappedHeaders = headers.map(h => headerMapping[h] || h);
+
+    // 11. Extract data rows from Template sheet
+    const dataRows = [];
+    for (let i = headerRowIndex + 1; i <= templateSheet.rowCount; i++) {
+      const row = templateSheet.getRow(i);
+      const rowData = {};
+      let isEmpty = true;
+      
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const header = mappedHeaders[colNumber - 1];
+        if (header && cell.value !== null && cell.value !== undefined && cell.value !== '') {
+          rowData[header] = cell.value.toString().trim();
+          isEmpty = false;
+        }
+      });
+      
+      if (!isEmpty) {
+        dataRows.push(rowData);
+      }
+    }
+
+    // 12. Validate there are data rows
+    if (dataRows.length === 0) {
+      return next(new AppError('No data found in Excel file. Please ensure you have entered data in the Template sheet.', 400));
+    }
+
+    logger.info(`Found ${dataRows.length} data rows to process`);
+
+    // 13. Process each data row
+    const errors = [];
+    let importedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+
+    for (const [index, rowData] of dataRows.entries()) {
+      try {
+        const vehicleData = {};
+        
+        // Map row data to vehicle data
+        Object.keys(rowData).forEach(key => {
+          const value = rowData[key];
+          if (value && value !== '') {
+            switch (key) {
+              case 'model':
+                vehicleData.modelName = value;
+                break;
+              case 'color':
+                vehicleData.colorName = value;
+                break;
+              case 'batteryNumber':
+                vehicleData.batteryNumber = value.toUpperCase();
+                break;
+              case 'keyNumber':
+                vehicleData.keyNumber = value.toUpperCase();
+                break;
+              case 'chassisNumber':
+                vehicleData.chassisNumber = value.toUpperCase();
+                break;
+              case 'motorNumber':
+                vehicleData.motorNumber = value.toUpperCase();
+                break;
+              case 'chargerNumber':
+                vehicleData.chargerNumber = value.toUpperCase();
+                break;
+              case 'engineNumber':
+                vehicleData.engineNumber = value.toUpperCase();
+                break;
+            }
+          }
+        });
+
+        // Validate required fields - SKIP ROW if missing chassisNumber
+        if (!vehicleData.chassisNumber) {
+          errors.push(`Row ${index + 1}: Skipped - Missing required field (chassisNumber)`);
+          skippedCount++;
+          continue;
+        }
+
+        // Validate required fields - SKIP ROW if missing model
+        if (!vehicleData.modelName) {
+          errors.push(`Row ${index + 1}: Skipped - Missing required field (model)`);
+          skippedCount++;
+          continue;
+        }
+
+        // Validate type-specific required fields - SKIP ROW if missing
+        const normalizedType = type.toUpperCase();
+        if (normalizedType === 'EV') {
+          if (!vehicleData.motorNumber) {
+            errors.push(`Row ${index + 1}: Skipped - Missing required field for EV (motorNumber)`);
+            skippedCount++;
+            continue;
+          }
+        }
+
+        if (normalizedType === 'ICE' && !vehicleData.engineNumber) {
+          errors.push(`Row ${index + 1}: Skipped - Missing required field for ICE (engineNumber)`);
+          skippedCount++;
+          continue;
+        }
+
+        // Validate color - SKIP ROW if missing
+        if (!vehicleData.colorName) {
+          errors.push(`Row ${index + 1}: Skipped - Color is required`);
+          skippedCount++;
+          continue;
+        }
+
+        // Handle model - try to find in Model collection
+        const model = await Model.findOne({ 
+          model_name: { $regex: new RegExp(`^${vehicleData.modelName}$`, 'i') } 
+        });
+        
+        if (model) {
+          vehicleData.model = model._id;
+          vehicleData.modelName = model.model_name;
+        } else {
+          vehicleData.modelName = vehicleData.modelName;
+        }
+
+        // Handle color - find or create
+        let color = await Color.findOne({ 
+          name: { $regex: new RegExp(`^${vehicleData.colorName}$`, 'i') } 
+        });
+        
+        if (!color) {
+          color = await Color.create({
+            name: vehicleData.colorName,
+            status: 'active',
+            addedBy: req.user.id
+          });
+        }
+        vehicleData.colors = [color._id];
+        vehicleData.color = {
+          id: color._id,
+          name: color.name
+        };
+        delete vehicleData.colorName;
+
+        // Set common vehicle data
+        vehicleData.type = normalizedType;
+        vehicleData.unloadLocation = branch_id;
+        vehicleData.addedBy = req.user.id;
+        vehicleData.status = 'not_approved';
+
+        // Check if vehicle already exists
+        const existingVehicle = await Vehicle.findOne({ chassisNumber: vehicleData.chassisNumber });
+
+        if (existingVehicle) {
+          // Update existing vehicle
+          const update = {
+            ...vehicleData,
+            lastUpdatedBy: req.user.id
+          };
+          await Vehicle.findByIdAndUpdate(existingVehicle._id, update);
+          updatedCount++;
+          logger.info(`Updated vehicle with chassis: ${vehicleData.chassisNumber}`);
+        } else {
+          // Create new vehicle
+          await Vehicle.create(vehicleData);
+          importedCount++;
+          logger.info(`Imported new vehicle with chassis: ${vehicleData.chassisNumber}`);
+        }
+
+      } catch (rowError) {
+        logger.error(`Error processing row ${index + 1}: ${rowError.message}`);
+        errors.push(`Row ${index + 1}: ${rowError.message}`);
+      }
+    }
+
+    // 14. Return import results
+    res.status(200).json({
+      status: 'success',
+      message: 'Excel import completed',
+      data: {
+        imported: importedCount,
+        updated: updatedCount,
+        skipped: skippedCount,
+        totalProcessed: dataRows.length,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+
+  } catch (err) {
+    logger.error(`Error importing Excel: ${err.message}`);
+    logger.error(err.stack);
+    next(new AppError('Error processing Excel file. Please ensure the file is a valid Excel format.', 500));
+  }
+};
 exports.updateVehicle = async (req, res, next) => {
   try {
     const { vehicleId } = req.params;

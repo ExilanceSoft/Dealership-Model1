@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
-
+const { computeBookingFinancials } = require('../utils/bookingFinancials');
 const CounterSchema = new mongoose.Schema({
   _id: { type: String, required: true },
   seq: { type: Number, default: 0 }
@@ -56,32 +56,62 @@ const paymentDetailSchema = new mongoose.Schema({
     enum: ['CASH', 'FINANCE'],
     required: true
   },
-  financer: {
+ financer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'FinanceProvider',
-    required: function() { return this.type === 'FINANCE'; }
+    required: function () { return this.type === 'FINANCE'; }
   },
   scheme: {
     type: String,
     trim: true,
-    required: function() { return this.type === 'FINANCE'; }
+    default: null
   },
-  emiPlan: {
+   emiPlan: {
     type: String,
     trim: true,
-    required: function() { return this.type === 'FINANCE'; }
+    default: null
   },
-  gcApplicable: {
+ gcApplicable: {
     type: Boolean,
-    default: false
+    default: true
   },
-  gcAmount: {
+   // In paymentDetailSchema
+ gcAmount: {
     type: Number,
     min: 0,
-    required: function() { return this.gcApplicable === true; }
+    default: null,
+    validate: {
+      validator(v) { return v == null || (Number.isFinite(v) && v >= 0); },
+      message: 'GC amount must be a non-negative number'
+    }
   }
 }, { _id: false });
-
+const documentSchema = new mongoose.Schema({
+  path: {
+    type: String,
+    required: true
+  },
+  originalName: {
+    type: String,
+    required: true
+  },
+  size: {
+    type: Number,
+    required: true
+  },
+  mimetype: {
+    type: String,
+    required: true
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  },
+  uploadedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }
+}, { _id: false });
 const accessorySchema = new mongoose.Schema({
   accessory: {
     type: mongoose.Schema.Types.ObjectId,
@@ -249,6 +279,11 @@ const bookingSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+   note: {
+    type: String,
+    trim: true,
+    maxlength: 500 // Optional: set a maximum length for notes
+  },
   batteryNumber: {
     type: String,
     trim: true,
@@ -288,6 +323,33 @@ const bookingSchema = new mongoose.Schema({
     default: false,
     required: true
   },
+   dealFormStatus: {
+    type: String,
+    enum: ['NOT_UPLOADED', 'COMPLETED'],
+    default: 'NOT_UPLOADED'
+  },
+  deliveryChallanStatus: {
+    type: String,
+    enum: ['NOT_UPLOADED', 'COMPLETED'],
+    default: 'NOT_UPLOADED'
+  },
+  
+  // In the Booking model schema, add:
+brokerLedgerEntries: [{
+  ledger: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BrokerLedger'
+  },
+  amount: Number,
+  type: {
+    type: String,
+    enum: ['EXCHANGE_AND_COMMISSION']
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+}],
   gstin: {
     type: String,
     trim: true,
@@ -330,13 +392,13 @@ const bookingSchema = new mongoose.Schema({
   },
   kycStatus: {
     type: String,
-    enum: ['NOT_SUBMITTED', 'PENDING', 'APPROVED', 'REJECTED'],
-    default: 'NOT_SUBMITTED'
+    enum: ['NOT_UPLOADED', 'PENDING', 'APPROVED', 'REJECTED'],
+    default: 'NOT_UPLOADED'
   },
   financeLetterStatus: {
     type: String,
-    enum: ['NOT_SUBMITTED', 'PENDING', 'APPROVED', 'REJECTED'],
-    default: 'NOT_SUBMITTED'
+    enum: ['NOT_UPLOADED', 'PENDING', 'APPROVED', 'REJECTED'],
+    default: 'NOT_UPLOADED'
   },
   customerDetails: {
     salutation: {
@@ -619,7 +681,10 @@ const bookingSchema = new mongoose.Schema({
       ret.id = ret._id;
       delete ret._id;
       delete ret.__v;
-      
+       if (doc.financeDisbursements) {
+      ret.financeDisbursements = doc.financeDisbursements;
+    }
+    
       // Transform based on booking type
       if (ret.bookingType === 'SUBDEALER') {
         ret.subdealerUser = ret.subdealerUserDetails;
@@ -648,7 +713,9 @@ const bookingSchema = new mongoose.Schema({
       ret.id = ret._id;
       delete ret._id;
       delete ret.__v;
-      
+       if (doc.financeDisbursements) {
+      ret.financeDisbursements = doc.financeDisbursements;
+    }
       // Transform based on booking type
       if (ret.bookingType === 'SUBDEALER') {
         ret.subdealerUser = ret.subdealerUserDetails;
@@ -672,7 +739,10 @@ const bookingSchema = new mongoose.Schema({
     }
   }
 });
-
+bookingSchema.add({
+  dealForm: documentSchema,
+  deliveryChallan: documentSchema
+});
 // Virtual populate fields
 bookingSchema.virtual('subdealerDetails', {
   ref: 'Subdealer',
@@ -734,12 +804,15 @@ bookingSchema.virtual('modelDetails', {
   foreignField: '_id',
   justOne: true
 });
-
+bookingSchema.virtual('paymentBreakdown').get(function() {
+  return computeBookingFinancials(this);
+});
 bookingSchema.virtual('branchDetails', {
   ref: 'Branch',
   localField: 'branch',
   foreignField: '_id',
-  justOne: true
+  justOne: true,
+  options: { select: 'name address manager' } 
 });
 
 bookingSchema.virtual('createdByDetails', {
@@ -766,7 +839,16 @@ bookingSchema.virtual('financeDisbursements', {
     select: 'disbursementReference disbursementAmount receivedAmount status disbursementDate financeProvider'
   }
 });
-
+// In Booking.js - add this virtual field
+bookingSchema.virtual('financeDisbursements', {
+  ref: 'FinanceDisbursement',
+  localField: '_id',
+  foreignField: 'booking',
+  options: { 
+    sort: { disbursementDate: -1 },
+    select: 'disbursementReference disbursementDate amount status financeProvider'
+  }
+});
 bookingSchema.virtual('totalFinanceDisbursed').get(function() {
   if (!this.financeDisbursements) return 0;
   return this.financeDisbursements.reduce((sum, d) => {
@@ -819,6 +901,41 @@ bookingSchema.pre('save', async function(next) {
   }
   
   next();
+});
+bookingSchema.methods.getFinancialSummary = async function() {
+  const financials = await computeBookingFinancials(this);
+  
+  return {
+    totalAmount: this.totalAmount,
+    discountedAmount: this.discountedAmount,
+    receivedAmount: financials.totalCredit,
+    balanceAmount: financials.finalBalance,
+    breakdown: financials.credits
+  };
+};
+// Add this method to the Booking model
+bookingSchema.methods.updateFinancials = async function() {
+  const financials = await computeBookingFinancials(this);
+  
+  this.receivedAmount = financials.totalCredit;
+  this.balanceAmount = financials.finalBalance;
+  
+  return this.save();
+};
+
+// Add a post-save hook to automatically update financials when broker ledger changes
+bookingSchema.post('save', async function(doc) {
+  // If this is a broker ledger update, recalculate financials
+  if (doc.brokerLedgerEntries && doc.brokerLedgerEntries.length > 0) {
+    setTimeout(async () => {
+      try {
+        const updatedBooking = await mongoose.model('Booking').findById(doc._id);
+        await updatedBooking.updateFinancials();
+      } catch (error) {
+        console.error('Error updating booking financials after broker ledger change:', error);
+      }
+    }, 1000); // Delay to ensure broker ledger is saved
+  }
 });
 
 // Indexes
