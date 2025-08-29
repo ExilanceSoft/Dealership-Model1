@@ -48,16 +48,6 @@ const options = {
         url: 'http://localhost:5002', // Base URL (no /api/v1 here)
         description: 'Local development server'
       },
-        {
-        url: 'https://dealership.gandhitvs.in', // Base URL (no /api/v1 here)
-        description: 'Production server'
-      },
-     
-  {
-    url: `${req.protocol}://${req.get('host')}/api/v1`, 
-    description: 'Current server'
-  },
-
       {
         url: 'http://{ip}:5002', // Template for network IP
         description: 'Network access',
